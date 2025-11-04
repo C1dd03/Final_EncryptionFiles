@@ -1,0 +1,621 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Poppins", sans-serif;
+}
+/* <================== NAV BAR SECTION ================== */
+
+.logo {
+  padding-top: 7px;
+}
+.navbar {
+  display: flex;
+  align-items: center;
+  padding: 10px; /*dsadad*/
+}
+
+nav {
+  flex: 1;
+  text-align: right;
+}
+
+nav ul {
+  display: inline-block;
+  list-style-type: none;
+}
+
+nav ul li {
+  display: inline-block;
+  margin-right: 20px;
+}
+
+a {
+  text-decoration: none;
+  color: #555;
+}
+
+p {
+  color: #555;
+}
+
+.container {
+  max-width: 1300px;
+  margin: auto;
+  padding-left: 25px;
+  padding-right: 25px;
+}
+
+/* <================== IMAGE AND FORM SECTION ================== */
+
+.account-page {
+  padding: 50px 0;
+  background: radial-gradient(#fff, #ffd6d6);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-around;
+}
+
+.column {
+  flex: 1;
+  padding: 20px;
+}
+
+/* Default */
+.form-container {
+  background: #fff;
+  width: 410px;
+  position: relative;
+  text-align: center;
+  padding: 40px;
+  margin: auto;
+  border-radius: 3px;
+  box-shadow: 0 0 20px 0px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeIn 1s ease forwards;
+  transition: width 0.4s ease; /* smooth resize */
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* When forgot-password form or step-3 is shown */
+.form-container:has(.forgot-password),
+.form-container:has(.register-form .step-3.active) {
+  width: 460px;
+}
+
+/* When forgot-password form is shown */
+.form-container:has(.login-form) {
+  width: 380px;
+}
+
+/* Login, Register, Forgot Forms */
+.login-form,
+.register-form,
+.forgot-password {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Inputs */
+.input-field {
+  position: relative;
+  width: 100%;
+  margin: 2px 0px;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+}
+.pass-input-field {
+  /* add pass-input-field */
+  position: relative;
+  width: 100%;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+}
+
+.input-field input,
+.pass-input-field input,
+.input-field select {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 3px;
+  outline: none;
+  font-size: 14px;
+  background: white; /* Make background solid white so caret shows clearly */
+  caret-color: black; /* Make sure caret is visible */
+}
+
+/* Added oct-20 */
+.input-field input:focus,
+.pass-input-field input:focus,
+.input-field select:focus {
+  border-bottom: 1px solid #ff692a; /* Highlight input when focused */
+}
+
+/* Added oct-20 */
+.input-field input:focus ~ label,
+.pass-input-field input:focus ~ label {
+  top: -8px;
+  left: 10px;
+  font-size: 11px;
+  color: #ff692a;
+  background: white;
+  border-radius: 3px;
+}
+
+
+.input-field label,
+.pass-input-field label {
+  /* add pass-input-field label */
+  position: absolute;
+  left: 5px;
+  top: 9px;
+  color: #c0c0c0;
+  font-size: 14px;
+  transition: 0.3s;
+  pointer-events: none;
+  background: white;
+  padding: 0px 4px;
+}
+
+
+/* Added oct-20 */
+/* Focus animation for normal inputs (not static-label) */
+.input-field:not(.static-label) input:focus ~ label,
+.pass-input-field input:focus ~ label {
+  top: -8px;
+  left: 10px;
+  font-size: 11px;
+  color: #ff692a;
+  background: white;
+  border-radius: 3px;
+}
+
+
+
+
+/* Added oct-20 */
+/* Static label always above the input */
+.static-label label {
+  position: absolute;
+  top: -8px;
+  left: 10px;
+  font-size: 11px;
+  color: #ff692a;
+  background: white;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+
+
+
+/* Added oct-20 */
+/* Read-only styling */
+.static-label input[readonly] {
+  background-color: white;
+  border: none;
+  cursor: not-allowed;
+}
+
+
+
+
+
+
+.birthdate-field {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.birthdate-field label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+  color: #333;
+}
+
+.birthdate-field input[type="date"] {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  border: none;
+  border-radius: 4px;
+}
+
+/* Tooltip styling */
+.birthdate-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 110%; /* appear above the input */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.75); /* transparent black */
+  color: white;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 3px;
+  white-space: nowrap;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+}
+
+/* Tooltip arrow */
+.birthdate-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.75) transparent transparent transparent;
+}
+
+/* Show tooltip on hover or focus */
+.birthdate-field:hover .birthdate-tooltip,
+.birthdate-field input:focus + .birthdate-tooltip {
+  display: block;
+  opacity: 1;
+  transform: translate(-50%, -2px);
+}
+
+
+
+
+
+
+/* Step error container */
+.step-error-container {
+  border-left: 3px solid #e74c3c;   /* red border */
+  background-color: #fdecea;    /* light red background */
+  color: #c0392b;               /* darker red text */
+  padding: 10px;
+  border-radius: 3px;
+  font-size: 0.9em;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Individual error messages inside container */
+.step-error-container div {
+  margin-bottom: 5px;
+}
+
+.step-error-container div:last-child {
+  margin-bottom: 0;
+}
+
+
+
+
+/* Radio group styling */
+.extension-field .radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-top: 5px;
+  margin-bottom: 7px;
+  padding: 10px;
+    border-radius: 3px;
+  border: 1px solid #ccc;
+}
+
+
+.extension{
+  font-size: 14px;
+  color: #c0c0c0;
+}
+
+.extension-field .radio-group label {
+  display: flex;
+  font-size: 12px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  border-radius: 3px;
+  padding: 5px;
+  cursor: pointer;
+}
+
+.extension-field .radio-group input[type="radio"] {
+  margin-right: 5px;
+  cursor: pointer;
+}
+
+
+
+
+
+
+
+
+
+
+
+/* Password Strength bar */
+.password-strenght-container {
+  width: 100%;
+
+  background-color: transparent;
+  height: 3px;
+}
+
+.password-strenght {
+  display: none;
+  width: 0%;
+  height: 3px;
+  /* background-color: #f80000; */
+  transition: 0.5s;
+  border-radius: 5px;
+}
+
+/* Password Strengt message */
+#message {
+  margin-left: 5px;
+  font-size: 12px;
+  display: none;
+}
+
+/* add msg  */
+
+.msg {
+  color: #000000 !important;
+  text-align: center;
+  font-size: 12px;
+}
+
+.msg.error {
+  color: rgb(189, 17, 17) !important;
+
+  font-size: 12px;
+}
+
+.age-sex {
+  display: flex;
+  gap: 10px;
+}
+
+/* Floating label */
+
+.pass-input-field input:not(:placeholder-shown) ~ label,
+.input-field input:not(:placeholder-shown) ~ label, /* add input-field input:not(:placeholder-shown) ~ label */
+.input-field select:focus ~ label,
+.input-field select:valid ~ label {
+  top: -8px;
+  left: 10px;
+  font-size: 11px;
+  color: #ff692a;
+  background: white;
+  border-radius: 3px;
+}
+
+/* Buttons */
+.btn_submit {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  background: #ff692a;
+  margin-bottom: 15px;
+  color: white;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.5 ease;
+}
+
+.btn_submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn_submit:hover {
+  background: #e64f0f;
+}
+
+.btn {
+  color: #555;
+  margin-top: 10px;
+  font-size: 14px;
+  transition: 0.2s;
+  border: none;
+  background: none;
+  font-weight: bold;
+}
+
+.message {
+  color: #555;
+  margin-top: 10px;
+  font-size: 12px;
+  border: none;
+  background: none;
+}
+
+.prev-btn:hover,
+.next-btn:hover {
+  text-decoration: wavy;
+  color: #ff692a;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* Toggle links */
+.toggle-link {
+  text-align: center;
+  color: #555;
+  font-size: 14px;
+}
+
+.toggle-link a {
+  color: #555;
+  text-decoration: none;
+}
+
+.toggle-link a:hover {
+  text-decoration: underline;
+  color: #ff692a;
+}
+
+/* Register form multi-step */
+.register-form .step-1,
+.register-form .step-2,
+.register-form .step-3,
+.register-form .step-4 {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  animation: fadeIn 0.4s ease;
+}
+
+.register-form .step.active {
+  display: flex;
+}
+
+/* Step titles */
+span{
+  border-bottom: 2px solid #ff692a;
+  margin: 10px 0 10px 0;
+}
+
+/* Autofill fix */
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0px 1000px #fff inset !important;
+  -webkit-text-fill-color: #000 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #fff inset !important;
+}
+
+/* Required fields red * */
+.register-form .input-field input[required] + label::after,
+.register-form .input-field select[required] + label::after{
+  content: " *";
+  color: #ff382a;
+}
+
+.register-form .input-field.optional label::after {
+  content: " (optional)";
+  color: #ff382a;
+  font-style: italic;
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+/* Fade animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Error message styling */
+.error-message {
+  font-size: 13px;
+  color: red;
+  margin-top: 4px;
+  display: block;
+  font-style: italic;
+}
+
+/* Invalid input field (red border) */
+.input-field input.invalid,
+.input-field select.invalid {
+  border: 1px solid red;
+  background-color: #ffe6e6; /* light red background */
+}
+
+/* <===================== FOOTER SECTION ================== */
+
+.footer {
+  background: #000;
+  color: #8a8a8a;
+  font-size: 14px;
+  padding: 60px 0 20px;
+}
+
+.footer p {
+  color: #8a8a8a;
+}
+
+.footer h3 {
+  color: #fff;
+  margin-bottom: 20px;
+}
+
+.footer-col-1,
+.footer-col-2,
+.footer-col-3,
+.footer-col-4 {
+  min-width: 250px;
+  margin-bottom: 20px;
+}
+
+.footer-col-1 {
+  flex-basis: 30%;
+}
+.footer-col-2 {
+  flex: 1;
+  text-align: center;
+}
+.footer-col-2 img {
+  width: 180px;
+  margin-bottom: 20px;
+}
+
+.footer-col-3,
+.footer-col-4 {
+  flex-basis: 12%;
+  text-align: center;
+}
+
+ul {
+  list-style-type: none;
+}
+
+.app-logo {
+  margin-top: 20px;
+}
+
+.app-logo img {
+  width: 140px;
+}
+
+.footer hr {
+  border: none;
+  background: #b5b5b5;
+  height: 1px;
+  margin: 20px 0;
+}
+
+.copyright {
+  text-align: center;
+}
+
+.menu-icon {
+  width: 28px;
+  margin-left: 20px;
+}
