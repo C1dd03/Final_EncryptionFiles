@@ -372,3 +372,40 @@ if (passwordInput && strengthBar && message && guide) {
     }
   });
 }
+
+
+function toggleVisibility(id, icon) {
+  const input = document.getElementById(id);
+  if (input.type === "password") {
+    input.type = "text";
+    icon.classList.replace("bi-eye", "bi-eye-slash");
+  } else {
+    input.type = "password";
+    icon.classList.replace("bi-eye-slash", "bi-eye");
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const inputFields = document.querySelectorAll(".input-field input[type='password']");
+  
+  inputFields.forEach(input => {
+    const icon = input.parentElement.querySelector(".toggle-eye");
+
+    input.addEventListener("input", () => {
+      if (input.value.trim() !== "") {
+        icon.classList.add("visible"); // fade in smoothly
+      } else {
+        icon.classList.remove("visible"); // fade out
+        icon.classList.remove("bi-eye-slash");
+        icon.classList.add("bi-eye");
+        input.type = "password";
+      }
+    });
+
+    input.addEventListener("blur", () => {
+      if (input.value.trim() === "") {
+        icon.classList.remove("visible");
+      }
+    });
+  });
+});

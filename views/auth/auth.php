@@ -95,21 +95,6 @@
   <script src="/../encryption/public/js/validation.js"></script>
   <script src="/../encryption/public/js/login-incorrect-atmp.js"></script>
 
-
-<script>
-  function toggleVisibility(id, icon) {
-    const input = document.getElementById(id);
-    if (input.type === "password") {
-      input.type = "text";
-      icon.classList.replace("bi-eye", "bi-eye-slash");
-    } else {
-      input.type = "password";
-      icon.classList.replace("bi-eye-slash", "bi-eye");
-    }
-  }
-</script>
-
-
 </body>
 </html>
 

@@ -95,7 +95,7 @@ p {
 /* When forgot-password form or step-3 is shown */
 .form-container:has(.forgot-password),
 .form-container:has(.register-form .step-3.active) {
-  width: 470px;
+  width: 450px;
 }
 
 /* When forgot-password form is shown */
@@ -373,20 +373,6 @@ p {
   display: none;
 }
 
-/* add msg  */
-
-.msg {
-  color: #000000 !important;
-  text-align: center;
-  font-size: 12px;
-}
-
-.msg.error {
-  color: rgb(189, 17, 17) !important;
-
-  font-size: 12px;
-}
-
 #password-guide {
   font-weight: 500;
   font-style: italic;
@@ -479,6 +465,15 @@ p {
   color: #ff692a;
 }
 
+/* Hide the default Edge/Chrome show-password icon */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input[type="password"]::-webkit-credentials-auto-fill-button {
+  display: none !important;
+  appearance: none;
+}
+
+
 .toggle-eye {
   position: absolute;
   right: 10px;
@@ -487,12 +482,16 @@ p {
   cursor: pointer;
   color: #555;
   font-size: 18px;
-  transition: color 0.2s ease;
+  opacity: 0;            /* 👈 start hidden but keep space */
+  pointer-events: none;  /* prevent clicking while hidden */
+  transition: opacity 0.2s ease;
 }
 
-.toggle-eye:hover {
-  color: #000;
+.toggle-eye.visible {
+  opacity: 1;
+  pointer-events: auto;
 }
+
 
 /* Register form multi-step */
 .register-form .step-1,
