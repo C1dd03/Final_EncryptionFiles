@@ -95,7 +95,7 @@ p {
 /* When forgot-password form or step-3 is shown */
 .form-container:has(.forgot-password),
 .form-container:has(.register-form .step-3.active) {
-  width: 460px;
+  width: 470px;
 }
 
 /* When forgot-password form is shown */
@@ -362,7 +362,6 @@ p {
   display: none;
   width: 0%;
   height: 3px;
-  /* background-color: #f80000; */
   transition: 0.5s;
   border-radius: 5px;
 }
@@ -387,6 +386,13 @@ p {
 
   font-size: 12px;
 }
+
+#password-guide {
+  font-weight: 500;
+  font-style: italic;
+  transition: color 0.3s ease;
+}
+
 
 .age-sex {
   display: flex;
@@ -471,6 +477,21 @@ p {
 .toggle-link a:hover {
   text-decoration: underline;
   color: #ff692a;
+}
+
+.toggle-eye {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #555;
+  font-size: 18px;
+  transition: color 0.2s ease;
+}
+
+.toggle-eye:hover {
+  color: #000;
 }
 
 /* Register form multi-step */
@@ -619,3 +640,7 @@ ul {
   width: 28px;
   margin-left: 20px;
 }
+
+
+
+

@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="/../encryption/public/css/style.css" />
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
 </head>
 <body>
   <!-- Navbar -->
@@ -94,7 +96,18 @@
   <script src="/../encryption/public/js/login-incorrect-atmp.js"></script>
 
 
-
+<script>
+  function toggleVisibility(id, icon) {
+    const input = document.getElementById(id);
+    if (input.type === "password") {
+      input.type = "text";
+      icon.classList.replace("bi-eye", "bi-eye-slash");
+    } else {
+      input.type = "password";
+      icon.classList.replace("bi-eye-slash", "bi-eye");
+    }
+  }
+</script>
 
 
 </body>

@@ -29,26 +29,27 @@
       <label>Last Name</label>
     </div>
 
-    <div class="input-field optional">
-      <input
-        type="text"
-        name="other_extension"
-        id="other_extension"
-        placeholder="If Other, type here"
-        style="display: none; margin-top: 8px;"
-      />
-      <label for="extension">Name Extension</label>
-      <select name="extension" id="extension">
-        <option value="">Name Extension</option>
-        <option value="Jr.">Jr.</option>
-        <option value="Sr.">Sr.</option>
-        <option value="I">I</option>
-        <option value="II">II</option>
-        <option value="III">III</option>
-        <option value="Other">Other</option>
-      </select>
 
-    </div>
+
+    <div class="input-field">
+      <!-- Dropdown -->
+      <select id="extension" name="extension">
+        <option value="">Select Extension</option>
+    <option value="Jr.">Jr.</option>
+    <option value="Sr.">Sr.</option>
+    <option value="Other">Other</option>
+  </select>
+  
+  <!-- Hidden text input -->
+  <input
+  type="text"
+  id="other_extension"
+  name="other_extension"
+  placeholder="Enter Roman Numeral (I - X)"
+  style="display: none; margin-top: 8px;"
+  />
+
+</div>
 
 
     
@@ -118,7 +119,7 @@
     </div>
 
     <div class="input-field">
-      <input type="number" name="zip" required placeholder=" " />
+      <input type="text" name="zip" required placeholder=" " />
       <label>Zip Code</label>
     </div>
 
@@ -130,42 +131,42 @@
 
   <!-- Step 3: Security Questions -->
   <div class="step step-3">
-    <span>Security Questions</span>
+  <span>Security Questions</span>
 
-    <div class="input-field">
-      <input type="text" name="security_q1" required placeholder=" " />
-      <label>Who was your best friend in elementary school?</label>
-    </div>
-
-    <div class="input-field">
-      <input type="text" name="security_q2" required placeholder=" " />
-      <label>What was the name of your favorite pet?</label>
-    </div>
-
-    <div class="input-field">
-      <input type="text" name="security_q3" required placeholder=" " />
-      <label>Who was your favorite high school teacher?</label>
-    </div>
-
-    <div style="display: flex; justify-content: space-between; gap: 10px">
-      <button type="button" class="btn prev-btn" onclick="prevStep(3)">&lt; Prev</button>
-      <button type="button" class="btn next-btn" onclick="nextStep(3)">Next &gt;</button>
-    </div>
+  <div class="input-field">
+    <input type="password" id="security_q1" name="security_q1" required placeholder=" " />
+    <label>Who was your best friend in elementary school?</label>
+    <i class="bi bi-eye toggle-eye" onclick="toggleVisibility('security_q1', this)"></i>
   </div>
+
+  <div class="input-field">
+    <input type="password" id="security_q2" name="security_q2" required placeholder=" " />
+    <label>What was the name of your favorite pet?</label>
+    <i class="bi bi-eye toggle-eye" onclick="toggleVisibility('security_q2', this)"></i>
+  </div>
+
+  <div class="input-field">
+    <input type="password" id="security_q3" name="security_q3" required placeholder=" " />
+    <label>Who was your favorite high school teacher?</label>
+    <i class="bi bi-eye toggle-eye" onclick="toggleVisibility('security_q3', this)"></i>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; gap: 10px">
+    <button type="button" class="btn prev-btn" onclick="prevStep(3)">&lt; Prev</button>
+    <button type="button" class="btn next-btn" onclick="nextStep(3)">Next &gt;</button>
+  </div>
+</div>
+
 
   <!-- Step 4: Account Info -->
   <div class="step step-4">
     <span>Account Information</span>
 
-    <!-- <div class="input-field">
+    <div class="input-field">
       <input type="text" name="username" required placeholder=" " />
       <label>Username</label>
-    </div> -->
-
-    <div class="input-field">
-      <input type="text" name="last_name" required placeholder=" " />
-      <label>Last Name</label>
     </div>
+
 
     <div> <!-- Password container  -->
       <div class="pass-input-field">
@@ -177,7 +178,9 @@
         <div class="password-strenght"></div>
       </div>
       <!-- Password Strength Message -->
-      <div id ="message"></div>
+      <div id="message"></div>
+      <div id="password-guide" style="font-size: 13px; margin-top: 3px; display: none;"></div>
+
     </div>
 
     <div class="input-field">
