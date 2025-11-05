@@ -179,7 +179,7 @@
       </div>
       <!-- Password Strength Message -->
       <div id="message"></div>
-      <div id="password-guide" style="font-size: 11px; margin-top: 3px; display: none;"></div>
+      <div id="password-guide" style="font-size: 12px; margin-top: 3px; display: none;"></div>
 
     </div>
 

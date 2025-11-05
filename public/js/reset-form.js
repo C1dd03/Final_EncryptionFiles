@@ -205,14 +205,14 @@ function validateExtension(input) {
     const errors = [];
     let firstInvalidInput = null;
 
-    // for (const input of inputs) {
-    //   const error = validateField(input);
-    //   if (error) {
-    //     errors.push(error);
-    //     if (!firstInvalidInput) firstInvalidInput = input;
-    //     break;
-    //   }
-    // }
+    for (const input of inputs) {
+      const error = validateField(input);
+      if (error) {
+        errors.push(error);
+        if (!firstInvalidInput) firstInvalidInput = input;
+        break;
+      }
+    }
 
     showStepErrors(errors, firstInvalidInput);
     return errors.length === 0;
