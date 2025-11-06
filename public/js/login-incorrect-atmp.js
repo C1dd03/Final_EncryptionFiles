@@ -1,145 +1,210 @@
-(function () {
+document.addEventListener("DOMContentLoaded", function () {
+  const loginForm = document.querySelector(".login-form");
+  const messageDiv = document.getElementById("login-message");
+  const forgotLink =
+    document.querySelector(".login-forgot-password a") ||
+    document.querySelector(".login-forgot-password");
+  const registerLink =
+    document.querySelector(".register-link") ||
+    document.querySelector(".register-link a");
+  const navRegisterLink = document.querySelector(".nav-register-link");
+
+  const submitBtn =
+    loginForm &&
+    (loginForm.querySelector("button[type='submit']") ||
+      loginForm.querySelector("button") ||
+      loginForm.querySelector("input[type='submit']"));
+
   const FAILS_PER_STAGE = 3;
-  const LOCK_DURATIONS = [10, 30, 60]; // seconds for stage 0,1,2
+  const LOCK_DURATIONS = [15, 30, 60]; // seconds
 
-  let consecutiveFails = 0;
-  let stageIndex = 0;
-  let isLocked = false;
+  let consecutiveFails =
+    parseInt(localStorage.getItem("consecutiveFails")) || 0;
+  let stageIndex = parseInt(localStorage.getItem("stageIndex")) || 0;
+  let isLocked = localStorage.getItem("isLocked") === "true";
+  let lockEndTimestamp =
+    parseInt(localStorage.getItem("lockEndTimestamp")) || null;
   let lockTimerId = null;
-  let lockEndTimestamp = null;
 
-  const form = document.querySelector(".login-form");
-  const usernameInput = document.querySelector(".username");
-  const passwordInput = document.querySelector(".password");
-  const submitBtn = document.querySelector(".btn_submit");
-  const messageEl = document.getElementById("login-message");
-
-  // Disable input and button
-  function updateUI() {
-    usernameInput.disabled = isLocked;
-    passwordInput.disabled = isLocked;
-    submitBtn.disabled = isLocked;
+  function saveState() {
+    localStorage.setItem("consecutiveFails", String(consecutiveFails));
+    localStorage.setItem("stageIndex", String(stageIndex));
+    localStorage.setItem("isLocked", isLocked ? "true" : "false");
+    localStorage.setItem(
+      "lockEndTimestamp",
+      lockEndTimestamp ? String(lockEndTimestamp) : ""
+    );
   }
 
-  // text info
-  function setMessage(text, type = "info") {
-    const messageEl = document.getElementById("login-message");
-    messageEl.textContent = text;
-
-    // reset classes first
-    messageEl.className = "msg";
-
-    if (type === "error") {
-      messageEl.classList.add("error"); // red
-    } else if (type === "success") {
-      messageEl.classList.add("success"); // green
-    }
+  function clearState() {
+    consecutiveFails = 0;
+    stageIndex = 0;
+    isLocked = false;
+    lockEndTimestamp = null;
+    saveState();
   }
 
-  // time duration
+  function setMessage(text, type) {
+    if (!messageDiv) return;
+    messageDiv.textContent = text;
+    messageDiv.classList.remove("error", "success");
+    if (type === "error") messageDiv.classList.add("error");
+    if (type === "success") messageDiv.classList.add("success");
+  }
+
+  function disableFormElements(disabled) {
+    if (!loginForm) return;
+
+    const inputs = loginForm.querySelectorAll("input, button");
+    inputs.forEach((input) => (input.disabled = disabled));
+
+    [forgotLink, registerLink, navRegisterLink].forEach((link) => {
+      if (link && link.parentElement) {
+        if (disabled) {
+          link.classList.add("disabled-link");
+          link.style.pointerEvents = "none";
+          link.style.opacity = "0.5";
+        } else {
+          link.classList.remove("disabled-link");
+          link.style.pointerEvents = "auto";
+          link.style.opacity = "1";
+        }
+      }
+    });
+  }
+
   function startLock(seconds) {
     isLocked = true;
     lockEndTimestamp = Date.now() + seconds * 1000;
-    updateUI();
-    countdownLock();
+    saveState();
+    disableFormElements(true);
+    startCountdown(seconds);
   }
 
-  //pop up alert and message
-  function countdownLock() {
+  function startCountdown(initialSeconds = null) {
     if (lockTimerId) clearInterval(lockTimerId);
-    lockTimerId = setInterval(() => {
-      const remainingMs = lockEndTimestamp - Date.now();
 
-      // ✅ Kung tapos na ang lock
-      if (remainingMs <= 0) {
+    lockTimerId = setInterval(() => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((lockEndTimestamp - Date.now()) / 1000)
+      );
+      setMessage(
+        `Too many failed attempts. Locked for ${remaining} seconds.`,
+        "error"
+      );
+
+      if (remaining <= 0) {
         clearInterval(lockTimerId);
         lockTimerId = null;
         isLocked = false;
+        lockEndTimestamp = null;
         consecutiveFails = 0;
-
-        // Pop-up lang imbes na message sa UI
-        /* alert("You can try logging in again."); */
-
-        // Option 1
-        // messageEl.innerHTML = "You can try logging in again.";
-
-        // setTimeout(() => {
-        //   messageEl.textContent = "";
-        // }, 5000);
-
-        // Burahin ang message sa UI (para mawala yung countdown text)
-        // Option 2
-        setMessage("You can try logging in again.");
-
-        setTimeout(() => {
-          setMessage("");
-        }, 3000);
-
-        updateUI();
-        return;
+        saveState();
+        setMessage("You can try logging in again.", "success");
+        disableFormElements(false);
+        setTimeout(() => setMessage(""), 4000);
       }
-
-      // ✅ Habang may natitirang oras
-      const sec = Math.ceil(remainingMs / 1000);
-      setMessage(`Too many attempts. Try again in ${sec}s.`, "error");
     }, 500);
   }
 
-  // Handle form submitz
-  form.addEventListener("submit", async function (evt) {
-    evt.preventDefault();
+  // Restore lock state on page load
+  if (isLocked && lockEndTimestamp) {
+    const remaining = Math.ceil((lockEndTimestamp - Date.now()) / 1000);
+    if (remaining > 0) {
+      disableFormElements(true);
+      startCountdown(remaining);
+    } else {
+      // Lock expired
+      isLocked = false;
+      lockEndTimestamp = null;
+      consecutiveFails = 0;
+      saveState();
+      disableFormElements(false);
+    }
+  }
+
+  if (!loginForm) return;
+
+  loginForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+
     if (isLocked) {
-      setMessage("Login temporarily disabled. Wait for countdown.", "error");
+      // Remove this message: "Login temporarily disabled. Wait for the countdown."
+      const remaining = Math.max(
+        0,
+        Math.ceil((lockEndTimestamp - Date.now()) / 1000)
+      );
+      setMessage(
+        `Too many failed attempts. Locked for ${remaining} seconds.`,
+        "error"
+      );
       return;
     }
 
-    const enteredUsername = usernameInput.value.trim();
-    const enteredPassword = passwordInput.value;
+    const formData = new FormData(this);
+    const username = formData.get("username");
+    const password = formData.get("password");
 
-    // PHP connection
-    // Send credentials to backend
-    // let response = await fetch("login.php", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({
-    //     username: enteredUsername,
-    //     password: enteredPassword,
-    //   }),
-    // });
-    // let result = await response.json();
-
-    // Input value  Condition
-    if (enteredUsername === "admin" && enteredPassword === "1234") {
-      // this for js example
-      // or for php connect if (result.success) {
-      consecutiveFails = 0;
-      stageIndex = 0;
-      isLocked = false;
-      if (lockTimerId) clearInterval(lockTimerId);
-      setMessage("✅ Login successful!");
-      updateUI();
-      alert("Welcome " + enteredUsername);
-      // window.location.href = "dashboard.php";
-    } else {
-      consecutiveFails += 1;
-      alert(
-        `Incorrect Username or Password.  Attemp(${consecutiveFails}/${FAILS_PER_STAGE})`
-      );
-      updateUI();
-
-      if (consecutiveFails >= FAILS_PER_STAGE) {
-        const stageToUse = Math.min(stageIndex, LOCK_DURATIONS.length - 1);
-        const seconds = LOCK_DURATIONS[stageToUse];
-        alert(`❌ Too many failed attempts. Locked for ${seconds} seconds!`);
-        startLock(seconds);
-        if (stageIndex <= LOCK_DURATIONS.length) stageIndex += 1;
-        consecutiveFails = 0;
-        updateUI();
-      }
+    if (!username && !password) {
+      setMessage("Username and password are required.", "error");
+      return;
+    } else if (!username) {
+      setMessage("Username is required.", "error");
+      return;
+    } else if (!password) {
+      setMessage("Password is required.", "error");
+      return;
     }
-  });
 
-  // setMessage("Please Sign in");
-  /*  messageEl.style.display = "none"; */
-  updateUI();
-})();
+    fetch("index.php?action=loginUser", {
+      method: "POST",
+      body: formData,
+      credentials: "same-origin",
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          clearState();
+          const target = data.redirect || "/encryption/public/dashboard.php";
+          window.location.href = target;
+        } else {
+          // Ignore validation errors from backend
+          if (
+            data.message &&
+            (data.message.includes("required") ||
+              data.message.includes("Username and password are required"))
+          ) {
+            setMessage(data.message, "error");
+            return;
+          }
+
+          consecutiveFails += 1;
+          if (consecutiveFails === 2 && forgotLink) {
+            forgotLink.style.display = "flex";
+          }
+          saveState();
+
+          if (consecutiveFails >= FAILS_PER_STAGE) {
+            const seconds =
+              LOCK_DURATIONS[Math.min(stageIndex, LOCK_DURATIONS.length - 1)];
+            if (stageIndex < LOCK_DURATIONS.length - 1) stageIndex += 1;
+            startLock(seconds);
+            consecutiveFails = 0;
+            saveState();
+            return;
+          }
+
+          setMessage(
+            data.message ||
+              `Invalid credentials. Attempt ${consecutiveFails}/${FAILS_PER_STAGE}`,
+            "error"
+          );
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        setMessage("An error occurred. Please try again.", "error");
+      });
+  });
+});

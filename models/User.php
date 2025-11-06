@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
 
+
 class User {
     private $conn;
 
@@ -32,15 +33,15 @@ class User {
                 ':gender'        => $data['gender'],
                 ':age'           => $age,
                 ':username'      => $data['username'],
-                ':password_hash' => password_hash($data['password'], PASSWORD_BCRYPT)
+                ':password_hash' => $data['password']
             ]);
 
 
             // ✅ 2. Insert into addresses
             $sqlAddress = "INSERT INTO addresses 
-                          (id_number, purok_street, barangay, city_municipality, province, country, zip_code) 
-                          VALUES 
-                          (:id_number, :street, :barangay, :city, :province, :country, :zip)";
+                            (id_number, purok_street, barangay, city_municipality, province, country, zip_code) 
+                            VALUES 
+                            (:id_number, :street, :barangay, :city, :province, :country, :zip)";
             $stmt = $this->conn->prepare($sqlAddress);
             $stmt->execute([
                 ':id_number' => $data['id_number'],
@@ -87,30 +88,45 @@ class User {
     }
 
     public function generateIdNumber() {
-    $year = date("Y");
+        $year = date("Y");
 
-    // ✅ Get the last inserted ID for the current year only
-    $stmt = $this->conn->prepare("
-        SELECT id_number 
-        FROM users 
-        WHERE id_number LIKE :yearPrefix 
-        ORDER BY id_number DESC 
-        LIMIT 1
-    ");
-    $stmt->execute([':yearPrefix' => $year . '-%']);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        // ✅ Get the last inserted ID for the current year only
+        $stmt = $this->conn->prepare("
+            SELECT id_number 
+            FROM users 
+            WHERE id_number LIKE :yearPrefix 
+            ORDER BY id_number DESC 
+            LIMIT 1
+        ");
+        $stmt->execute([':yearPrefix' => $year . '-%']);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($row && preg_match('/^' . $year . '-(\d{4})$/', $row['id_number'], $matches)) {
-        // ✅ Increment the last 4 digits
-        $lastNum = (int)$matches[1];
-        $nextNum = str_pad($lastNum + 1, 4,'0', STR_PAD_LEFT);
-    } else {
-        // ✅ Start fresh if no ID exists for this year
-        $nextNum = '0001';
+        if ($row && preg_match('/^' . $year . '-(\d{4})$/', $row['id_number'], $matches)) {
+            // ✅ Increment the last 4 digits
+            $lastNum = (int)$matches[1];
+            $nextNum = str_pad($lastNum + 1, 4,'0', STR_PAD_LEFT);
+        } else {
+            // ✅ Start fresh if no ID exists for this year
+            $nextNum = '0001';
+        }
+
+        return $year . '-' . $nextNum;
     }
 
-    return $year . '-' . $nextNum;
-}
+    
+    
+    public function findByUsername($username) {
+    
+        $sql = "SELECT * FROM users WHERE username = :username";
+    
+        $stmt = $this->conn->prepare($sql);
+    
+        $stmt->execute([':username' => $username]);
+    
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    }
+    
 
-
+    
 }

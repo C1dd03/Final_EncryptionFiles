@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pick&Match | Ecommerce Website Design</title>
   <link rel="stylesheet" href="/../encryption/public/css/style.css" />
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" />
+  <!-- <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" /> -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 </head>
 <body>
@@ -18,13 +19,21 @@
 
       <nav>
         <ul id="MenuItems">
-          <li><a href="#">Home</a></li>
-          <li>
-            <label for="toggle" class="login-link" style="cursor: pointer">
-              Login
-            </label>
-          </li>
-        </ul>
+    <li><a href="#">Home</a></li>
+
+    <?php if (isset($_SESSION['user_id'])): ?>
+      <li><a href="dashboard.php">Dashboard</a></li>
+      <li><a href="logout.php">Logout</a></li>
+    <?php else: ?>
+      <?php if ($page === 'login'): ?>
+        <li><a href="index.php?action=register" class="nav-register-link">Register</a></li>
+      <?php elseif ($page === 'register'): ?>
+        <li><a href="index.php?action=login">Login</a></li>
+      <?php else: ?>
+        <li><a href="index.php?action=login">Login</a></li>
+      <?php endif; ?>
+    <?php endif; ?>
+  </ul>
       </nav>
       <img src="/../encryption/public/img/images/cart.png" width="30px" height="30px" />
     </div>

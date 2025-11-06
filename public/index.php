@@ -1,24 +1,34 @@
 <?php
+// require_once __DIR__ . '/../controllers/AuthController.php';
 require_once __DIR__ . '/../controllers/UserController.php';
 
-$controller = new UserController();
+// $authController = new AuthController();
+$userController = new UserController();
 
 $action = $_GET['action'] ?? 'login';
 
 switch ($action) {
     case 'register':
-        $controller->showRegister();
+        $userController->showRegister();
         break;
     case 'login':
-        $controller->showLogin();
+        $userController->showLogin();
         break;
     case 'forgot':
-        $controller->showForgotPassword();
+        $userController->showForgotPassword();
         break;
-    case 'registerUser': // 👈 new route
-        $controller->registerUser();
+    case 'registerUser':
+        $userController->registerUser();
         break;
+    case 'loginUser':
+        $userController->loginUser();
+        break;
+    case 'dashboard':
+        require_once __DIR__ . '/../views/dashboard/dashboard.php';
+        break;
+    case 'logout':
+        $userController->logout();
     default:
-        $controller->showLogin();
+        $userController->showLogin();
         break;
 }

@@ -157,15 +157,15 @@
   <div class="step step-4">
     <span>Account Information</span>
 
-    <!-- <div class="input-field">
+    <div class="input-field">
       <input type="text" name="username" required placeholder=" " />
       <label>Username</label>
-    </div> -->
+    </div>
 
-    <div class="input-field">
+    <!-- <div class="input-field">
       <input type="text" name="last_name" required placeholder=" " />
       <label>Last Name</label>
-    </div>
+    </div> -->
 
     <div> <!-- Password container  -->
       <div class="pass-input-field">

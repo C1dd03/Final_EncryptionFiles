@@ -11,14 +11,21 @@ class UserController {
 
     // Show Login Page
     public function showLogin() {
+        $page = 'login';               // ✅ define first
         $formView = "login.php";
         require __DIR__ . '/../views/auth/auth.php';
     }
 
     // Show Register Page
     public function showRegister() {
+        $page = 'register';            // ✅ define first
         $nextId = $this->userModel->generateIdNumber();
         $formView = "register.php";
+        require __DIR__ . '/../views/auth/auth.php';
+    }
+
+    public function logout() {
+        $formView = "logout.php";
         require __DIR__ . '/../views/auth/auth.php';
     }
 
@@ -151,4 +158,34 @@ class UserController {
 
         return $errors;
     }
+    public function loginUser() {
+        session_start();
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $username = $_POST['username'] ?? '';
+            $password = $_POST['password'] ?? '';
+
+            if (empty($username) || empty($password)) {
+                echo json_encode(['success' => false, 'message' => 'Username and password are required.']);
+                return;
+            } else if (empty($username)){
+                echo json_encode(['success' => false, 'message' => 'Username are required.']);
+                return;
+            }
+
+            $user = $this->userModel->findByUsername($username);
+
+            if ($user && password_verify($password, $user['password_hash'])) {
+                $_SESSION['user_id'] = $user['id_number'];
+                $_SESSION['username'] = $user['username'];
+                echo json_encode(['success' => true, 'redirect' => 'index.php?action=dashboard']);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Invalid username or password.']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+        }
+    }
+
+   
 }

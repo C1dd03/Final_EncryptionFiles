@@ -113,6 +113,40 @@ p {
   gap: 12px;
 }
 
+.login-forgot-password a {
+  text-align: center;
+  display: none;
+  justify-content: center;
+  color: white;
+}
+
+.login-forgot-password.disabled-link,
+.register-link.disabled-link,
+.nav-register-link.disabled-link {
+  cursor: not-allowed;
+}
+
+.login-forgot-password.disabled-link a,
+.register-link.disabled-link a {
+  pointer-events: none;
+  color: gray;
+  text-decoration: none;
+}
+
+.login-email:disabled,
+.login-password:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.empty-mgs.error {
+  flex: none;
+  background-color: #fdecea;
+  border-left: 3px solid #e74c3c;
+  padding: 2px;
+  color: #c0392b;
+}
+
 /* Inputs */
 .input-field {
   position: relative;
@@ -160,7 +194,6 @@ p {
   border-radius: 3px;
 }
 
-
 .input-field label,
 .pass-input-field label {
   /* add pass-input-field label */
@@ -175,7 +208,6 @@ p {
   padding: 0px 4px;
 }
 
-
 /* Added oct-20 */
 /* Focus animation for normal inputs (not static-label) */
 .input-field:not(.static-label) input:focus ~ label,
@@ -187,9 +219,6 @@ p {
   background: white;
   border-radius: 3px;
 }
-
-
-
 
 /* Added oct-20 */
 /* Static label always above the input */
@@ -204,9 +233,6 @@ p {
   padding: 0 4px;
 }
 
-
-
-
 /* Added oct-20 */
 /* Read-only styling */
 .static-label input[readonly] {
@@ -214,11 +240,6 @@ p {
   border: none;
   cursor: not-allowed;
 }
-
-
-
-
-
 
 .birthdate-field {
   position: relative;
@@ -254,7 +275,7 @@ p {
   padding: 6px 10px;
   border-radius: 3px;
   white-space: nowrap;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
   z-index: 20;
   opacity: 0;
   transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
@@ -280,20 +301,15 @@ p {
   transform: translate(-50%, -2px);
 }
 
-
-
-
-
-
 /* Step error container */
 .step-error-container {
-  border-left: 3px solid #e74c3c;   /* red border */
-  background-color: #fdecea;    /* light red background */
-  color: #c0392b;               /* darker red text */
+  border-left: 3px solid #e74c3c; /* red border */
+  background-color: #fdecea; /* light red background */
+  color: #c0392b; /* darker red text */
   padding: 10px;
   border-radius: 3px;
   font-size: 0.9em;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 /* Individual error messages inside container */
@@ -305,9 +321,6 @@ p {
   margin-bottom: 0;
 }
 
-
-
-
 /* Radio group styling */
 .extension-field .radio-group {
   display: flex;
@@ -316,12 +329,11 @@ p {
   margin-top: 5px;
   margin-bottom: 7px;
   padding: 10px;
-    border-radius: 3px;
+  border-radius: 3px;
   border: 1px solid #ccc;
 }
 
-
-.extension{
+.extension {
   font-size: 14px;
   color: #c0c0c0;
 }
@@ -329,7 +341,7 @@ p {
 .extension-field .radio-group label {
   display: flex;
   font-size: 12px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
   border-radius: 3px;
   padding: 5px;
   cursor: pointer;
@@ -339,16 +351,6 @@ p {
   margin-right: 5px;
   cursor: pointer;
 }
-
-
-
-
-
-
-
-
-
-
 
 /* Password Strength bar */
 .password-strenght-container {
@@ -377,14 +379,16 @@ p {
 /* add msg  */
 
 .msg {
-  color: #000000 !important;
   text-align: center;
   font-size: 12px;
 }
 
-.msg.error {
-  color: rgb(189, 17, 17) !important;
+.msg.success {
+  color: green;
+}
 
+.msg.error {
+  color: rgb(189, 17, 17);
   font-size: 12px;
 }
 
@@ -489,7 +493,7 @@ p {
 }
 
 /* Step titles */
-span{
+span {
   border-bottom: 2px solid #ff692a;
   margin: 10px 0 10px 0;
 }
@@ -507,7 +511,7 @@ input:-webkit-autofill:focus {
 
 /* Required fields red * */
 .register-form .input-field input[required] + label::after,
-.register-form .input-field select[required] + label::after{
+.register-form .input-field select[required] + label::after {
   content: " *";
   color: #ff382a;
 }
