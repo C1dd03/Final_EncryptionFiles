@@ -1,4 +1,6 @@
 <?php
+
+/* ========================== ADD SESSION ======================== */
 session_start();
 if (isset($_SESSION['user_id'])) {
     header('Location: index.php?action=dashboard');
@@ -9,6 +11,7 @@ if (isset($_SESSION['user_id'])) {
   header("Cache-Control: post-check=0, pre-check=0", false);
   header("Pragma: no-cache");
   header("Expires: 0");
+
   
 if (isset($_GET['registered']) && $_GET['registered'] == 1): ?>
   <p style="color: green; font-weight: bold; text-align:center;">

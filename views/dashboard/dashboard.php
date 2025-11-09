@@ -1,12 +1,5 @@
 <?php
-// session_start();
-// if (!isset($_SESSION['user_id'])) {
-//     header('Location: index.php?action=login');
-//     exit();
-// }
-// header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-// header("Pragma: no-cache");
-// header("Expires: 0");
+/* ========================== ADD PATH SESSION PROTECTION======================== */
 require_once __DIR__ . '/../auth/session_protect.php';
 ?>
 

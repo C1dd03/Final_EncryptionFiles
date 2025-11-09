@@ -23,11 +23,17 @@ switch ($action) {
     case 'loginUser':
         $userController->loginUser();
         break;
+
+    /* ========================== ADD DASHBOARD ======================== */
     case 'dashboard':
         require_once __DIR__ . '/../views/dashboard/dashboard.php';
         break;
+
+    /* ========================== ADD LOGOUT ======================== */
     case 'logout':
         $userController->logout();
+
+
     default:
         $userController->showLogin();
         break;

@@ -24,10 +24,19 @@ class UserController {
         require __DIR__ . '/../views/auth/auth.php';
     }
 
+
+
+
+    
+    /* ========================== ADD LOGOUT ======================== */
     public function logout() {
         $formView = "logout.php";
         require __DIR__ . '/../views/auth/auth.php';
     }
+
+
+
+
 
     // Show Forgot Password Page
     public function showForgotPassword() {
@@ -158,6 +167,14 @@ class UserController {
 
         return $errors;
     }
+
+
+
+
+
+
+
+    /* ========================== ADD LOGIN CONTROLLER ======================== */
     public function loginUser() {
         session_start();
 
