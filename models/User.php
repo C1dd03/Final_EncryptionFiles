@@ -8,6 +8,12 @@ class User {
         $this->conn = Database::getInstance()->getConnection();
     }
 
+    public function usernameExists($username) {
+    $stmt = $this->conn->prepare("SELECT COUNT(*) FROM users WHERE username = :username");
+    $stmt->execute([':username' => $username]);
+    return $stmt->fetchColumn() > 0;
+}
+
     public function insertUser($data) {
         try {
             $this->conn->beginTransaction();
@@ -15,7 +21,8 @@ class User {
             // ✅ 1. Insert into users
             $age = $this->calculateAge($data['birthdate']);
             // Always generate the latest ID directly in the model
-            $id_number = $this->generateIdNumber();
+            $id_number = $data['id_number'] ?? $this->generateIdNumber();
+
 
             $sqlUser = "INSERT INTO users 
                         (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, password_hash) 
@@ -43,7 +50,7 @@ class User {
                           (:id_number, :street, :barangay, :city, :province, :country, :zip)";
             $stmt = $this->conn->prepare($sqlAddress);
             $stmt->execute([
-                ':id_number' => $data['id_number'],
+                ':id_number' => $id_number,
                 ':street'    => $data['street'],
                 ':barangay'  => $data['barangay'],
                 ':city'      => $data['city'],
@@ -65,7 +72,7 @@ class User {
 
             foreach ($questions as $qid => $answer) {
                 $stmt->execute([
-                    ':id_number'   => $data['id_number'],
+                    ':id_number' => $id_number,
                     ':question_id' => $qid,
                     ':answer_hash' => password_hash($answer, PASSWORD_BCRYPT)
                 ]);

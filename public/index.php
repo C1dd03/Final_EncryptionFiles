@@ -18,6 +18,10 @@ switch ($action) {
     case 'registerUser': // 👈 new route
         $controller->registerUser();
         break;
+    case 'checkUsername':
+        $controller->checkUsername();
+        break;
+
     default:
         $controller->showLogin();
         break;

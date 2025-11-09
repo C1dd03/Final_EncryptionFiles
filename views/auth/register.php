@@ -35,8 +35,8 @@
       <!-- Dropdown -->
       <select id="extension" name="extension">
         <option value="">Select Extension</option>
-    <option value="Jr.">Jr.</option>
-    <option value="Sr.">Sr.</option>
+    <option value="Jr">Jr</option>
+    <option value="Sr">Sr</option>
     <option value="Other">Other</option>
   </select>
   
