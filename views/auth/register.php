@@ -1,3 +1,10 @@
+<?php
+  // Prevent caching so going back to this page shows a fresh, empty form
+  header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+  header("Cache-Control: post-check=0, pre-check=0", false);
+  header("Pragma: no-cache");
+  header("Expires: 0");
+?>
 <form class="register-form" action="index.php?action=registerUser" method="post" onsubmit="return handleSubmit(this)" novalidate>
    <?php if (!empty($error)): ?>
       <p style="color:red; margin-bottom:10px;"><?php echo $error; ?></p>
@@ -264,4 +271,27 @@
   });
 });
 
+</script>
+<script>
+  // Clear form on initial load to avoid stale values
+  document.addEventListener('DOMContentLoaded', function () {
+    var form = document.querySelector('.register-form');
+    if (form) form.reset();
+  });
+
+  // If user returns via browser back/forward cache, refresh to clear fields
+  window.addEventListener('pageshow', function (event) {
+    try {
+      var nav = (performance && performance.getEntriesByType) ? performance.getEntriesByType('navigation')[0] : null;
+      var isBFCache = event.persisted || (nav && nav.type === 'back_forward');
+      if (isBFCache) {
+        // Reload ensures fresh server-rendered form and new generated ID
+        window.location.reload();
+      }
+    } catch (e) {
+      // Fallback: reset the form
+      var form = document.querySelector('.register-form');
+      if (form) form.reset();
+    }
+  });
 </script>

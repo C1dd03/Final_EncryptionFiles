@@ -90,7 +90,7 @@ document.addEventListener("DOMContentLoaded", function () {
         Math.ceil((lockEndTimestamp - Date.now()) / 1000)
       );
       setMessage(
-        `Too many failed attempts. Locked for ${remaining} seconds.`,
+        `Access denied for ${remaining} seconds.`,
         "error"
       );
 
@@ -136,7 +136,7 @@ document.addEventListener("DOMContentLoaded", function () {
         Math.ceil((lockEndTimestamp - Date.now()) / 1000)
       );
       setMessage(
-        `Too many failed attempts. Locked for ${remaining} seconds.`,
+        `Access denied for ${remaining} seconds.`,
         "error"
       );
       return;

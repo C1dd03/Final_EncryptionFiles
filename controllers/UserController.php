@@ -46,7 +46,17 @@ class UserController {
         $result = $this->userModel->insertUser($_POST);
 
         if ($result) {
-            header("Location: index.php?action=login");
+            // Show an alert first, then redirect to login with a success flag
+            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Registration</title>'
+               . '<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">'
+               . '<meta http-equiv="Pragma" content="no-cache">'
+               . '<meta http-equiv="Expires" content="0">'
+               . '</head><body>'
+               . '<script>'
+               . 'alert("Registration successful! Please log in.");'
+               . 'window.location.href = "index.php?action=login&registered=1";'
+               . '</script>'
+               . '</body></html>';
             exit;
         } else {
             $error = "Registration failed. Please try again.";
