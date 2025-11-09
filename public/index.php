@@ -33,6 +33,11 @@ switch ($action) {
     case 'logout':
         $userController->logout();
 
+    
+    case 'verifyId':
+        $userController->verifyId();
+        break;
+
 
     default:
         $userController->showLogin();

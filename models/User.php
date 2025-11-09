@@ -13,18 +13,18 @@ class User {
         try {
             $this->conn->beginTransaction();
 
-            // ✅ 1. Insert into users
+            // ✅ Generate new ID and calculate age
             $age = $this->calculateAge($data['birthdate']);
-            // Always generate the latest ID directly in the model
             $id_number = $this->generateIdNumber();
 
+            // ✅ 1. Insert into users
             $sqlUser = "INSERT INTO users 
                         (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, password_hash) 
                         VALUES 
                         (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :password_hash)";
             $stmt = $this->conn->prepare($sqlUser);
             $stmt->execute([
-                ':id_number'     => $id_number,  // ✅ use the fresh ID here
+                ':id_number'     => $id_number,
                 ':first_name'    => $data['first_name'],
                 ':middle_name'   => $data['middle_name'] ?? null,
                 ':last_name'     => $data['last_name'],
@@ -36,7 +36,6 @@ class User {
                 ':password_hash' => $data['password']
             ]);
 
-
             // ✅ 2. Insert into addresses
             $sqlAddress = "INSERT INTO addresses 
                             (id_number, purok_street, barangay, city_municipality, province, country, zip_code) 
@@ -44,7 +43,7 @@ class User {
                             (:id_number, :street, :barangay, :city, :province, :country, :zip)";
             $stmt = $this->conn->prepare($sqlAddress);
             $stmt->execute([
-                ':id_number' => $data['id_number'],
+                ':id_number' => $id_number, // ✅ fixed to use $id_number
                 ':street'    => $data['street'],
                 ':barangay'  => $data['barangay'],
                 ':city'      => $data['city'],
@@ -66,7 +65,7 @@ class User {
 
             foreach ($questions as $qid => $answer) {
                 $stmt->execute([
-                    ':id_number'   => $data['id_number'],
+                    ':id_number'   => $id_number, // ✅ fixed to use same generated ID
                     ':question_id' => $qid,
                     ':answer_hash' => password_hash($answer, PASSWORD_BCRYPT)
                 ]);
@@ -80,6 +79,7 @@ class User {
             return false;
         }
     }
+
 
     private function calculateAge($birthdate) {
         $dob = new DateTime($birthdate);
@@ -134,6 +134,24 @@ class User {
     
     }
     
+
+ /* ========================== ADD FORGOT PASSWORD MODEL ======================== */
+    public function findById($id_number){
+        $stmt = $this->conn->prepare("SELECT * FROM users WHERE id_number = :id_number");
+        $stmt->execute([':id_number'=>$id_number]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function getUserAuthAnswer($id_number, $question_id){
+        $stmt = $this->conn->prepare("SELECT * FROM user_auth_answers WHERE id_number = :id_number AND question_id = :question_id");
+        $stmt->execute([':id_number'=>$id_number, ':question_id'=>$question_id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function updatePassword($id_number, $password_hash){
+        $stmt = $this->conn->prepare("UPDATE users SET password_hash=:password WHERE id_number=:id_number");
+        return $stmt->execute([':password'=>$password_hash, ':id_number'=>$id_number]);
+    }
 
     
 }

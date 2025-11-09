@@ -29,6 +29,9 @@
         <li><a href="index.php?action=register" class="nav-register-link">Register</a></li>
       <?php elseif ($page === 'register'): ?>
         <li><a href="index.php?action=login">Login</a></li>
+        <?php elseif ($page === 'forgot-password'): ?>
+        <li><a href="index.php?action=login">Login</a></li>
+        <li><a href="index.php?action=register">Register</a></li>
       <?php else: ?>
         <li><a href="index.php?action=login">Login</a></li>
       <?php endif; ?>

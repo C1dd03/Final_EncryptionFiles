@@ -27,7 +27,6 @@ class UserController {
 
 
 
-    
     /* ========================== ADD LOGOUT ======================== */
     public function logout() {
         $formView = "logout.php";
@@ -40,6 +39,7 @@ class UserController {
 
     // Show Forgot Password Page
     public function showForgotPassword() {
+        $page = 'forgot-password'; 
         $formView = "forgot_password.php";
         require __DIR__ . '/../views/auth/auth.php';
     }
@@ -204,5 +204,56 @@ class UserController {
         }
     }
 
-   
+    
+    //========================================== Verify ID =====================================
+    public function verifyId() {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $id_number = trim($_POST['id_number'] ?? '');
+            $user = $this->userModel->findById($id_number);
+
+            if($user){
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Invalid ID Number']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+        }
+        exit; // Important to stop any extra output
+    }
+
+
+
+
+    //=========================================== Reset Password =======================================
+    public function resetPassword() {
+        $id_number = $_POST['id_number'] ?? '';
+        $question_id = $_POST['security_question'] ?? '';
+        $answer = $_POST['answer'] ?? '';
+        $new_password = $_POST['new_password'] ?? '';
+        $confirm_password = $_POST['confirm_password'] ?? '';
+
+        if($new_password !== $confirm_password){
+            echo json_encode(['susccess'=>false, 'message'=>'Passwords do not match']);
+            return;
+        }
+
+        $record = $this->userModel->getUserAuthAnswer($id_number, $question_id);
+
+        if(!$record || !password_verify($answer, $record['answer_hash'])){
+            echo json_encode(['success'=>false, 'message'=>'Incorrect security answer']);
+            return;
+        }
+
+        $hashed = password_hash($new_password, PASSWORD_BCRYPT);
+        if($this->userModel->updatePassword($id_number, $hashed)){
+            echo json_encode(['success'=>true, 'message'=>'Password reset successfully']);
+        } else {
+            echo json_encode(['success'=>false, 'message'=>'Failed to reset password']);
+        }
+    }
+
+
 }

@@ -18,6 +18,10 @@ document.addEventListener("DOMContentLoaded", function () {
   const FAILS_PER_STAGE = 3;
   const LOCK_DURATIONS = [15, 30, 60]; // seconds
 
+  const savedForgotLinkVisible =
+    localStorage.getItem("forgotLinkVisible") === "true";
+  setForgotLinkVisible(savedForgotLinkVisible);
+
   let consecutiveFails =
     parseInt(localStorage.getItem("consecutiveFails")) || 0;
   let stageIndex = parseInt(localStorage.getItem("stageIndex")) || 0;
@@ -50,6 +54,12 @@ document.addEventListener("DOMContentLoaded", function () {
     messageDiv.classList.remove("error", "success");
     if (type === "error") messageDiv.classList.add("error");
     if (type === "success") messageDiv.classList.add("success");
+  }
+
+  function setForgotLinkVisible(visible) {
+    if (!forgotLink) return;
+    forgotLink.style.display = visible ? "flex" : "none";
+    localStorage.setItem("forgotLinkVisible", visible ? "true" : "false");
   }
 
   function disableFormElements(disabled) {
@@ -166,6 +176,7 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((data) => {
         if (data.success) {
           clearState();
+          setForgotLinkVisible(false); // hide the link
           const target = data.redirect || "/encryption/public/dashboard.php";
           window.location.href = target;
         } else {
@@ -180,8 +191,8 @@ document.addEventListener("DOMContentLoaded", function () {
           }
 
           consecutiveFails += 1;
-          if (consecutiveFails === 2 && forgotLink) {
-            forgotLink.style.display = "flex";
+          if (consecutiveFails === 2) {
+            setForgotLinkVisible(true);
           }
           saveState();
 
