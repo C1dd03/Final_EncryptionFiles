@@ -176,6 +176,7 @@ p {
 }
 
 
+
 /* Added oct-20 */
 /* Focus animation for normal inputs (not static-label) */
 .input-field:not(.static-label) input:focus ~ label,
@@ -386,6 +387,8 @@ p {
   gap: 10px;
 }
 
+
+
 /* Floating label */
 
 .pass-input-field input:not(:placeholder-shown) ~ label,
@@ -568,6 +571,42 @@ input:-webkit-autofill:focus {
   border: 1px solid red;
   background-color: #ffe6e6; /* light red background */
 }
+
+/* ForgotPass */
+.login-forgot-password a { 
+  text-align: center;
+  display: none;
+  justify-content: center;
+  color: white;
+}
+
+.login-forgot-password.disabled-link,
+.register-link.disabled-link,
+.nav-register-link.disabled-link {
+  cursor: not-allowed;
+}
+
+.login-forgot-password.disabled-link a,
+.register-link.disabled-link a {
+  pointer-events: none;
+  color: gray;
+  text-decoration: none;
+}
+
+.login-email:disabled,
+.login-password:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.empty-mgs.error {
+  flex: none;
+  background-color: #fdecea;
+  border-left: 3px solid #e74c3c;
+  padding: 2px;
+  color: #c0392b;
+}
+/* ForgotPass */
 
 /* <===================== FOOTER SECTION ================== */
 

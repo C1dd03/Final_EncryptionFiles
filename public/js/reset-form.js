@@ -132,21 +132,25 @@ function validateExtension(input) {
     }
 
     /*** Address Field Validations ***/
-    if (input.name === "barangay") {
-      const barangayPattern = /^[A-Za-z0-9ñÑ.\-,'\s]+$/;
-      if (!barangayPattern.test(value)) return "Barangay: Invalid characters detected.";
-      if (/([.\-\/,])\1/.test(value)) return "Please don’t use double special characters (e.g. --, //, .., ,,)";
-      input.value = value.replace(/\s+$/, "");
-      return null;
-    }
+if (input.name === "barangay") {
+  // Must start with a letter, can contain letters, numbers, spaces, period, hyphen, comma, apostrophe
+  const barangayPattern = /^[A-Za-zñÑ][A-Za-z0-9ñÑ.\-,'\s]*$/;
 
-    if (input.name === "street") {
-      const streetPattern = /^[A-Za-z0-9ñÑ.\-\/,'\s]+$/;
-      if (!streetPattern.test(value)) return "Purok/Street: Invalid characters detected.";
-      if (/([.\-\/,])\1/.test(value)) return "Please don’t use double special characters (e.g. --, //, .., ,,)";
-      input.value = value.replace(/\s+$/, "");
-      return null;
-    }
+  if (!barangayPattern.test(value)) return "Invalid Barangay format.";
+  if (/([.\-\/,])\1/.test(value)) return "No double special characters.";
+  input.value = value.replace(/\s+$/, "");
+  return null;
+}
+
+if (input.name === "street") {
+  // Must start with a letter, can contain letters, numbers, spaces, period, hyphen, comma, apostrophe
+  const streetPattern = /^[A-Za-zñÑ][A-Za-z0-9ñÑ.\-,'\s]*$/;
+
+  if (!streetPattern.test(value)) return "Invalid Purok/Street format.";
+  if (/([.\-\/,])\1/.test(value)) return "No double special characters.";
+  input.value = value.replace(/\s+$/, "");
+  return null;
+}
 
     function validateLocationField(input, label) {
       let value = input.value.trim();
@@ -195,6 +199,19 @@ function validateExtension(input) {
         }
       });
     }
+    if (input.name === "zip") {
+  const zipValue = value.trim();
+
+  // Must contain exactly 4 digits only
+  const zipPattern = /^[0-9]{4}$/;
+
+  if (zipValue === "") return "ZIP code is required.";
+  if (!zipPattern.test(zipValue)) return "ZIP must be 4 digits.";
+  
+  input.value = zipValue; // clean value
+  return null; // no errors
+}
+
 
     return null;
   }
@@ -232,20 +249,88 @@ function validateExtension(input) {
     showStep(currentStep);
   };
 
-  /*** Submission ***/
-  window.handleSubmit = function (form) {
-    let allValid = true;
-    steps.forEach(step => {
-      if (!validateStep(step)) allValid = false;
-    });
+/*** Submission ***/
+window.handleSubmit = function (form) {
+  let firstInvalidInput = null;
+  let errorMessage = "";
 
-    if (!allValid) {
-      showStepErrors(["Please fix the errors before submitting."]);
-      return false;
+  // Validate steps in order
+  for (const step of steps) {
+    const inputs = step.querySelectorAll("input, select");
+    for (const input of inputs) {
+      const value = input.value.trim();
+      const name = input.name.replace(/_/g, " ");
+
+      // Required check
+      if (input.required && value === "") {
+        firstInvalidInput = input;
+        errorMessage = name.charAt(0).toUpperCase() + name.slice(1) + " is required.";
+        break;
+      }
+
+      // Password strength check
+      if (input.name === "password" && value) {
+        const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+        if (!pwdRegex.test(value)) {
+          firstInvalidInput = input;
+          errorMessage = "Password must be 8+ characters with uppercase, lowercase, number & symbol.";
+          break;
+        }
+      }
+
+      // Confirm password match
+      if (input.name === "confirm_password") {
+        const passwordInput = form.querySelector("input[name='password']");
+        if (passwordInput && value !== passwordInput.value) {
+          firstInvalidInput = input;
+          errorMessage = "Password and Confirm Password do not match.";
+          break;
+        }
+      }
     }
-    return true;
-  };
 
+    if (firstInvalidInput) break; // Stop at first invalid input
+  }
+
+  if (firstInvalidInput) {
+    showStepErrors([errorMessage], firstInvalidInput);
+    return false; // stop submission
+  }
+
+  return true; // all valid
+};
+
+/*** Real-time Confirm Password Validation (only on confirm input focus) ***/
+const confirmInput = form.querySelector("input[name='confirm_password']");
+const passwordInput = form.querySelector("input[name='password']");
+
+if (confirmInput && passwordInput) {
+  // Create a small error message container
+  let confirmError = document.createElement("div");
+  confirmError.style.color = "red";
+  confirmError.style.fontSize = "0.9em";
+  confirmError.style.marginTop = "4px";
+  confirmInput.parentElement.appendChild(confirmError);
+
+  // Only show error when user is typing in confirm password field
+  confirmInput.addEventListener("input", () => {
+    if (confirmInput.value && confirmInput.value !== passwordInput.value) {
+      confirmInput.style.borderBottom = "1px solid rgba(255,0,0,0.5)";
+      confirmError.innerText = "Password does not match.";
+    } else {
+      confirmInput.style.borderBottom = "";
+      confirmError.innerText = "";
+    }
+  });
+
+  // Optional: clear error when confirm password loses focus and is empty
+  confirmInput.addEventListener("blur", () => {
+    if (!confirmInput.value) {
+      confirmInput.style.borderBottom = "";
+      confirmError.innerText = "";
+    }
+  });
+}
   /*** Auto-format on blur ***/
   steps.forEach(step => {
     const inputs = step.querySelectorAll("input");

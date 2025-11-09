@@ -120,4 +120,19 @@ class User {
 }
 
 
+
+
+
+/* ========================== ADD LOGIN MODEL ======================== */
+    public function findByUsername($username) {
+    
+        $sql = "SELECT * FROM users WHERE username = :username";
+    
+        $stmt = $this->conn->prepare($sql);
+    
+        $stmt->execute([':username' => $username]);
+    
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    }
 }
