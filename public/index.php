@@ -12,6 +12,10 @@ switch ($action) {
     case 'login':
         $controller->showLogin();
         break;
+    case 'loginUser':
+        // Handle AJAX login requests
+        $controller->loginUser();
+        break;
     case 'forgot':
         $controller->showForgotPassword();
         break;
@@ -20,6 +24,13 @@ switch ($action) {
         break;
     case 'checkUsername':
         $controller->checkUsername();
+        break;
+    case 'dashboard':
+        // Show dashboard after successful login
+        require __DIR__ . '/../views/dashboard/dashboard.php';
+        break;
+    case 'logout':
+        $controller->logout();
         break;
 
     default:

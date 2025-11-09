@@ -12,6 +12,7 @@ class UserController {
     // Show Login Page
     public function showLogin() {
         $formView = "login.php";
+        $page = 'login';
         require __DIR__ . '/../views/auth/auth.php';
     }
 
@@ -19,12 +20,14 @@ class UserController {
     public function showRegister() {
         $nextId = $this->userModel->generateIdNumber();
         $formView = "register.php";
+        $page = 'register';
         require __DIR__ . '/../views/auth/auth.php';
     }
 
     // Show Forgot Password Page
     public function showForgotPassword() {
         $formView = "forgot_password.php";
+        $page = 'forgot';
         require __DIR__ . '/../views/auth/auth.php';
     }
 
