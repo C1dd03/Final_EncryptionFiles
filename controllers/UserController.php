@@ -205,7 +205,7 @@ class UserController {
 
             // Both wrong: username does not exist AND password entered
             if (!$user && !empty($password)) {
-                echo json_encode(['success' => false, 'message' => 'Username and password are incorrect.', 'errorType' => 'bothWrong']);
+                echo json_encode(['success' => false, 'message' => 'Invalid Username and password .', 'errorType' => 'bothWrong']);
                 return;
             }
 
@@ -217,7 +217,7 @@ class UserController {
 
             // Password wrong
             if (!password_verify($password, $user['password_hash'])) {
-                echo json_encode(['success' => false, 'message' => 'Incorrect password.', 'errorType' => 'passwordWrong']);
+                echo json_encode(['success' => false, 'message' => 'Invalid password.', 'errorType' => 'passwordWrong']);
                 return;
             }
 
