@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pick&Match | Ecommerce Website Design</title>
-  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/../encryption/public/css/style.css" />
   <!-- <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" /> -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
@@ -14,7 +14,7 @@
   <div class="container">
     <div class="navbar">
       <div class="logo">
-        <img src="/img/images/dowlogo2.png" width="125px" />
+        <img src="/../encryption/public/img/images/dowlogo2.png" width="125px" />
       </div>
 
       <nav>
@@ -35,7 +35,7 @@
     <?php endif; ?>
   </ul>
       </nav>
-      <img src="/img/images/cart.png" width="30px" height="30px" />
+      <img src="/../encryption/public/img/images/cart.png" width="30px" height="30px" />
     </div>
   </div>
 
@@ -44,7 +44,7 @@
     <div class="container">
       <div class="row">
         <div class="column">
-          <img src="/img/images/image1.png" width="100%" />
+          <img src="/../encryption/public/img/images/image1.png" width="100%" />
         </div>
 
         <div class="column">
@@ -66,8 +66,8 @@
           <h3>Download Our App</h3>
           <p>Download App for Android and ios mobile phone.</p>
           <div class="app-logo">
-            <img src="/img/images/play-store.png" />
-            <img src="/img/images/app-store.png" />
+            <img src="/../encryption/public/img/images/play-store.png" />
+            <img src="/../encryption/public/img/images/app-store.png" />
           </div>
         </div>
         <div class="footer-col-2">
@@ -99,10 +99,10 @@
   </div>
 
   <?php if (isset($page) && $page === 'login'): ?>
-    <script src="/js/login-incorrect-atmp.js"></script>
+    <script src="/../encryption/public/js/login-incorrect-atmp.js"></script>
   <?php else: ?>
-    <script src="/js/reset-form.js"></script>
-    <script src="/js/validation.js"></script>
+    <script src="/../encryption/public/js/reset-form.js"></script>
+    <script src="/../encryption/public/js/validation.js"></script>
   <?php endif; ?>
 
 

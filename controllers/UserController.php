@@ -31,133 +31,120 @@ class UserController {
         require __DIR__ . '/../views/auth/auth.php';
     }
 
-    // ✅ Handle Registration (POST)
-    public function registerUser() {
-        $username = trim($_POST['username'] ?? '');
+// ✅ Handle Registration (POST)
+public function registerUser() {
+    session_start(); // start session for flash message
 
-        // ❌ Check if username already exists
-        if ($this->userModel->usernameExists($username)) {
-            $error = "Username already taken. Please choose another.";
-            $formView = "register.php"; // your form
-            require __DIR__ . "/../views/auth.php";
-            return;
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        // Default show register form
+        $formView = "register.php";
+        require __DIR__ . '/../views/auth/auth.php';
+        return;
+    }
+
+    $errors = [];
+
+    // --- NAME VALIDATION ---
+    $extension = trim($_POST['extension'] ?? '');
+    $otherExtension = trim($_POST['other_extension'] ?? '');
+    if ($extension === 'Other' && !empty($otherExtension)) {
+        $extension = $otherExtension;
+    }
+
+    $fields = [
+        'First Name'  => trim($_POST['first_name'] ?? ''),
+        'Middle Name' => trim($_POST['middle_name'] ?? ''),
+        'Last Name'   => trim($_POST['last_name'] ?? ''),
+        'Extension'   => $extension
+    ];
+
+    foreach ($fields as $label => $value) {
+        $errors = array_merge($errors, $this->validateName(trim($value), $label));
+    }
+
+    // --- AGE VALIDATION ---
+    if (!empty($_POST['birthdate'])) {
+        $birthDate = new DateTime($_POST['birthdate']);
+        $today = new DateTime();
+        $age = $today->diff($birthDate)->y;
+        if ($age < 18) {
+            $errors[] = "You must be 18 or older to register.";
         }
+    }
 
-        $result = $this->userModel->insertUser($_POST);
+    // --- USERNAME & PASSWORD VALIDATION ---
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
 
-        if ($result) {
-            // Show an alert first, then redirect to login with a success flag
-            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Registration</title>'
-               . '<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">'
-               . '<meta http-equiv="Pragma" content="no-cache">'
-               . '<meta http-equiv="Expires" content="0">'
-               . '</head><body>'
-               . '<script>'
-               . 'alert("Registration successful! Please log in.");'
-               . 'window.location.href = "index.php?action=login&registered=1";'
-               . '</script>'
-               . '</body></html>';
-            exit;
-        } else {
-            $error = "Registration failed. Please try again.";
-            $formView = "register.php";
-            require __DIR__ . "/../views/auth.php";
-        }
+    if ($this->userModel->usernameExists($username)) {
+        $errors[] = "Username already taken. Please choose another.";
+    }
 
-        $error = null;
+    if (preg_match('/([a-zA-Z])\1\1/i', $username)) {
+        $errors[] = "Username cannot contain 3 identical letters in a row.";
+    }
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $errors = [];
+    if (preg_match('/([a-zA-Z])\1\1/i', $password)) {
+        $errors[] = "Password cannot contain 3 identical letters in a row.";
+    }
 
-            // --- NAME VALIDATION ---
-            $extension = trim($_POST['extension'] ?? '');
-            $otherExtension = trim($_POST['other_extension'] ?? '');
+    // --- IF ERRORS EXIST ---
+    if (!empty($errors)) {
+        $error = implode("<br>", $errors);
+        $formView = "register.php";
+        require __DIR__ . '/../views/auth/auth.php';
+        return;
+    }
 
-            // If user chose "Other" and provided a custom extension, use it instead
-            if ($extension === 'Other' && !empty($otherExtension)) {
-                $extension = $otherExtension;
-            }
+    // --- SANITIZED DATA ---
+    $data = [
+        'first_name'  => trim($_POST['first_name'] ?? ''),
+        'middle_name' => trim($_POST['middle_name'] ?? null),
+        'last_name'   => trim($_POST['last_name'] ?? ''),
+        'extension'   => $extension,
+        'birthdate'   => $_POST['birthdate'] ?? '',
+        'gender'      => $_POST['gender'] ?? '',
+        'street'      => trim($_POST['street'] ?? ''),
+        'barangay'    => trim($_POST['barangay'] ?? ''),
+        'city'        => trim($_POST['city'] ?? ''),
+        'province'    => trim($_POST['province'] ?? ''),
+        'country'     => trim($_POST['country'] ?? ''),
+        'zip'         => $_POST['zip'] ?? '',
+        'security_q1' => trim($_POST['security_q1'] ?? ''),
+        'security_q2' => trim($_POST['security_q2'] ?? ''),
+        'security_q3' => trim($_POST['security_q3'] ?? ''),
+        'username'    => $username,
+        'password'    => password_hash($password, PASSWORD_DEFAULT) // hashed for security
+    ];
 
-            $fields = [
-                'First Name'  => trim($_POST['first_name'] ?? ''),
-                'Middle Name' => trim($_POST['middle_name'] ?? ''),
-                'Last Name'   => trim($_POST['last_name'] ?? ''),
-                'Extension'   => $extension
-            ];
+    // --- INSERT INTO DATABASE ---
+    $insertResult = $this->userModel->insertUser($data);
 
-
-
-            foreach ($fields as $label => $value) {
-                $errors = array_merge($errors, $this->validateName(trim($value), $label));
-            }
-
-            // --- AGE VALIDATION ---
-            if (!empty($_POST['birthdate'])) {
-                $birthDate = new DateTime($_POST['birthdate']);
-                $today = new DateTime();
-                $age = $today->diff($birthDate)->y;
-
-                if ($age < 18) {
-                    $errors[] = "You must be 18 or older to register.";
-                }
-            }
-
-            // --- USERNAME & PASSWORD VALIDATION ---
-            $username = trim($_POST['username'] ?? '');
-            $password = $_POST['password'] ?? '';
-
-            if (preg_match('/([a-zA-Z])\1\1/i', $username)) {
-                $errors[] = "Username cannot contain 3 identical letters in a row.";
-            }
-
-            if (preg_match('/([a-zA-Z])\1\1/i', $password)) {
-                $errors[] = "Password cannot contain 3 identical letters in a row.";
-            }
-
-            // --- IF ERRORS EXIST ---
-            if (!empty($errors)) {
-                $error = implode("<br>", $errors);
-                $formView = "register.php";
-                require __DIR__ . '/../views/auth/auth.php';
-                return;
-            }
-
-            // --- SANITIZED DATA ---
-            $data = [
-                'first_name'  => trim($_POST['first_name'] ?? ''),
-                'middle_name' => trim($_POST['middle_name'] ?? null),
-                'last_name'   => trim($_POST['last_name'] ?? ''),
-                'extension'   => $extension,
-                'birthdate'   => $_POST['birthdate'] ?? '',
-                'gender'      => $_POST['gender'] ?? '',
-                'street'      => trim($_POST['street'] ?? ''),
-                'barangay'    => trim($_POST['barangay'] ?? ''),
-                'city'        => trim($_POST['city'] ?? ''),
-                'province'    => trim($_POST['province'] ?? ''),
-                'country'     => trim($_POST['country'] ?? ''),
-                'zip'         => $_POST['zip'] ?? '',
-                'security_q1' => trim($_POST['security_q1'] ?? ''),
-                'security_q2' => trim($_POST['security_q2'] ?? ''),
-                'security_q3' => trim($_POST['security_q3'] ?? ''),
-                'username'    => $username,
-                'password'    => password_hash($password, PASSWORD_DEFAULT) // hashed for security
-            ];
-
-            // --- INSERT INTO DATABASE ---
-            if ($this->userModel->insertUser($data)) {
-                header("Location: index.php?action=login&registered=1");
-                exit;
-            } else {
-                $error = "Registration failed. Please try again.";
-            }
-        }
-
-        // --- DEFAULT SHOW REGISTER FORM ---
+    if ($insertResult) {
+        // ✅ Show popup alert and redirect after user clicks OK
+        echo '<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Registration Successful</title>
+        </head>
+        <body>
+            <script>
+                alert("🎉 Registration successful! Please log in.");
+                window.location.href = "index.php?action=login";
+            </script>
+        </body>
+        </html>';
+        exit;
+    } else {
+        $error = "Registration failed. Please try again.";
         $formView = "register.php";
         require __DIR__ . '/../views/auth/auth.php';
     }
+}
 
-    public function checkUsername() {
+// ✅ AJAX Username Check
+public function checkUsername() {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
         $username = trim($_POST['username']);
         $exists = $this->userModel->usernameExists($username);
