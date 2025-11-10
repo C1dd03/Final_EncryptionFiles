@@ -141,6 +141,12 @@ class User {
         $stmt->execute([':id_number'=>$id_number]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
+    
+        public function getUserAuthAnswers($id_number) {
+        $stmt = $this->conn->prepare("SELECT * FROM user_auth_answers WHERE id_number = :id_number ORDER BY question_id ASC");
+        $stmt->execute([':id_number' => $id_number]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
     public function getUserAuthAnswer($id_number, $question_id){
         $stmt = $this->conn->prepare("SELECT * FROM user_auth_answers WHERE id_number = :id_number AND question_id = :question_id");

@@ -225,6 +225,38 @@ class UserController {
     }
 
 
+    //========================================== Verify Security Answers =====================================
+public function verifySecurityAnswers() {
+    header('Content-Type: application/json; charset=utf-8');
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $id_number = $_POST['id_number'] ?? '';
+        $answers = [
+            1 => trim($_POST['security_answer_1'] ?? ''),
+            2 => trim($_POST['security_answer_2'] ?? ''),
+            3 => trim($_POST['security_answer_3'] ?? '')
+        ];
+
+        $correctCount = 0;
+
+        foreach ($answers as $qid => $ans) {
+            $record = $this->userModel->getUserAuthAnswer($id_number, $qid);
+            if ($record && password_verify($ans, $record['answer_hash'])) {
+                $correctCount++;
+            }
+        }
+
+        if ($correctCount >= 2) {
+            echo json_encode(['success' => true, 'message' => 'You answered at least 2 correctly.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'You must answer at least 2 questions correctly.']);
+        }
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+    }
+    exit;
+}
+
 
 
     //=========================================== Reset Password =======================================

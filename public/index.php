@@ -38,6 +38,10 @@ switch ($action) {
         $userController->verifyId();
         break;
 
+    
+    case 'verifySecurityAnswers':
+    $controller->verifySecurityAnswers();
+    break;
 
     default:
         $userController->showLogin();

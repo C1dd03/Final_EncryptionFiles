@@ -1,8 +1,9 @@
 <style>
-
-
 .step { 
     display: none; 
+}
+.step-1 { 
+    position: relative;
 }
 .step.active { 
     display: block; 
@@ -54,7 +55,7 @@
     background-color: #16a34a; /* hover:bg-green-600 */
 }
 
-.message {
+.message-error {
     border-left: 3px solid #e74c3c;
     background-color: #fdecea;
     color: #c0392b;
@@ -67,6 +68,50 @@
     margin-bottom: 15px;
 }
 
+.message-success {
+    position: absolute;
+    top: -25%;
+    left: 50%;
+    transform: translate(-50%, -20px); /* center horizontally + slide effect */
+    width: 280px;
+    height: 160px;
+    background-color: #fff;
+    border: 2px solid #16a34a;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    z-index: 1000;
+    padding: 20px;
+}
+
+/* When active (visible) */
+.message-success.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, 0); /* slide down into place */
+}
+
+.message-success i {
+    color: #22c55e;
+    font-size: 50px;
+    margin-bottom: 10px;
+}
+
+.message-success p {
+    font-size: 16px;
+    color: #16a34a;
+    font-weight: 600;
+    text-align: center;
+}
+
 
 </style>
 
@@ -77,7 +122,11 @@
   
   <div class="step step-1 active">
     <label class=" text-gray-600 text-sm">Enter your ID Number</label>
-    <p class="message"></p>
+    <p class="message-error"></p>
+    <div class="message-success" id="idVerifiedBox">
+        <i class="fa-solid fa-circle-check"></i>
+        <p>ID Verified Successfully!</p>
+    </div>
     <div class="input-field">
       <input type="text" name="id_number" required placeholder=" " />
       <label>User ID</label>
@@ -105,7 +154,7 @@
   </div>
 
     <div class="flex justify-between mt-2">
-      <button type="button" class="btn prev-btn" onclick="prevStepForgot(2)">&lt; Prev</button>
+      <!-- <button type="button" class="btn prev-btn" onclick="prevStepForgot(2)">&lt; Prev</button> -->
       <button type="button" class="btn next-btn" onclick="nextStepForgot(2)">Next &gt;</button>
     </div>
   </div>
@@ -132,7 +181,8 @@
 
 <script>
 const form = document.getElementById('forgotForm');
-const msg = document.querySelector('.message');
+const msgError = document.querySelector('.message-error');
+const msgSuccess = document.querySelector('.message-success');
 
 function nextStepForgot(step) {
     const current = document.querySelector(`.step-${step}`);
@@ -143,12 +193,12 @@ function nextStepForgot(step) {
         const idInput = current.querySelector('[name="id_number"]');
 
         // Clear previous message
-        msg.textContent = '';
-        msg.style.display = 'none';
+        msgError.textContent = '';
+        msgError.style.display = 'none';
 
         if(!idInput.value.trim()) { 
-            msg.textContent = "Please enter your ID Number"; 
-            msg.style.display = 'flex'; // or 'block' depende sa imong CSS
+            msgError.textContent = "Please enter your ID Number"; 
+            msgError.style.display = 'flex'; // or 'block' depende sa imong CSS
             return; 
         }
 
@@ -159,31 +209,72 @@ function nextStepForgot(step) {
         .then(res => res.json())
         .then(data => {
             if(data.success) {
-                current.classList.remove('active');
-                next.classList.add('active');
+                // Show success popup
+                msgSuccess.classList.add('show');
+
+                // Automatically hide popup and go to next step
+                setTimeout(() => {
+                    msgSuccess.classList.remove('show');
+                    document.querySelector('.step-1').classList.remove('active');
+                    document.querySelector('.step-2').classList.add('active');
+                }, 2000);
             } else {
-                msg.textContent = data.message; // Invalid ID Number
-                msg.style.display = 'flex';
+                msgError.textContent = data.message; // Invalid ID Number
+                msgError.style.display = 'flex';
             }
         })
         .catch(err => {
             console.error("AJAX error:", err);
-            msg.textContent = "An error occurred. Please try again.";
-            msg.style.display = 'flex';
+            msgError.textContent = "An error occurred. Please try again.";
+            msgError.style.display = 'flex';
         });
 
         return;
     }
 
-    // Step 2: Ensure question + answer are filled
-    if(step === 2) {
-        const question = current.querySelector('[name="security_question"]').value;
-        const answer = current.querySelector('[name="answer"]').value.trim();
-        if(!question || !answer) { alert("Please select question and provide answer"); return; }
+    // Step 2: Verify security answers before proceeding
+    // Step 2: Verify security answers via AJAX
+    if (step === 2) {
+        const id_number = document.querySelector('[name="id_number"]').value.trim();
+        const ans1 = current.querySelector('[name="security_answer_1"]').value.trim();
+        const ans2 = current.querySelector('[name="security_answer_2"]').value.trim();
+        const ans3 = current.querySelector('[name="security_answer_3"]').value.trim();
+
+        // Empty input validation
+        if (!ans1 || !ans2 || !ans3) {
+            alert("Please answer all security questions.");
+            return;
+        }
+
+        fetch('../../index.php?action=verifySecurityAnswers', {
+            method: 'POST',
+            body: new URLSearchParams({
+                id_number: id_number,
+                security_answer_1: ans1,
+                security_answer_2: ans2,
+                security_answer_3: ans3
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                current.classList.remove('active');
+                next.classList.add('active');
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(err => {
+            console.error("AJAX error:", err);
+            alert("An error occurred. Please try again.");
+        });
+
+        return; // stop here to wait for AJAX
     }
 
-    current.classList.remove('active');
-    next.classList.add('active');
+    // current.classList.remove('active');
+    // next.classList.add('active');
 }
 
 function prevStepForgot(step) {
