@@ -108,6 +108,12 @@
 
 
 
+  <!---------------------------- Added Forgot Password JS --->
+  <script src="/../encryption/public/js/forgot_password.js"></script>
+
+
+
+
 
 </body>
 </html>
