@@ -1,0 +1,10 @@
+# Protect reset-form.js from direct access
+<Files "style.css">
+    RewriteEngine On
+
+    # Allow only if referer contains your domain
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?yourdomain\.com/ [NC]
+    RewriteRule .* /encryption/public/404.html [R=302,L]
+</Files>
+
+
