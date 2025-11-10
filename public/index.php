@@ -40,8 +40,12 @@ switch ($action) {
 
     
     case 'verifySecurityAnswers':
-    $controller->verifySecurityAnswers();
-    break;
+        $userController->verifySecurityAnswers();
+        break;
+    
+    case 'resetPassword':
+        $userController->resetPassword();
+        break;
 
     default:
         $userController->showLogin();

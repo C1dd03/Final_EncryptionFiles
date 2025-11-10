@@ -230,12 +230,32 @@ public function verifySecurityAnswers() {
     header('Content-Type: application/json; charset=utf-8');
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $id_number = $_POST['id_number'] ?? '';
+        $id_number = trim($_POST['id_number'] ?? '');
+        
+        // Validate ID number is provided
+        if (empty($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
+            exit;
+        }
+
         $answers = [
             1 => trim($_POST['security_answer_1'] ?? ''),
             2 => trim($_POST['security_answer_2'] ?? ''),
             3 => trim($_POST['security_answer_3'] ?? '')
         ];
+
+        // Validate all answers are provided
+        $emptyAnswers = [];
+        foreach ($answers as $qid => $ans) {
+            if (empty($ans)) {
+                $emptyAnswers[] = $qid;
+            }
+        }
+
+        if (!empty($emptyAnswers)) {
+            echo json_encode(['success' => false, 'message' => 'Please answer all security questions.']);
+            exit;
+        }
 
         $correctCount = 0;
 
@@ -246,10 +266,11 @@ public function verifySecurityAnswers() {
             }
         }
 
+        // User must answer at least 2 out of 3 questions correctly
         if ($correctCount >= 2) {
-            echo json_encode(['success' => true, 'message' => 'You answered at least 2 correctly.']);
+            echo json_encode(['success' => true, 'message' => 'Verification successful! You answered at least 2 questions correctly.']);
         } else {
-            echo json_encode(['success' => false, 'message' => 'You must answer at least 2 questions correctly.']);
+            echo json_encode(['success' => false, 'message' => 'Verification failed. You must answer at least 2 out of 3 questions correctly.']);
         }
     } else {
         echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
