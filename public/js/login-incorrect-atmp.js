@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", function () {
       loginForm.querySelector("input[type='submit']"));
 
   const FAILS_PER_STAGE = 3;
-  const LOCK_DURATIONS = [15, 30, 60]; // seconds
+  const LOCK_DURATIONS = [15, 30, 5]; // seconds
 
   const savedForgotLinkVisible =
     localStorage.getItem("forgotLinkVisible") === "true";
@@ -184,7 +184,7 @@ document.addEventListener("DOMContentLoaded", function () {
           if (
             data.message &&
             (data.message.includes("required") ||
-              data.message.includes("Username and password are required"))
+              data.message.includes("Email and password are required"))
           ) {
             setMessage(data.message, "error");
             return;
@@ -205,6 +205,19 @@ document.addEventListener("DOMContentLoaded", function () {
             saveState();
             return;
           }
+
+          //Show specific error messages
+          // if (data.error === "username") {
+          //   setMessage("Email is incorrect.", "error");
+          // } else if (data.error === "password") {
+          //   setMessage("Password is incorrect.", "error");
+          // } else {
+          //   setMessage(
+          //     data.message ||
+          //       `Invalid credentials. Attempt ${consecutiveFails}/${FAILS_PER_STAGE}`,
+          //     "error"
+          //   );
+          // }
 
           setMessage(
             data.message ||

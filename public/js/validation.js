@@ -1,4 +1,4 @@
-document.getElementById('birthdate').addEventListener('change', function() {
+document.getElementById("birthdate").addEventListener("change", function () {
   const birthDate = new Date(this.value);
   if (!this.value) return; // if empty, skip
 
@@ -7,12 +7,13 @@ document.getElementById('birthdate').addEventListener('change', function() {
   const monthDiff = today.getMonth() - birthDate.getMonth();
 
   // Adjust if birthday hasn't occurred yet this year
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < birthDate.getDate())
+  ) {
     age--;
   }
 
   // Display age in the input field
-  document.getElementById('age').value = age;
+  document.getElementById("age").value = age;
 });
-
-

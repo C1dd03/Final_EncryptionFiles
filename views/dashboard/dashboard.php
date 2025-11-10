@@ -21,12 +21,18 @@ require_once __DIR__ . '/../auth/session_protect.php';
 
     <script>
   // Prevent going back to login after logout
-    if (window.history && window.history.pushState) {
-        window.history.pushState(null, "", window.location.href);
-        window.onpopstate = function () {
-        window.history.pushState(null, "", window.location.href);
-    };
-    }
+    // if (window.history && window.history.pushState) {
+    //     window.history.pushState(null, "", window.location.href);
+    //     window.onpopstate = function () {
+    //     window.history.pushState(null, "", window.location.href);
+    // };
+    // }
+
+    /* =========================== CHANGE disable back browser button ================================== */
+    history.pushState(null, null, location.href);
+    window.onpopstate = function () {
+    history.go(1);
+  };
 </script>
 </body>
 </html>

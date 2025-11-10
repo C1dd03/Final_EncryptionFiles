@@ -77,10 +77,18 @@ $_SESSION['login_failed'] = true;
 -->
 <script>
   // Prevent going back to login page after login
-  if (window.history && window.history.pushState) {
-    window.history.pushState(null, "", window.location.href);
+  // if (window.history && window.history.pushState) {
+  //   window.history.pushState(null, "", window.location.href);
+  //   window.onpopstate = function () {
+  //     window.history.pushState(null, "", window.location.href);
+  //   };
+  // }
+
+
+  /* =========================== CHANGE disable back browser button ================================== */
+  // Prevent going back to login page after login
+    history.pushState(null, null, location.href);
     window.onpopstate = function () {
-      window.history.pushState(null, "", window.location.href);
-    };
-  }
+    history.go(1);
+  };
 </script>

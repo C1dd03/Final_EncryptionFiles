@@ -106,14 +106,15 @@
   <script src="/../encryption/public/js/login-incorrect-atmp.js"></script>
 
 
-
-
-  <!---------------------------- Added Forgot Password JS --->
+   <!---------------------------- Added Forgot Password JS --->
   <script src="/../encryption/public/js/forgot_password.js"></script>
 
 
-
-
+<!---------------------------- Added restrict js code --->
+  <script src="/encryption/public/js/reset-form.php"></script>
+  <script src="/../encryption/public/js/login-incorrect-atmp.php"></script>
+   <script src="/../encryption/public/js/validation.php"></script>
+   <script src="/../encryption/public/js/forgot_password.php"></script>
 
 </body>
 </html>

@@ -179,30 +179,65 @@ class UserController {
         session_start();
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $username = $_POST['username'] ?? '';
+            $username = trim($_POST['username'] ?? '');
             $password = $_POST['password'] ?? '';
 
-            if (empty($username) || empty($password)) {
-                echo json_encode(['success' => false, 'message' => 'Username and password are required.']);
-                return;
-            } else if (empty($username)){
-                echo json_encode(['success' => false, 'message' => 'Username are required.']);
+            // Both empty
+            if (empty($username) && empty($password)) {
+                echo json_encode(['success' => false, 'message' => 'Username and password are required.', 'errorType' => 'bothEmpty']);
                 return;
             }
 
+            // Username empty
+            if (empty($username)) {
+                echo json_encode(['success' => false, 'message' => 'Username is required.', 'errorType' => 'usernameEmpty']);
+                return;
+            }
+
+            // Password empty
+            if (empty($password)) {
+                echo json_encode(['success' => false, 'message' => 'Password is required.', 'errorType' => 'passwordEmpty']);
+                return;
+            }
+
+            // Check if username exists
             $user = $this->userModel->findByUsername($username);
 
-            if ($user && password_verify($password, $user['password_hash'])) {
-                $_SESSION['user_id'] = $user['id_number'];
-                $_SESSION['username'] = $user['username'];
-                echo json_encode(['success' => true, 'redirect' => 'index.php?action=dashboard']);
-            } else {
-                echo json_encode(['success' => false, 'message' => 'Invalid username or password.']);
+            // Both wrong: username does not exist AND password entered
+            if (!$user && !empty($password)) {
+                echo json_encode(['success' => false, 'message' => 'Username and password are incorrect.', 'errorType' => 'bothWrong']);
+                return;
             }
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+
+            // Username wrong
+            if (!$user) {
+                echo json_encode(['success' => false, 'message' => 'Username not found.', 'errorType' => 'usernameWrong']);
+                return;
+            }
+
+            // Password wrong
+            if (!password_verify($password, $user['password_hash'])) {
+                echo json_encode(['success' => false, 'message' => 'Incorrect password.', 'errorType' => 'passwordWrong']);
+                return;
+            }
+
+            // Success
+            $_SESSION['user_id'] = $user['id_number'];
+            $_SESSION['username'] = $user['username'];
+
+            echo json_encode([
+                'success' => true,
+                'redirect' => 'index.php?action=dashboard'
+            ]);
+            return;
         }
+
+        echo json_encode(['success' => false, 'message' => 'Invalid request method.', 'errorType' => 'invalidMethod']);
     }
+
+
+
+
 
     
     //========================================== Verify ID =====================================
