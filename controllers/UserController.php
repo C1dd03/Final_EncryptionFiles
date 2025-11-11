@@ -172,7 +172,7 @@ public function registerUser() {
         'security_q2' => trim($_POST['security_q2'] ?? ''),
         'security_q3' => trim($_POST['security_q3'] ?? ''),
         'username'    => $username,
-        'password'    => password_hash($password, PASSWORD_DEFAULT) // hashed for security
+        'password'    => $password // pass raw; model will hash once
     ];
 
     // --- INSERT INTO DATABASE ---
