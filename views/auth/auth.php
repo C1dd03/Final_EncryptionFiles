@@ -12,6 +12,7 @@
 
 </head>
 <body>
+  <?php /* Ensure $page is defined to avoid warnings */ $page = $page ?? 'login'; ?>
   <!-- Navbar -->
   <div class="container">
     <div class="navbar">
@@ -24,8 +25,8 @@
     <li><a href="#">Home</a></li>
 
     <?php if (isset($_SESSION['user_id'])): ?>
-      <li><a href="dashboard.php">Dashboard</a></li>
-      <li><a href="logout.php">Logout</a></li>
+      <li><a href="index.php?action=dashboard">Dashboard</a></li>
+      <li><a href="index.php?action=logout">Logout</a></li>
     <?php else: ?>
       <?php if ($page === 'login'): ?>
         <li><a href="index.php?action=register" class="nav-register-link">Register</a></li>

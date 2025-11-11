@@ -51,14 +51,15 @@ header("Expires: 0");
         <label>Username</label>
     </div>
 
-    <div class="input-field">
+    <div class="input-field pass-field" style="position: relative;">
         <input type="password" name="password" class="login-password" placeholder=" " required />
         <label>Password</label>
+        <span class="toggle-password" aria-label="Show Password" title="Show Password" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; user-select:none;">👁️</span>
     </div>
 
     <button type="submit" class="btn_submit">Login</button>
 
-    <p class="toggle-link login-forgot-password">
+    <p class="toggle-link login-forgot-password" id="forgot-link">
         <a href="index.php?action=forgot">Forgot Password?</a>
     </p>
 
@@ -75,10 +76,25 @@ header("Expires: 0");
      JS: Prevent back navigation after login
 ========================================================== -->
 <script>
+    // Back navigation guard (will be strengthened during lock periods)
     if (window.history && window.history.pushState) {
         window.history.pushState(null, "", window.location.href);
         window.onpopstate = function () {
             window.history.pushState(null, "", window.location.href);
         };
     }
+
+    // Show Password toggle
+    (function(){
+      const passInput = document.querySelector('.login-password');
+      const toggle = document.querySelector('.toggle-password');
+      if (toggle && passInput) {
+        toggle.addEventListener('click', () => {
+          const isText = passInput.type === 'text';
+          passInput.type = isText ? 'password' : 'text';
+          toggle.textContent = isText ? '👁️' : '🙈';
+          toggle.setAttribute('title', isText ? 'Show Password' : 'Hide Password');
+        });
+      }
+    })();
 </script>

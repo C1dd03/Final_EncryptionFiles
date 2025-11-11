@@ -34,17 +34,17 @@
     </div>
 
     <div class="input-field">
-      <input type="text" name="first_name" required placeholder=" " />
+      <input type="text" name="first_name" required placeholder=" " pattern="[A-Za-z\s-]+" title="Letters, spaces, and hyphen only" />
       <label class="label">First Name</label>
     </div>
 
     <div class="input-field optional">
-      <input type="text" name="middle_name" placeholder=" " />
+      <input type="text" name="middle_name" required placeholder=" " pattern="[A-Za-z\s-]+" title="Letters, spaces, and hyphen only" />
       <label>Middle Name</label>
     </div>
 
     <div class="input-field">
-      <input type="text" name="last_name" required placeholder=" " />
+      <input type="text" name="last_name" required placeholder=" " pattern="[A-Za-z\s-]+" title="Letters, spaces, and hyphen only" />
       <label>Last Name</label>
     </div>
 
@@ -113,32 +113,32 @@
     <span class="span">Address Information</span>
 
     <div class="input-field">
-      <input type="text" name="street" required placeholder=" " />
+      <input type="text" name="street" required placeholder=" " pattern="[A-Za-z0-9\s\-.]+" title="Letters, numbers, spaces, hyphen, and dot only" />
       <label>Purok/Street</label>
     </div>
 
     <div class="input-field">
-      <input type="text" name="barangay" required placeholder=" " />
+      <input type="text" name="barangay" required placeholder=" " pattern="[A-Za-z\s-]+" title="Letters, spaces, and hyphen only" />
       <label>Barangay</label>
     </div>
 
     <div class="input-field">
-      <input type="text" name="city" required placeholder=" " />
+      <input type="text" name="city" required placeholder=" " pattern="[A-Za-z\s-]+" title="Letters, spaces, and hyphen only" />
       <label>Municipal/City</label>
     </div>
 
     <div class="input-field">
-      <input type="text" name="province" required placeholder=" " />
+      <input type="text" name="province" required placeholder=" " pattern="[A-Za-z\s-]+" title="Letters, spaces, and hyphen only" />
       <label>Province</label>
     </div>
 
     <div class="input-field">
-      <input type="text" name="country" required placeholder=" " />
+      <input type="text" name="country" required placeholder=" " pattern="[A-Za-z\s-]+" title="Letters, spaces, and hyphen only" />
       <label>Country</label>
     </div>
 
     <div class="input-field">
-      <input type="text" name="zip" required placeholder=" " />
+      <input type="text" name="zip" required placeholder=" " pattern="[0-9]{4,6}" inputmode="numeric" title="4-6 digit Zip Code" />
       <label>Zip Code</label>
     </div>
 
