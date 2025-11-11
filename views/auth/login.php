@@ -76,19 +76,47 @@ $_SESSION['login_failed'] = true;
 
 -->
 <script>
-  // Prevent going back to login page after login
-  // if (window.history && window.history.pushState) {
-  //   window.history.pushState(null, "", window.location.href);
-  //   window.onpopstate = function () {
-  //     window.history.pushState(null, "", window.location.href);
-  //   };
-  // }
-
-
-  /* =========================== CHANGE disable back browser button ================================== */
-  // Prevent going back to login page after login
-    history.pushState(null, null, location.href);
-    window.onpopstate = function () {
-    history.go(1);
-  };
+  // Prevent navigation back to dashboard after logout
+  (function() {
+    // Check if we came from logout
+    var urlParams = new URLSearchParams(window.location.search);
+    var isLogout = urlParams.get('logout') === '1';
+    
+    if (isLogout) {
+      // Replace current history entry to remove dashboard from browser history
+      // This prevents the back button from going back to dashboard
+      var cleanUrl = window.location.pathname + '?action=login';
+      if (window.history.replaceState) {
+        window.history.replaceState(null, null, cleanUrl);
+      }
+    }
+    
+    // Push current state to prevent back navigation
+    window.history.pushState(null, null, window.location.href);
+    
+    // Handle back button press - prevent navigation to dashboard
+    window.onpopstate = function(event) {
+      // Push forward again to prevent back navigation
+      window.history.pushState(null, null, window.location.href);
+      
+      // If somehow navigating to dashboard, redirect to login immediately
+      // Server-side will also check session, but this adds client-side protection
+      var currentUrl = window.location.href;
+      if (currentUrl.indexOf('action=dashboard') !== -1) {
+        window.location.replace('index.php?action=login');
+      }
+    };
+    
+    // Handle browser back/forward cache
+    window.addEventListener('pageshow', function(event) {
+      // If page was loaded from cache, check URL
+      if (event.persisted) {
+        var currentUrl = window.location.href;
+        // If cached page is dashboard, redirect to login (session will be invalid)
+        if (currentUrl.indexOf('action=dashboard') !== -1) {
+          window.location.replace('index.php?action=login');
+        }
+      }
+    });
+  })();
 </script>
