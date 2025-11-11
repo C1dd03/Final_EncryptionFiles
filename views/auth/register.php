@@ -14,7 +14,7 @@
 
   <!-- Step 1: Personal Info -->
   <div class="step step-1 active">
-    <span>Personal Information </span>
+    <span class="span">Personal Information </span>
 
     <div class="input-field static-label">
       <label>User ID <small>*</small></label>
@@ -98,7 +98,7 @@
 
   <!-- Step 2: Address Info -->
   <div class="step step-2">
-    <span>Address Information</span>
+    <span class="span">Address Information</span>
 
     <div class="input-field">
       <input type="text" name="street" required placeholder=" " />
@@ -138,7 +138,7 @@
 
   <!-- Step 3: Security Questions -->
   <div class="step step-3">
-  <span>Security Questions</span>
+  <span class="span">Security Questions</span>
 
   <div class="input-field">
     <input type="password" id="security_q1" name="security_q1" required placeholder=" " />
@@ -167,7 +167,7 @@
 
   <!-- Step 4: Account Info -->
   <div class="step step-4">
-    <span>Account Information</span>
+    <span class="span">Account Information</span>
 
     <div class="input-field">
       <input type="text" name="username" required placeholder=" " />
@@ -214,64 +214,91 @@
 
 
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
+
+document.addEventListener("DOMContentLoaded", () => {
   const usernameInput = document.querySelector("input[name='username']");
   const form = document.querySelector(".register-form");
+  const USERNAME_MIN = 3;
+  const USERNAME_MAX = 50;
 
-  // Create or get the inline error span
+  // Inline error span
   let usernameError = document.getElementById("username-error");
   if (!usernameError) {
     usernameError = document.createElement("span");
     usernameError.id = "username-error";
     usernameError.style.color = "red";
     usernameError.style.fontSize = "12px";
+    usernameError.style.textDecoration = "none";
     usernameInput.parentNode.appendChild(usernameError);
   }
 
-  // Check username on blur
-  usernameInput.addEventListener("blur", () => {
+  const validateUsername = (username) => {
+    if (username === "") return "Username cannot be empty.";
+    if (username.length < USERNAME_MIN) return `Username must be at least ${USERNAME_MIN} characters.`;
+    if (username.length > USERNAME_MAX) return `Username cannot exceed ${USERNAME_MAX} characters.`;
+    if (!/^[A-Za-z]/.test(username)) return "Username: Must start with a letter.";
+    if (!/^[A-Za-z0-9._-]+$/.test(username)) return "Username: Letters, numbers, ., _, - only.";
+    if (/\.\.|__|--|\._|_\./.test(username)) return "Username: No consecutive symbols.";
+    if (!/[a-zA-Z]/.test(username)) return "Username must contain at least one letter.";
+    return null;
+  };
+
+  const nextField = usernameInput.closest(".input-field").nextElementSibling?.querySelector("input");
+
+  usernameInput.addEventListener("blur", async () => {
     const username = usernameInput.value.trim();
-    if (username === "") {
-      usernameInput.dataset.taken = "false";
-      usernameError.textContent = "";
+    usernameError.textContent = "";
+
+    // Run validation
+    const error = validateUsername(username);
+    if (error) {
+      usernameError.textContent = error;
+      usernameInput.dataset.taken = "true";
+      if (nextField) nextField.disabled = true; // prevent moving
+      usernameInput.focus();
       return;
     }
 
-
-
-    fetch("index.php?action=checkUsername", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "username=" + encodeURIComponent(username)
-    })
-    .then(response => response.text())
-    .then(result => {
+    // AJAX check
+    try {
+      const response = await fetch("index.php?action=checkUsername", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "username=" + encodeURIComponent(username)
+      });
+      const result = await response.text();
       if (result === "taken") {
+        usernameError.textContent = "Username is already taken.";
         usernameInput.dataset.taken = "true";
-        usernameError.textContent = "Username is already taken. Please choose another.";
+        if (nextField) nextField.disabled = true;
         usernameInput.focus();
       } else {
-        usernameInput.dataset.taken = "false";
         usernameError.textContent = "";
+        usernameInput.dataset.taken = "false";
+        if (nextField) nextField.disabled = false;
       }
-    })
-    .catch(error => {
-      console.error("AJAX Error:", error);
+    } catch (err) {
+      console.error("AJAX Error:", err);
       usernameInput.dataset.taken = "false";
-    });
+      if (nextField) nextField.disabled = false;
+    }
   });
 
-  // Prevent form submission if username is taken
   form.addEventListener("submit", (e) => {
-    if (usernameInput.dataset.taken === "true") {
+    const username = usernameInput.value.trim();
+    const error = validateUsername(username);
+    if (usernameInput.dataset.taken === "true" || error) {
       e.preventDefault();
-      usernameError.textContent = "⚠️ Please choose a different username before submitting.";
+      usernameError.textContent = error || "Please choose a different username.";
       usernameInput.focus();
     }
   });
 });
 
+
 </script>
+
+
 <script>
   // Clear form on initial load to avoid stale values
   document.addEventListener('DOMContentLoaded', function () {

@@ -103,12 +103,40 @@ function validateExtension(input) {
     }
 
     if (["first_name", "middle_name", "last_name"].includes(input.name)) {
-      if (input.name === "middle_name" && value === "") return null;
-      if (!/^[A-Za-z\s]+$/.test(value)) return `${fieldName}: Only letters and spaces allowed.`;
-      if (/\s{2,}/.test(value)) return `${fieldName}: No double spaces.`;
-      if (tripleLetterPattern.test(value.toLowerCase())) return `${fieldName}: No 3 same letters in a row.`;
+      if (input.name === "middle_name" && value === "") return null; // optional middle name
+
+      // Capitalize the first letter of fieldName
+      const formattedFieldName = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
+
+      // Only letters and spaces
+      if (!/^[A-Za-z\s]+$/.test(value))
+        return `${formattedFieldName}: Only letters and spaces allowed.`;
+
+      // No double spaces
+      if (/\s{2,}/.test(value))
+        return `${formattedFieldName}: No double spaces.`;
+
+      // No 3 same letters in a row
+      if (tripleLetterPattern.test(value.toLowerCase()))
+        return `${formattedFieldName}: No 3 same letters in a row.`;
+
+      // ✅ Middle name can be 1 letter (e.g., "D")
+      if (input.name === "middle_name" && value.length === 1 && /^[A-Za-z]$/.test(value)) {
+        return null;
+      }
+
+      // Minimum length for first and last names
+      if (["first_name", "last_name"].includes(input.name) && value.length < 2)
+        return `${formattedFieldName}: Must be at least 2 letters long.`;
+
+      // Maximum length for first and last names
+      if (["first_name", "last_name", "middle_name"].includes(input.name) && value.length > 50)
+        return `${formattedFieldName}: Cannot exceed 50 characters.`;
+
       return null;
     }
+
+
 
     /*** ✅ EXTENSION VALIDATION FIXED + IMPROVED ***/
     if (input.name === "extension") {
@@ -131,59 +159,204 @@ function validateExtension(input) {
       return null;
     }
 
-    /*** Address Field Validations ***/
-if (input.name === "barangay") {
-  // Must start with a letter, can contain letters, numbers, spaces, period, hyphen, comma, apostrophe
-  const barangayPattern = /^[A-Za-zñÑ][A-Za-z0-9ñÑ.\-,'\s]*$/;
 
-  if (!barangayPattern.test(value)) return "Invalid Barangay format.";
-  if (/([.\-\/,])\1/.test(value)) return "No double special characters.";
-  input.value = value.replace(/\s+$/, "");
-  return null;
-}
 
 if (input.name === "street") {
-  // Must start with a letter, can contain letters, numbers, spaces, period, hyphen, comma, apostrophe
-  const streetPattern = /^[A-Za-zñÑ][A-Za-z0-9ñÑ.\-,'\s]*$/;
+  value = value.trim();
+  
+  // 0. Minimum realistic length
+  if (value.length < 3)
+    return "Purok/Street: Must be at least 3 characters long.";
 
-  if (!streetPattern.test(value)) return "Invalid Purok/Street format.";
-  if (/([.\-\/,])\1/.test(value)) return "No double special characters.";
+  if (value.length > 100)
+    return "Purok/Street: Cannot exceed 100 characters.";
+
+  // 1. Must start with a letter
+  if (!/^[A-Za-zñÑ]/.test(value))
+    return "Purok/Street: Must start with a letter (e.g., Main Street, Riverside, Purok 1).";
+
+  // 2. Allowed characters
+  const allowedPattern = /^[A-Za-z0-9ñÑ\s.\-,'/]+$/;
+  if (!allowedPattern.test(value))
+    return "Purok/Street: Only letters, numbers, spaces, and symbols (. , - ' /) are allowed.";
+
+  // 3. Cannot end with a symbol
+  if (!/[A-Za-z0-9ñÑ]$/.test(value))
+    return "Purok/Street: Cannot end with a symbol.";
+
+  // 4. No double symbols or symbols stuck together
+  if (/([.\-\/,'])(\s*[\-\/,'])/.test(value))
+    return "Purok/Street: No double symbols or symbols stuck together allowed.";
+
+  // 6. No extra spaces
+  if (/\s{2,}/.test(value))
+    return "Purok/Street: Extra spaces not allowed.";
+
+  // 7. No three consecutive identical letters (case-insensitive)
+  if (/(.)\1\1/i.test(value))
+    return "Purok/Street: No three consecutive identical letters.";
+
+  // 8. Split into words and validate numbers inside words
+  const words = value.split(/\s+/);
+  for (let word of words) {
+    // a) Numbers followed by letters without space
+    if (/^\d+[A-Za-zñÑ]+$/.test(word)) {
+      const num = parseInt(word, 10);
+      const suffix = word.slice(word.length - 2).toLowerCase();
+
+      // Check valid ordinals
+      const isValidOrdinal =
+        (num % 10 === 1 && suffix === "st" && num % 100 !== 11) ||
+        (num % 10 === 2 && suffix === "nd" && num % 100 !== 12) ||
+        (num % 10 === 3 && suffix === "rd" && num % 100 !== 13) ||
+        ((num % 10 > 3 || num % 10 === 0 || (num % 100 >= 11 && num % 100 <= 13)) && suffix === "th");
+
+      // 1. If not a valid ordinal, check for space needed
+      // If not a valid ordinal
+      if (!isValidOrdinal) {
+        // Allow numbers followed by exactly 2 letters (e.g., 1sd)
+        if (!/^\d+[A-Za-zñÑ]{2}$/.test(word)) {
+          return "Purok/Street: Add a space between numbers and letters (e.g., 2 Valley).";
+        }
+      }
+
+      // 2. If not proper ordinal, also show numbers must be proper (optional)
+      // (Can be merged depending on user-friendly message preference)
+      if (!isValidOrdinal) {
+        return "Purok/Street: Numbers must be used properly (e.g., 1st, 2nd, 3rd, 4th).";
+      }
+    }
+
+    // b) Numbers inside words (e.g., "pu1rok")
+    if (/[A-Za-zñÑ]+\d+[A-Za-zñÑ]+/.test(word)) {
+      return "Purok/Street: Numbers cannot be inside words.";
+    }
+  }
+
+
+  return null;
+}
+
+
+/*** Barangay Field Validations ***/
+if (input.name === "barangay") {
+  // Trim spaces first
+  value = value.trim();
+
+  // 0. Minimum realistic length
+  if (value.length < 3)
+    return "Barangay: Must be at least 3 characters long.";
+
+  if (value.length > 50)
+    return "Barangay: Cannot exceed 50 characters.";
+
+  // 1. Must start with a letter
+  if (!/^[A-Za-zñÑ]/.test(value))
+    return "Barangay: Must start with a letter (e.g., San Jose, Mabini).";
+
+  // 2. Allowed characters: letters, numbers, spaces, period, hyphen
+  const allowedPattern = /^[A-Za-z0-9ñÑ\s.\-]+$/;
+  if (!allowedPattern.test(value))
+    return "Barangay: Only letters, numbers, spaces, . and - are allowed.";
+
+  // 3. Cannot end with a symbol
+  if (!/[A-Za-z0-9ñÑ]$/.test(value))
+    return "Barangay: Cannot end with a symbol.";
+
+  // 4. No double symbols or symbols stuck together
+  if (/([.\-])(\s*[\.-])/.test(value))
+    return "Barangay: No double symbols or symbols stuck together allowed.";
+
+  // 5. No extra spaces
+  if (/\s{2,}/.test(value))
+    return "Barangay: Extra spaces not allowed.";
+
+  // 6. No three consecutive identical letters (case-insensitive)
+  if (/(.)\1\1/i.test(value))
+    return "Barangay: No three consecutive identical letters.";
+
+  // 7. Split into words and check numbers inside words
+  const words = value.split(/\s+/);
+  for (let word of words) {
+    // a) Numbers stuck inside letters (e.g., Pu1rok)
+    if (/[A-Za-zñÑ]+\d+[A-Za-zñÑ]+/.test(word)) {
+      return "Barangay: Numbers cannot be inside words (e.g., Pu1rok is invalid).";
+    }
+
+    // b) Numbers followed by letters without space (e.g., 2Valley)
+    if (/^\d+[A-Za-zñÑ]+$/.test(word)) {
+      // Allow numbers followed by exactly 2 letters (e.g., 1sd)
+      if (!/^\d+[A-Za-zñÑ]{2}$/.test(word)) {
+        return "Barangay: Add a space between numbers and letters (e.g., 2 Valley).";
+      }
+    }
+  }
+
+  // Trim trailing spaces
   input.value = value.replace(/\s+$/, "");
   return null;
 }
 
-    function validateLocationField(input, label) {
-      let value = input.value.trim();
 
-      // ✅ Allow letters (A–Z, Ñ, accented letters), space, hyphen, period, apostrophe
-      const pattern = /^[A-Za-zÀ-ÿñÑ.'\-\s]+$/;
 
-      // ❌ Disallow consecutive or misplaced special characters
-      const invalidPattern = /(\.\.|--|''|,,|-\s|-\.|\.|-['\s]|['\s]-|['.]{2,}|^[\-\.\',]|[\-\.\',]$)/;
+function validateLocationField(input, label) {
+  let value = input.value.trim();
 
-      // ❌ Disallow 3 or more same consecutive letters (e.g., LLL, sss)
-      const repeatedLetters = /([A-Za-zñÑ])\1{2,}/;
+  // 0. Minimum realistic length
+  if (value.length < 3){
+    return `${label}: Must be at least 3 characters long.`;
+  }
 
-      if (!pattern.test(value) || invalidPattern.test(value) || repeatedLetters.test(value)) {
-        return `${label}: Invalid characters or invalid format detected.`;
-      }
+  if (value.length > 56){
+    return `${label}: Cannot exceed 56 characters.`;
+  }
+  
+  if (value === "") {
+    return `${label}: This field is required.`;
+  }
 
-      input.value = value.trimEnd();
-      return null;
-    }
+  // 1 Numbers not allowed
+  if (/\d/.test(value)) {
+    return `${label}: Numbers are not allowed.`;
+  }
 
-    // ✅ Usage example:
-    if (input.name === "city") {
-      return validateLocationField(input, "City/Municipality");
-    }
+  // 2 Special characters not allowed (only letters and spaces)
+  if (/[^A-Za-zÀ-ÿñÑ\s]/.test(value)) {
+    return `${label}: Special characters are not allowed.`;
+  }
 
-    if (input.name === "province") {
-      return validateLocationField(input, "Province");
-    }
+  // 3 No extra spaces
+  if (/\s{2,}/.test(value)) {
+    return `${label}: Extra spaces are not allowed.`;
+  }
 
-    if (input.name === "country") {
-      return validateLocationField(input, "Country");
-    }
+  // 4 No three consecutive identical letters (case-insensitive)
+  if (/([A-Za-zñÑ])\1{2,}/i.test(value)) {
+    return `${label}: No three consecutive identical letters.`;
+  }
+
+  // 5 Must start and end with a letter
+  if (!/^[A-Za-zñÑ]/.test(value) || !/[A-Za-zñÑ]$/.test(value)) {
+    return `${label}: Must start and end with a letter.`;
+  }
+
+  input.value = value.trimEnd();
+  return null;
+}
+
+// ✅ Usage example:
+if (input.name === "city") {
+  return validateLocationField(input, "City/Municipality");
+}
+
+if (input.name === "province") {
+  return validateLocationField(input, "Province");
+}
+
+if (input.name === "country") {
+  return validateLocationField(input, "Country");
+}
+
 
 
    const zipInput = document.querySelector('input[name="zip"]');
@@ -215,6 +388,10 @@ if (input.name === "street") {
 
     return null;
   }
+
+
+
+
 
   /*** Step Validation ***/
   function validateStep(step) {

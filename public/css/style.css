@@ -513,7 +513,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 }
 
 /* Step titles */
-span{
+.span{
   border-bottom: 2px solid #ff692a;
   margin: 10px 0 10px 0;
 }
