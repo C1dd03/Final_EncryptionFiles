@@ -126,7 +126,7 @@ class User {
 /* ========================== ADD LOGIN MODEL ======================== */
     public function findByUsername($username) {
     
-        $sql = "SELECT * FROM users WHERE username = :username";
+        $sql = "SELECT * FROM users WHERE BINARY username = :username";
     
         $stmt = $this->conn->prepare($sql);
     

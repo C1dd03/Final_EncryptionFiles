@@ -1,4 +1,4 @@
-// Login attempt handling with escalating lockouts and UI controls
+// Login attempt handling with full back button lockout
 (function(){
   const form = document.querySelector('.login-form');
   if (!form) return;
@@ -10,7 +10,7 @@
   const registerLink = document.querySelector('.register-link a');
   const msgEl = document.getElementById('login-message');
 
-  const DURATIONS = [15, 30, 60]; // seconds for stages 1..3
+  const DURATIONS = [10, 20, 30]; // seconds for stages 1..3
   const LS_KEYS = {
     failCount: 'loginFailCount',
     stage: 'loginLockStage',
@@ -22,96 +22,134 @@
   const setInt = (k, v) => localStorage.setItem(k, String(v));
   const clearKey = (k) => localStorage.removeItem(k);
 
+  // -------------------
+  // Lock logic
+  // -------------------
   function isLocked(){
     const until = getInt(LS_KEYS.lockUntil);
     return until && now() < until;
   }
 
   function remainingMs(){
-    const until = getInt(LS_KEYS.lockUntil);
-    return Math.max(0, until - now());
+    return Math.max(0, getInt(LS_KEYS.lockUntil) - now());
   }
 
   function updateCountdown(){
-    const ms = remainingMs();
-    const s = Math.ceil(ms / 1000);
+    const s = Math.ceil(remainingMs() / 1000);
     msgEl.textContent = s > 0 ? `Access denied. Please wait ${s}s.` : '';
   }
 
+  // -------------------
+  // Block keys (reload/back)
+  // -------------------
+  function blockKeys(e){
+    const key = e.key.toLowerCase();
+    const isBackCombo = (e.altKey && key === 'arrowleft') || key === 'browserback' || key === 'goback' || key === 'backspace';
+    if (key === 'f5' || (e.ctrlKey && key === 'r') || isBackCombo) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+
+  // -------------------
+  // Fully block back button using dummy states
+  // -------------------
+  function disableBackCompletely(){
+    if (!(window.history && window.history.pushState)) return;
+
+    // Push multiple dummy states
+    for (let i = 0; i < 20; i++) {
+      window.history.pushState({dummy: i}, document.title, window.location.href);
+    }
+
+    window.onpopstate = function(e){
+      if (isLocked()) {
+        // Go forward immediately to stay on page
+        setTimeout(() => window.history.go(1), 0);
+      }
+    };
+  }
+
+  // -------------------
+  // UI control
+  // -------------------
   function disableUI(){
+
+    // Disable navbar links during lockout
+    const navbarLinks = document.querySelectorAll('nav a'); // adjust selector if needed
+    navbarLinks.forEach(link => {
+        link.style.pointerEvents = 'none'; // prevent click
+        link.style.opacity = '0.5';        // visually indicate disabled
+        link.dataset.locked = 'true';      // custom attribute to track state
+    });
+
     if (submitBtn) submitBtn.disabled = true;
+    if (usernameInput) usernameInput.disabled = true;
+    if (passwordInput) passwordInput.disabled = true;
     if (registerLink) {
       registerLink.style.pointerEvents = 'none';
       registerLink.style.opacity = '0.5';
     }
     if (forgotLink) forgotLink.style.display = 'none';
 
-    // Block reload/back while locked
-    window.onbeforeunload = function(){ return 'Login temporarily locked'; };
-    window.addEventListener('keydown', blockReloadKeys);
-    if (window.history && window.history.pushState) {
-      window.history.pushState(null, document.title, window.location.href);
-      window.onpopstate = function(){ window.history.pushState(null, document.title, window.location.href); };
-    }
+    window.addEventListener('keydown', blockKeys);
+    disableBackCompletely();
   }
 
   function enableUI(){
+
+    // Restore navbar links after lockout
+    const navbarLinks = document.querySelectorAll('nav a[data-locked="true"]');
+    navbarLinks.forEach(link => {
+        link.style.pointerEvents = '';
+        link.style.opacity = '';
+        link.removeAttribute('data-locked');
+    });
+
     if (submitBtn) submitBtn.disabled = false;
+    if (usernameInput) usernameInput.disabled = false;
+    if (passwordInput) passwordInput.disabled = false;
     if (registerLink) {
       registerLink.style.pointerEvents = '';
       registerLink.style.opacity = '';
     }
     if (forgotLink) forgotLink.style.display = '';
-    window.onbeforeunload = null;
-    window.removeEventListener('keydown', blockReloadKeys);
-    if (window.history && window.history.pushState) {
-      window.onpopstate = null;
-    }
+
+    window.removeEventListener('keydown', blockKeys);
+    window.onpopstate = null;
     msgEl.textContent = '';
   }
 
-  function blockReloadKeys(e){
-    const key = e.key.toLowerCase();
-    if (key === 'f5' || (e.ctrlKey && key === 'r')) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  }
-
+  // -------------------
+  // Start lockout
+  // -------------------
   function startLock(durationSec){
     const until = now() + durationSec * 1000;
     setInt(LS_KEYS.lockUntil, until);
     disableUI();
     updateCountdown();
-    const timer = setInterval(function(){
-      updateCountdown();
+
+    const timer = setInterval(() => {
       if (!isLocked()) {
         clearInterval(timer);
-        // Reset only failCount; keep stage for next escalation
-        setInt(LS_KEYS.failCount, 0);
         clearKey(LS_KEYS.lockUntil);
+        setInt(LS_KEYS.failCount, 0); // reset fail count
         enableUI();
         msgEl.textContent = 'You may try logging in again.';
+      } else {
+        updateCountdown();
       }
     }, 250);
   }
 
   function applyExistingLock(){
-    if (isLocked()) {
-      disableUI();
-      updateCountdown();
-      const timer = setInterval(function(){
-        updateCountdown();
-        if (!isLocked()) { clearInterval(timer); enableUI(); msgEl.textContent = 'You may try logging in again.'; }
-      }, 250);
-    } else {
-      enableUI();
-    }
+    if (isLocked()) startLock(Math.ceil(remainingMs() / 1000));
+    else enableUI();
   }
 
-  // On load, apply any lock state
-  applyExistingLock();
-
+  // -------------------
+  // Forgot password link logic
+  // -------------------
   function showForgotOnSecondFail(){
     const count = getInt(LS_KEYS.failCount);
     if (count % 3 === 2 && !isLocked()) {
@@ -121,8 +159,12 @@
     }
   }
 
+  // -------------------
+  // Handle submit
+  // -------------------
   async function handleSubmit(){
-    if (isLocked()) return; // ignore clicks while locked
+    if (isLocked()) return;
+
     const uname = usernameInput.value.trim();
     const pass = passwordInput.value;
 
@@ -138,25 +180,23 @@
         body: `username=${encodeURIComponent(uname)}&password=${encodeURIComponent(pass)}`
       });
       const data = await resp.json();
+
       if (data && data.success) {
-        // success: clear counters and redirect
-        setInt(LS_KEYS.failCount, 0);
         clearKey(LS_KEYS.lockUntil);
-        // Reset stage so next lock starts at 15s
+        setInt(LS_KEYS.failCount, 0);
         setInt(LS_KEYS.stage, 0);
         window.location.href = data.redirect || 'index.php?action=dashboard';
         return;
       }
 
-      // failure handling
+      // Failed login
       const newCount = getInt(LS_KEYS.failCount) + 1;
       setInt(LS_KEYS.failCount, newCount);
       msgEl.textContent = (data && data.message) ? data.message : 'Invalid username or password.';
 
-      // Show forgot link on 2nd consecutive fail (per block)
       showForgotOnSecondFail();
 
-      // On every 3rd fail, start a lock with escalating duration
+      // Escalate lockout every 3 fails
       if (newCount % 3 === 0) {
         let stage = getInt(LS_KEYS.stage);
         const duration = DURATIONS[Math.min(stage, DURATIONS.length - 1)];
@@ -164,11 +204,14 @@
         setInt(LS_KEYS.stage, Math.min(stage + 1, DURATIONS.length - 1));
       }
 
-    } catch (e) {
+    } catch (err) {
       msgEl.textContent = 'Network error. Please try again.';
     }
   }
 
-  // Bind submit
-  form.addEventListener('submit', function(e){ e.preventDefault(); handleSubmit(); });
+  // -------------------
+  // Bind submit & initialize
+  // -------------------
+  form.addEventListener('submit', e => { e.preventDefault(); handleSubmit(); });
+  applyExistingLock();
 })();
