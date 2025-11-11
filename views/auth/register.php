@@ -5,6 +5,18 @@
   header("Pragma: no-cache");
   header("Expires: 0");
 ?>
+<?php if (!empty($successAlert)): ?>
+  <script>
+    // Wait until the page has fully loaded so the layout is visible
+    window.addEventListener('load', function () {
+      // Give the browser a moment to paint the page before blocking with alert
+      requestAnimationFrame(function () {
+        alert("<?= htmlspecialchars($successAlert) ?>");
+        window.location.href = "index.php?action=login";
+      });
+    });
+  </script>
+<?php endif; ?>
 <form class="register-form" action="index.php?action=registerUser" method="post" onsubmit="return handleSubmit(this)" novalidate>
    <?php if (!empty($error)): ?>
       <p style="color:red; margin-bottom:10px;"><?php echo $error; ?></p>

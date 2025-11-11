@@ -121,20 +121,12 @@ public function registerUser() {
     $insertResult = $this->userModel->insertUser($data);
 
     if ($insertResult) {
-        // ✅ Show popup alert and redirect after user clicks OK
-        echo '<!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>Registration Successful</title>
-        </head>
-        <body>
-            <script>
-                alert("🎉 Registration successful! Please log in.");
-                window.location.href = "index.php?action=login";
-            </script>
-        </body>
-        </html>';
+        // ✅ Render the register page layout, show alert, then redirect to login
+        // This prevents a blank white page and keeps styling consistent
+        $successAlert = "Registration successful! Please log in.";
+        $formView = "register.php";
+        $page = 'register';
+        require __DIR__ . '/../views/auth/auth.php';
         exit;
     } else {
         $error = "Registration failed. Please try again.";
