@@ -1,0 +1,55 @@
+<?php
+require_once __DIR__ . '/../controllers/UserController.php';
+
+$controller = new UserController();
+
+$action = $_GET['action'] ?? 'login';
+
+switch ($action) {
+    case 'register':
+        $controller->showRegister();
+        break;
+    case 'login':
+        $controller->showLogin();
+        break;
+    case 'loginUser':
+        // Handle AJAX login requests
+        $controller->loginUser();
+        break;
+    case 'forgot':
+        $controller->showForgotPassword();
+        break;
+    case 'registerUser': // 👈 new route
+        $controller->registerUser();
+        break;
+    case 'checkUsername':
+        $controller->checkUsername();
+        break;
+    case 'dashboard':
+        // Show dashboard after successful login
+        require __DIR__ . '/../views/dashboard/dashboard.php';
+        break;
+    case 'logout':
+        $controller->logout();
+        break;
+    
+    case 'dashboard':
+        require_once __DIR__ . '/../views/dashboard/dashboard.php';
+        break;
+
+    case 'verifyId':
+        $controller->verifyId();
+        break;
+
+    case 'verifySecurityAnswers':
+        $controller->verifySecurityAnswers();
+        break;
+    
+    case 'resetPassword':
+        $controller->resetPassword();
+        break;
+
+    default:
+        $controller->showLogin();
+        break;
+}

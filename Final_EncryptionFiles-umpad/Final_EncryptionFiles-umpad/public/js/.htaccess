@@ -1,0 +1,31 @@
+# Protect reset-form.js from direct access
+<Files "login-incorrect-atmp.js">
+    RewriteEngine On
+
+    # Allow only if referer contains your domain
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?yourdomain\.com/ [NC]
+    RewriteRule .* /encryption/public/404.html [R=302,L]
+</Files>
+
+# Protect reset-form.js from direct access
+<Files "reset-form.js">
+    RewriteEngine On
+
+    # Allow only if referer contains your domain
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?yourdomain\.com/ [NC]
+    RewriteRule .* /encryption/public/404.html [R=302,L]
+</Files>
+<Files "validation.js">
+    RewriteEngine On
+
+    # Allow only if referer contains your domain
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?yourdomain\.com/ [NC]
+    RewriteRule .* /encryption/public/404.html [R=302,L]
+</Files>
+<Files "forgot_password.js">
+    RewriteEngine On
+
+    # Allow only if referer contains your domain
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?yourdomain\.com/ [NC]
+    RewriteRule .* /encryption/public/404.html [R=302,L]
+</Files>
