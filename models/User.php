@@ -135,4 +135,34 @@ class User {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     
     }
+
+    public function findByIdNumber($id_number) {
+        $sql = "SELECT * FROM users WHERE id_number = :id LIMIT 1";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([':id' => $id_number]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function idExists($id_number) {
+        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM users WHERE id_number = :id_number");
+        $stmt->execute([':id_number' => $id_number]);
+        return $stmt->fetchColumn() > 0;
+    }
+
+    // Fetch hashed answer for a given question
+    public function getAuthAnswerHash($id_number, $question_id) {
+        $sql = "SELECT answer_hash FROM user_auth_answers WHERE id_number = :id AND question_id = :qid LIMIT 1";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([':id' => $id_number, ':qid' => $question_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ? $row['answer_hash'] : null;
+    }
+
+    // Update user's password by username
+    public function updatePasswordById($id_number, $raw_password) {
+        $hash = password_hash($raw_password, PASSWORD_BCRYPT);
+        $sql = "UPDATE users SET password_hash = :hash WHERE id_number = :id";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute([':hash' => $hash, ':id' => $id_number]);
+    }
 }

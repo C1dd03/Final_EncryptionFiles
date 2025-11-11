@@ -19,11 +19,20 @@ switch ($action) {
     case 'forgot':
         $controller->showForgotPassword();
         break;
+    case 'verifySecurityAnswer':
+        $controller->verifySecurityAnswer();
+        break;
+    case 'updatePassword':
+        $controller->updatePassword();
+        break;
     case 'registerUser': // 👈 new route
         $controller->registerUser();
         break;
     case 'checkUsername':
         $controller->checkUsername();
+        break;
+    case 'checkId':
+        $controller->checkId();
         break;
     case 'dashboard':
         // Show dashboard after successful login

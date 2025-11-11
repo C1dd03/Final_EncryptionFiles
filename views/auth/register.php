@@ -39,7 +39,7 @@
     </div>
 
     <div class="input-field optional">
-      <input type="text" name="middle_name" required placeholder=" " pattern="[A-Za-z\s-]+" title="Letters, spaces, and hyphen only" />
+      <input type="text" name="middle_name" placeholder=" " pattern="[A-Za-z\s-]+" title="Letters, spaces, and hyphen only" />
       <label>Middle Name</label>
     </div>
 

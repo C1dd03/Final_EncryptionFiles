@@ -10,7 +10,7 @@
   const registerLink = document.querySelector('.register-link a');
   const msgEl = document.getElementById('login-message');
 
-  const DURATIONS = [1, 1, 1]; // seconds for stages 1..3
+  const DURATIONS = [5, 10, 15]; // seconds for stages 1..3
   const LS_KEYS = {
     failCount: 'loginFailCount',
     stage: 'loginLockStage',

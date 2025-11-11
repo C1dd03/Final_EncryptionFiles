@@ -31,6 +31,64 @@ class UserController {
         require __DIR__ . '/../views/auth/auth.php';
     }
 
+    // Verify security answer
+    public function verifySecurityAnswer() {
+        header('Content-Type: application/json');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            return;
+        }
+        $idNumber = trim($_POST['id_number'] ?? '');
+        $questionId = intval($_POST['question_id'] ?? 0);
+        $answer = trim($_POST['answer'] ?? '');
+
+        if ($idNumber === '' || $questionId < 1 || $questionId > 3 || $answer === '') {
+            echo json_encode(['success' => false, 'message' => 'Missing or invalid parameters.']);
+            return;
+        }
+
+        $user = $this->userModel->findByIdNumber($idNumber);
+        if (!$user) {
+            echo json_encode(['success' => false, 'message' => 'User not found.']);
+            return;
+        }
+
+        $hash = $this->userModel->getAuthAnswerHash($idNumber, $questionId);
+        if (!$hash) {
+            echo json_encode(['success' => false, 'message' => 'Security answer not set.']);
+            return;
+        }
+
+        $ok = password_verify($answer, $hash);
+        echo json_encode(['success' => $ok, 'message' => $ok ? 'Answer verified.' : 'Incorrect answer.']);
+    }
+
+    // Update password after successful verification
+    public function updatePassword() {
+        header('Content-Type: application/json');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            return;
+        }
+        $idNumber = trim($_POST['id_number'] ?? '');
+        $newPassword = $_POST['new_password'] ?? '';
+
+        if ($idNumber === '' || $newPassword === '') {
+            echo json_encode(['success' => false, 'message' => 'Missing parameters.']);
+            return;
+        }
+
+        // Validate password strength
+        $pwdRegex = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/';
+        if (!preg_match($pwdRegex, $newPassword)) {
+            echo json_encode(['success' => false, 'message' => 'Password does not meet strength requirements.']);
+            return;
+        }
+
+        $ok = $this->userModel->updatePasswordById($idNumber, $newPassword);
+        echo json_encode(['success' => $ok, 'message' => $ok ? 'Password updated.' : 'Failed to update password.']);
+    }
+
 // ✅ Handle Registration (POST)
 public function registerUser() {
     session_start(); // start session for flash message
@@ -135,15 +193,25 @@ public function registerUser() {
     }
 }
 
-// ✅ AJAX Username Check
-public function checkUsername() {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
-        $username = trim($_POST['username']);
-        $exists = $this->userModel->usernameExists($username);
-        echo $exists ? "taken" : "available";
+    // ✅ AJAX Username Check
+    public function checkUsername() {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
+            $username = trim($_POST['username']);
+            $exists = $this->userModel->usernameExists($username);
+            echo $exists ? "taken" : "available";
+        }
+        exit;
     }
-    exit;
-}
+
+    // ✅ AJAX ID Check
+    public function checkId() {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_number'])) {
+            $id = trim($_POST['id_number']);
+            $exists = $this->userModel->idExists($id);
+            echo $exists ? "exists" : "missing";
+        }
+        exit;
+    }
 
     // --- PRIVATE VALIDATION METHODS ---
 private function validateName($value, $field) {
