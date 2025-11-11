@@ -10,7 +10,7 @@
   const registerLink = document.querySelector('.register-link a');
   const msgEl = document.getElementById('login-message');
 
-  const DURATIONS = [10, 20, 30]; // seconds for stages 1..3
+  const DURATIONS = [1, 1, 1]; // seconds for stages 1..3
   const LS_KEYS = {
     failCount: 'loginFailCount',
     stage: 'loginLockStage',
@@ -90,7 +90,10 @@
       registerLink.style.pointerEvents = 'none';
       registerLink.style.opacity = '0.5';
     }
-    if (forgotLink) forgotLink.style.display = 'none';
+    if (forgotLink) {
+      // Keep visible state; just disable interactions during lock
+      forgotLink.classList.add('disabled-link');
+    }
 
     window.addEventListener('keydown', blockKeys);
     disableBackCompletely();
@@ -113,7 +116,9 @@
       registerLink.style.pointerEvents = '';
       registerLink.style.opacity = '';
     }
-    if (forgotLink) forgotLink.style.display = '';
+    if (forgotLink) {
+      forgotLink.classList.remove('disabled-link');
+    }
 
     window.removeEventListener('keydown', blockKeys);
     window.onpopstate = null;
@@ -129,6 +134,9 @@
     disableUI();
     updateCountdown();
 
+    // Ensure forgot link visibility reflects current fail count during lock
+    showForgotOnSecondFail();
+
     const timer = setInterval(() => {
       if (!isLocked()) {
         clearInterval(timer);
@@ -143,8 +151,13 @@
   }
 
   function applyExistingLock(){
-    if (isLocked()) startLock(Math.ceil(remainingMs() / 1000));
-    else enableUI();
+    if (isLocked()) {
+      startLock(Math.ceil(remainingMs() / 1000));
+    } else {
+      enableUI();
+      // Ensure forgot visibility reflects current fail count
+      showForgotOnSecondFail();
+    }
   }
 
   // -------------------
@@ -152,10 +165,19 @@
   // -------------------
   function showForgotOnSecondFail(){
     const count = getInt(LS_KEYS.failCount);
-    if (count % 3 === 2 && !isLocked()) {
-      if (forgotLink) forgotLink.style.display = '';
-    } else {
-      if (forgotLink) forgotLink.style.display = 'none';
+    if (!forgotLink) return;
+
+    const shouldShow = (count >= 2); // show on 2nd and subsequent failures
+    // Force display override against CSS default (display: none)
+    forgotLink.style.display = shouldShow ? 'block' : 'none';
+
+    // If locked, keep it visible but disabled
+    if (shouldShow) {
+      if (isLocked()) {
+        forgotLink.classList.add('disabled-link');
+      } else {
+        forgotLink.classList.remove('disabled-link');
+      }
     }
   }
 
