@@ -35,7 +35,7 @@
   function updateCountdown(){
     const ms = remainingMs();
     const s = Math.ceil(ms / 1000);
-    msgEl.textContent = s > 0 ? `Access denied. Try again in ${s}s.` : '';
+    msgEl.textContent = s > 0 ? `Access denied. Please wait ${s}s.` : '';
   }
 
   function disableUI(){
@@ -142,6 +142,8 @@
         // success: clear counters and redirect
         setInt(LS_KEYS.failCount, 0);
         clearKey(LS_KEYS.lockUntil);
+        // Reset stage so next lock starts at 15s
+        setInt(LS_KEYS.stage, 0);
         window.location.href = data.redirect || 'index.php?action=dashboard';
         return;
       }
