@@ -203,12 +203,16 @@ class UserController {
             // Check if username exists
             $user = $this->userModel->findByUsername($username);
 
+            
+
+            /*++++++++++++++++++++ ADD INVALID USERNAME AND PASSWORD =============================================*/
+
             // Both wrong: username does not exist AND password entered
             if (!$user && !empty($password)) {
                 echo json_encode(['success' => false, 'message' => 'Invalid Username and password .', 'errorType' => 'bothWrong']);
                 return;
             }
-
+            
             // Username wrong
             if (!$user) {
                 echo json_encode(['success' => false, 'message' => 'Username not found.', 'errorType' => 'usernameWrong']);
