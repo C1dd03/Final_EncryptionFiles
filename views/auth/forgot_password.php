@@ -11,7 +11,7 @@ header("Expires: 0");
 
   <!-- Step 1: Identify User -->
   <div class="step step-1 active">
-    <span class="span">Find your account</span>
+    <span class="span spn">Find your account</span>
     <div class="input-field inputfield">
       <input type="text" name="id_number" id="fp-id" required placeholder=" " />
       <label>ID Number</label>
