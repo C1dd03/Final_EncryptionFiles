@@ -285,31 +285,76 @@ private function validateName($value, $field) {
     
     /* ========================== ADD LOGIN CONTROLLER ======================== */
     public function loginUser() {
-        session_start();
+    session_start();
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $username = $_POST['username'] ?? '';
-            $password = $_POST['password'] ?? '';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $username = trim($_POST['username'] ?? '');
+        $password = $_POST['password'] ?? '';
 
-            if (empty($username) || empty($password)) {
-                echo json_encode(['success' => false, 'message' => 'Username and password are required.']);
-                return;
-            } else if (empty($username)){
-                echo json_encode(['success' => false, 'message' => 'Username are required.']);
-                return;
-            }
-
-            $user = $this->userModel->findByUsername($username);
-
-            if ($user && password_verify($password, $user['password_hash'])) {
-                $_SESSION['user_id'] = $user['id_number'];
-                $_SESSION['username'] = $user['username'];
-                echo json_encode(['success' => true, 'redirect' => 'index.php?action=dashboard']);
-            } else {
-                echo json_encode(['success' => false, 'message' => 'Invalid username or password.']);
-            }
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+        // Check empty fields
+        if (empty($username) && empty($password)) {
+            echo json_encode([
+                'success' => false,
+                'invalid_username' => true,
+                'invalid_password' => true,
+                'message' => 'Username and password are required.'
+            ]);
+            return;
+        } elseif (empty($username)) {
+            echo json_encode([
+                'success' => false,
+                'invalid_username' => true,
+                'invalid_password' => false,
+                'message' => 'Username is required.'
+            ]);
+            return;
+        } elseif (empty($password)) {
+            echo json_encode([
+                'success' => false,
+                'invalid_username' => false,
+                'invalid_password' => true,
+                'message' => 'Password is required.'
+            ]);
+            return;
         }
+
+        // Attempt to find user
+        $user = $this->userModel->findByUsername($username);
+
+        // Both username and password invalid
+        if (!$user) {
+            echo json_encode([
+                'success' => false,
+                'invalid_username' => true,
+                'invalid_password' => true,
+                'message' => 'Invalid username and dsdspassword.'
+            ]);
+            return;
+        }
+
+        // Password incorrect
+        if (!password_verify($password, $user['password_hash'])) {
+            echo json_encode([
+                'success' => false,
+                'invalid_username' => false,
+                'invalid_password' => true,
+                'message' => 'Invalid password.'
+            ]);
+            return;
+        }
+
+        // Success
+        $_SESSION['user_id'] = $user['id_number'];
+        $_SESSION['username'] = $user['username'];
+        echo json_encode([
+            'success' => true,
+            'redirect' => 'index.php?action=dashboard'
+        ]);
+        return;
+        
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
     }
+}
+
 }

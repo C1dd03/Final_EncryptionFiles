@@ -12,7 +12,7 @@ header("Expires: 0");
   <!-- Step 1: Identify User -->
   <div class="step step-1 active">
     <span class="span">Find your account</span>
-    <div class="input-field">
+    <div class="input-field inputfield">
       <input type="text" name="id_number" id="fp-id" required placeholder=" " />
       <label>ID Number</label>
     </div>
@@ -27,7 +27,7 @@ header("Expires: 0");
   <div class="step step-2" style="display:none;">
     <span class="span">Answer your security question</span>
 
-    <div class="input-field">
+    <div class="input-field inputfield">
       <select name="question_id" id="fp-question" required>
         <option value="" disabled selected hidden></option>
         <option value="1">Who was your best friend in elementary school?</option>
@@ -37,13 +37,13 @@ header("Expires: 0");
       <label>Choose a question</label>
     </div>
 
-    <div class="input-field">
+    <div class="input-field inputfield">
       <input type="password" id="fp-answer" name="answer" required placeholder=" " />
       <label>Your Answer</label>
       <i class="bi bi-eye toggle-eye" onclick="toggleVisibility('fp-answer', this)"></i>
     </div>
 
-    <div class="input-field">
+    <div class="input-field inputfield">
       <input type="password" id="fp-answer-confirm" name="answer_confirm" required placeholder=" " />
       <label>Re-enter Answer</label>
       <i class="bi bi-eye toggle-eye" onclick="toggleVisibility('fp-answer-confirm', this)"></i>
@@ -61,7 +61,7 @@ header("Expires: 0");
     <span class="span">Change Password</span>
 
     <div>
-      <div class="pass-input-field">
+      <div class="pass-input-field inputfield">
         <input type="password" id="fp-new-password" name="new_password" required placeholder=" " />
         <label>Enter New Password</label>
         <i class="bi bi-eye toggle-eye" onclick="toggleVisibility('fp-new-password', this)"></i>
@@ -73,7 +73,7 @@ header("Expires: 0");
       <div id="fp-password-guide" style="font-size: 12px; margin-top: 3px; display: none;"></div>
     </div>
 
-    <div class="input-field">
+    <div class="input-field inputfield">
       <input type="password" id="fp-new-password-confirm" name="new_password_confirm" required placeholder=" " />
       <label>Re-enter Password</label>
       <i class="bi bi-eye toggle-eye" onclick="toggleVisibility('fp-new-password-confirm', this)"></i>

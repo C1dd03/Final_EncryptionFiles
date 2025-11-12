@@ -49,12 +49,12 @@ header("Expires: 0");
     <p class="empty-mgs"></p>
 
     <div class="input-field">
-        <input type="text" id="username" name="username" class="login-email" placeholder=" " required />
+        <input type="text" id="username" name="username" class="login-email" placeholder=" "  />
         <label>Username</label>
     </div>
 
     <div class="input-field pass-input-field" style="position: relative;">
-        <input type="password" id="password" name="password" class="login-password" placeholder=" " required />
+        <input type="password" id="password" name="password" class="login-password" placeholder=" "  />
         <label>Password</label>
         <i class="bi bi-eye toggle-eye" onclick="toggleVisibility('password', this)"></i>
     </div>

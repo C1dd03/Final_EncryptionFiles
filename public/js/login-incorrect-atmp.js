@@ -202,9 +202,14 @@
     const pass = passwordInput.value;
 
     if (!uname || !pass) {
-      msgEl.textContent = 'Username and password are required.';
+      if (!uname && !pass) {
+        msgEl.textContent = 'Username and password are required.';
+      } else if (!uname) {
+        msgEl.textContent = 'Username is required.';
+      } else if (!pass) {
+        msgEl.textContent = 'Password is required.';
+      }
       msgEl.style.color = 'red';
-
       return;
     }
 
@@ -227,7 +232,20 @@
       // Failed login
       const newCount = getInt(LS_KEYS.failCount) + 1;
       setInt(LS_KEYS.failCount, newCount);
-      msgEl.textContent = (data && data.message) ? data.message : 'Invalid username or password.';
+      // Choose a more specific message based on server flags
+      let loginMsg = 'Invalid username or password.';
+      if (data) {
+        if (data.invalid_username && data.invalid_password) {
+          loginMsg = 'Invalid username and password.';
+        } else if (data.invalid_username) {
+          loginMsg = 'Invalid username.';
+        } else if (data.invalid_password) {
+          loginMsg = 'Invalid password.';
+        } else if (data.message) {
+          loginMsg = data.message;
+        }
+      }
+      msgEl.textContent = loginMsg;
       msgEl.style.color = 'red';
 
       showForgotOnSecondFail();

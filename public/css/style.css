@@ -121,6 +121,14 @@ p {
   border-radius: 3px;
   border: 1px solid #ccc;
 }
+
+.inputfield {
+  width: 100%;
+  margin-top: 8px;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+}
+
 .pass-input-field {
   /* add pass-input-field */
   position: relative;
