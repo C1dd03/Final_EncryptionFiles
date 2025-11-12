@@ -189,8 +189,9 @@
 
     <div> <!-- Password container  -->
       <div class="pass-input-field">
-        <input type="password" name="password" class="password" required placeholder=" " />
+        <input type="password" name="password" class="password" id="password" required placeholder=" " />
         <label>Password</label>
+        <i class="bi bi-eye toggle-eye" onclick="toggleVisibility('password', this)"></i>
       </div>
       <!-- Password  strenght container bar -->
       <div class="password-strenght-container">
@@ -203,7 +204,8 @@
     </div>
 
     <div class="input-field">
-      <input type="password" name="confirm_password" required placeholder=" " />
+      <input type="password" name="confirm_password" id="confirm_password" required placeholder=" " />
+      <i class="bi bi-eye toggle-eye" onclick="toggleVisibility('confirm_password', this)"></i>
       <label>Re-enter-password</label>
     </div>
 

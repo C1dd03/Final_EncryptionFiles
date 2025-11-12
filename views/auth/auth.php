@@ -8,6 +8,9 @@
   <?php if (isset($formView) && $formView === 'forgot_password.php'): ?>
     <script defer src="/../encryption/public/js/forgot.js"></script>
   <?php endif; ?>
+  <?php if (isset($formView) && $formView === 'register.php'): ?>
+    <script defer src="/../encryption/public/js/reset-form.js"></script>
+  <?php endif; ?>
   <!-- <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" /> -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
@@ -77,7 +80,7 @@
           </div>
         </div>
         <div class="footer-col-2">
-          <img src="/img/images/dowlogoWhite.png" />
+          <img src="/../encryption/public/img/images/dowlogoWhite.png" />
           <p>Our Purpose Is To Sustainably Make the Pleasure and Benefits of Sports Accessible to the Many.</p>
         </div>
         <div class="footer-col-3">

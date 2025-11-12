@@ -481,33 +481,35 @@ window.handleSubmit = function (form) {
 const confirmInput = form.querySelector("input[name='confirm_password']");
 const passwordInput = form.querySelector("input[name='password']");
 
-if (confirmInput && passwordInput) {
-  // Create a small error message container
-  let confirmError = document.createElement("div");
-  confirmError.style.color = "red";
-  confirmError.style.fontSize = "0.9em";
-  confirmError.style.marginTop = "4px";
-  confirmInput.parentElement.appendChild(confirmError);
+// if (confirmInput && passwordInput) {
+//   // Create a small error message container
+//   let confirmError = document.createElement("div");
+//   confirmError.style.color = "red";
+//   confirmError.style.marginTop = "4px";
+//   confirmError.style.fontSize = "12px";
+//   confirmError.style.textDecoration = "none";
+//   confirmInput.parentElement.appendChild(confirmError);
 
-  // Only show error when user is typing in confirm password field
-  confirmInput.addEventListener("input", () => {
-    if (confirmInput.value && confirmInput.value !== passwordInput.value) {
-      confirmInput.style.borderBottom = "1px solid rgba(255,0,0,0.5)";
-      confirmError.innerText = "Password does not match.";
-    } else {
-      confirmInput.style.borderBottom = "";
-      confirmError.innerText = "";
-    }
-  });
+//   // Only show error when user is typing in confirm password field
+//   confirmInput.addEventListener("input", () => {
+//     if (confirmInput.value && confirmInput.value !== passwordInput.value) {
+//       // confirmInput.style.borderBottom = "1px solid rgba(255,0,0,0.5)";
+//       confirmError.innerText = "Password does not match.";
+//     } else {
+//       confirmInput.style.borderBottom = "";
+//       confirmError.innerText = "";
+//     }
+//   });
 
-  // Optional: clear error when confirm password loses focus and is empty
-  confirmInput.addEventListener("blur", () => {
-    if (!confirmInput.value) {
-      confirmInput.style.borderBottom = "";
-      confirmError.innerText = "";
-    }
-  });
-}
+//   // Optional: clear error when confirm password loses focus and is empty
+//   confirmInput.addEventListener("blur", () => {
+//     if (!confirmInput.value) {
+//       confirmInput.style.borderBottom = "";
+//       confirmError.innerText = "";
+//     }
+//   });
+// }
+
   /*** Auto-format on blur ***/
   steps.forEach(step => {
     const inputs = step.querySelectorAll("input");
@@ -638,32 +640,35 @@ if (passwordInput && strengthBar && message && guide) {
 
 function toggleVisibility(id, icon) {
   const input = document.getElementById(id);
-  if (input.type === "password") {
-    input.type = "text";
-    icon.classList.replace("bi-eye", "bi-eye-slash");
-  } else {
-    input.type = "password";
-    icon.classList.replace("bi-eye-slash", "bi-eye");
-  }
+  const isHidden = input.type === "password";
+  input.type = isHidden ? "text" : "password";
+  icon.classList.toggle("bi-eye", !isHidden);
+  icon.classList.toggle("bi-eye-slash", isHidden);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const inputFields = document.querySelectorAll(".input-field input[type='password']");
-  
+  const inputFields = document.querySelectorAll(".input-field input, .pass-input-field input");
+
   inputFields.forEach(input => {
     const icon = input.parentElement.querySelector(".toggle-eye");
+    if (!icon) return; // skip if no icon
 
+    // Hide the eye icon by default
+    icon.classList.remove("visible");
+
+    // Show or hide the icon based on input
     input.addEventListener("input", () => {
       if (input.value.trim() !== "") {
-        icon.classList.add("visible"); // fade in smoothly
+        icon.classList.add("visible"); // show smoothly
       } else {
-        icon.classList.remove("visible"); // fade out
+        icon.classList.remove("visible"); // hide smoothly
         icon.classList.remove("bi-eye-slash");
         icon.classList.add("bi-eye");
-        input.type = "password";
+        input.type = "password"; // reset to hidden
       }
     });
 
+    // When the input loses focus and is empty → hide the icon
     input.addEventListener("blur", () => {
       if (input.value.trim() === "") {
         icon.classList.remove("visible");
@@ -671,3 +676,4 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+

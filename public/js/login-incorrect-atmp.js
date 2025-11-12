@@ -9,6 +9,15 @@
   const forgotLink = document.getElementById('forgot-link');
   const registerLink = document.querySelector('.register-link a');
   const msgEl = document.getElementById('login-message');
+  // -------------------
+  // MESSAGE STYLE SETUP
+  // -------------------
+  msgEl.id = "login-message";
+  msgEl.style.fontSize = "13px";
+  msgEl.style.textDecoration = "none";
+  msgEl.style.fontWeight = "500";
+  msgEl.style.marginTop = "10px";
+  msgEl.style.textAlign = "center";
 
   const DURATIONS = [5, 10, 15]; // seconds for stages 1..3
   const LS_KEYS = {
@@ -37,6 +46,7 @@
   function updateCountdown(){
     const s = Math.ceil(remainingMs() / 1000);
     msgEl.textContent = s > 0 ? `Access denied. Please wait ${s}s.` : '';
+    msgEl.style.color = 'red';
   }
 
   // -------------------
@@ -144,6 +154,7 @@
         setInt(LS_KEYS.failCount, 0); // reset fail count
         enableUI();
         msgEl.textContent = 'You may try logging in again.';
+        msgEl.style.color = 'green';
       } else {
         updateCountdown();
       }
@@ -192,6 +203,8 @@
 
     if (!uname || !pass) {
       msgEl.textContent = 'Username and password are required.';
+      msgEl.style.color = 'red';
+
       return;
     }
 
@@ -215,6 +228,7 @@
       const newCount = getInt(LS_KEYS.failCount) + 1;
       setInt(LS_KEYS.failCount, newCount);
       msgEl.textContent = (data && data.message) ? data.message : 'Invalid username or password.';
+      msgEl.style.color = 'red';
 
       showForgotOnSecondFail();
 
@@ -228,6 +242,7 @@
 
     } catch (err) {
       msgEl.textContent = 'Network error. Please try again.';
+      msgEl.style.color = 'red';
     }
   }
 

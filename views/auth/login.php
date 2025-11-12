@@ -23,7 +23,7 @@ header("Expires: 0");
      FLASH MESSAGE (Shown After Successful Registration)
 ========================================================== -->
 <?php if (isset($_SESSION['flash_message'])): ?>
-    <p style="
+    <p class="flash-message" style="
         color: green; 
         font-weight: bold; 
         text-align: center; 
@@ -31,11 +31,13 @@ header("Expires: 0");
         background-color: #e9fbe9;
         border: 1px solid #a7d7a7;
         padding: 10px;
-        border-radius: 6px;">
+        border-radius: 3px;
+        transition: opacity 0.6s ease;">
         <?= htmlspecialchars($_SESSION['flash_message']); ?>
     </p>
     <?php unset($_SESSION['flash_message']); // remove message after showing ?>
 <?php endif; ?>
+
 
 
 <!-- ==========================================================
@@ -47,14 +49,14 @@ header("Expires: 0");
     <p class="empty-mgs"></p>
 
     <div class="input-field">
-        <input type="text" name="username" class="login-email" placeholder=" " required />
+        <input type="text" id="username" name="username" class="login-email" placeholder=" " required />
         <label>Username</label>
     </div>
 
-    <div class="input-field pass-field" style="position: relative;">
-        <input type="password" name="password" class="login-password" placeholder=" " required />
+    <div class="input-field pass-input-field" style="position: relative;">
+        <input type="password" id="password" name="password" class="login-password" placeholder=" " required />
         <label>Password</label>
-        <span class="toggle-password" aria-label="Show Password" title="Show Password" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; user-select:none;">👁️</span>
+        <i class="bi bi-eye toggle-eye" onclick="toggleVisibility('password', this)"></i>
     </div>
 
     <button type="submit" class="btn_submit">Login</button>
@@ -64,7 +66,7 @@ header("Expires: 0");
     </p>
 
     <p class="toggle-link register-link">
-        Don't have an account?
+        Don’t have an account?
         <a href="index.php?action=register"><b>Register</b></a>
     </p>
 
@@ -73,28 +75,115 @@ header("Expires: 0");
 </form>
 
 <!-- ==========================================================
-     JS: Prevent back navigation after login
+     JS SECTION
 ========================================================== -->
 <script>
-    // Back navigation guard (will be strengthened during lock periods)
-    if (window.history && window.history.pushState) {
+/* ==========================================================
+   Prevent Back Navigation After Login
+========================================================== */
+if (window.history && window.history.pushState) {
+    window.history.pushState(null, "", window.location.href);
+    window.onpopstate = function () {
         window.history.pushState(null, "", window.location.href);
-        window.onpopstate = function () {
-            window.history.pushState(null, "", window.location.href);
-        };
-    }
+    };
+}
 
-    // Show Password toggle
-    (function(){
-      const passInput = document.querySelector('.login-password');
-      const toggle = document.querySelector('.toggle-password');
-      if (toggle && passInput) {
-        toggle.addEventListener('click', () => {
-          const isText = passInput.type === 'text';
-          passInput.type = isText ? 'password' : 'text';
-          toggle.textContent = isText ? '👁️' : '🙈';
-          toggle.setAttribute('title', isText ? 'Show Password' : 'Hide Password');
+/* ==========================================================
+   Password Visibility Toggle
+========================================================== */
+function toggleVisibility(id, icon) {
+    const input = document.getElementById(id);
+    const isHidden = input.type === "password";
+    input.type = isHidden ? "text" : "password";
+    icon.classList.toggle("bi-eye", !isHidden);
+    icon.classList.toggle("bi-eye-slash", isHidden);
+}
+
+/* ==========================================================
+   Eye Icon Fade-In Logic
+========================================================== */
+document.addEventListener("DOMContentLoaded", () => {
+    const inputFields = document.querySelectorAll(".input-field input, .pass-input-field input");
+
+    inputFields.forEach(input => {
+        const icon = input.parentElement.querySelector(".toggle-eye");
+        if (!icon) return;
+
+        // Hide eye icon initially
+        icon.classList.remove("visible");
+
+        input.addEventListener("input", () => {
+            if (input.value.trim() !== "") {
+                icon.classList.add("visible");
+            } else {
+                icon.classList.remove("visible");
+                icon.classList.remove("bi-eye-slash");
+                icon.classList.add("bi-eye");
+                input.type = "password";
+            }
         });
-      }
-    })();
+
+        input.addEventListener("blur", () => {
+            if (input.value.trim() === "") {
+                icon.classList.remove("visible");
+            }
+        });
+    });
+});
 </script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const flash = document.querySelector(".flash-message");
+  if (flash) {
+    setTimeout(() => {
+      flash.style.opacity = "0";
+      setTimeout(() => flash.remove(), 600);
+    }, 3000);
+  }
+});
+</script>
+
+
+<!-- ==========================================================
+     Recommended CSS
+========================================================== -->
+<style>
+.flash-message {
+  color: green;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 15px;
+  background-color: #e9fbe9;
+  border: 1px solid #a7d7a7;
+  padding: 10px;
+  border-radius: 3px;
+  transition: opacity 0.6s ease;
+}
+
+.input-field, .pass-input-field {
+  position: relative;
+}
+
+.toggle-eye {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #555;
+  font-size: 18px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.toggle-eye.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.toggle-eye:hover {
+  color: #111; /* Slight darken for feedback */
+}
+</style>
