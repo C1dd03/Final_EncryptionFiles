@@ -55,12 +55,29 @@ class UserController {
             $fields = [
                 'First Name'  => $_POST['first_name'] ?? '',
                 'Middle Name' => $_POST['middle_name'] ?? '',
-                'Last Name'   => $_POST['last_name'] ?? '',
-                'Extension'   => $_POST['extension'] ?? ''
+                'Last Name'   => $_POST['last_name'] ?? ''
             ];
 
             foreach ($fields as $label => $value) {
                 $errors = array_merge($errors, $this->validateName(trim($value), $label));
+            }
+
+            // --- EXTENSION VALIDATION (separate from name validation) ---
+            $extension = trim($_POST['extension'] ?? '');
+            if ($extension !== '') {
+                $normalizedExtension = strtoupper(trim($extension));
+                if (in_array($normalizedExtension, ['JR', 'JR.'], true)) {
+                    $cleanExtension = 'JR';
+                } elseif (in_array($normalizedExtension, ['SR', 'SR.'], true)) {
+                    $cleanExtension = 'SR';
+                } else {
+                    $cleanExtension = strtoupper(str_replace('.', '', $extension));
+                }
+
+                $validExtensions = ['JR', 'SR', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+                if (!in_array($cleanExtension, $validExtensions, true)) {
+                    $errors[] = "Extension: Must be Jr., Sr., or a Roman numeral between I and X.";
+                }
             }
 
             // --- AGE VALIDATION ---
@@ -71,6 +88,19 @@ class UserController {
 
                 if ($age < 18) {
                     $errors[] = "You must be 18 or older to register.";
+                }
+            }
+
+            // --- SECURITY QUESTION SELECTION VALIDATION ---
+            $questionSelections = [
+                'Question 1' => $_POST['security_question_1'] ?? '',
+                'Question 2' => $_POST['security_question_2'] ?? '',
+                'Question 3' => $_POST['security_question_3'] ?? ''
+            ];
+
+            foreach ($questionSelections as $label => $value) {
+                if ($value === '' || !ctype_digit((string)$value)) {
+                    $errors[] = "$label: Please select a security question.";
                 }
             }
 
@@ -94,12 +124,55 @@ class UserController {
                 return;
             }
 
+            // --- HANDLE EXTENSION ---
+            $extension = trim($_POST['extension'] ?? '');
+            if ($extension === '') {
+                $extension = null;
+            } else {
+                $normalizedExtension = strtoupper(trim($extension));
+                if (in_array($normalizedExtension, ['JR', 'JR.'], true)) {
+                    $extension = 'Jr.';
+                } elseif (in_array($normalizedExtension, ['SR', 'SR.'], true)) {
+                    $extension = 'Sr.';
+                } else {
+                    $extension = strtoupper(str_replace('.', '', $extension));
+                }
+            }
+
             // --- SANITIZED DATA ---
+            $securityAnswers = [
+                [
+                    'question_id' => (int)($questionSelections['Question 1'] ?? 0),
+                    'answer'      => trim($_POST['security_q1'] ?? '')
+                ],
+                [
+                    'question_id' => (int)($questionSelections['Question 2'] ?? 0),
+                    'answer'      => trim($_POST['security_q2'] ?? '')
+                ],
+                [
+                    'question_id' => (int)($questionSelections['Question 3'] ?? 0),
+                    'answer'      => trim($_POST['security_q3'] ?? '')
+                ],
+            ];
+
+            foreach ($securityAnswers as $index => $entry) {
+                if ($entry['answer'] === '') {
+                    $errors[] = 'Answer ' . ($index + 1) . ': Please provide an answer.';
+                }
+            }
+
+            if (!empty($errors)) {
+                $error = implode("<br>", $errors);
+                $formView = "register.php";
+                require __DIR__ . '/../views/auth/auth.php';
+                return;
+            }
+
             $data = [
                 'first_name'  => trim($_POST['first_name'] ?? ''),
                 'middle_name' => trim($_POST['middle_name'] ?? null),
                 'last_name'   => trim($_POST['last_name'] ?? ''),
-                'extension'   => trim($_POST['extension'] ?? null),
+                'extension'   => $extension,
                 'birthdate'   => $_POST['birthdate'] ?? '',
                 'gender'      => $_POST['gender'] ?? '',
                 'street'      => trim($_POST['street'] ?? ''),
@@ -108,16 +181,20 @@ class UserController {
                 'province'    => trim($_POST['province'] ?? ''),
                 'country'     => trim($_POST['country'] ?? ''),
                 'zip'         => $_POST['zip'] ?? '',
-                'security_q1' => trim($_POST['security_q1'] ?? ''),
-                'security_q2' => trim($_POST['security_q2'] ?? ''),
-                'security_q3' => trim($_POST['security_q3'] ?? ''),
+                'security_answers' => $securityAnswers,
                 'username'    => $username,
+                'email'       => trim($_POST['email'] ?? ''),
                 'password'    => password_hash($password, PASSWORD_DEFAULT) // hashed for security
             ];
 
             // --- INSERT INTO DATABASE ---
-            if ($this->userModel->insertUser($data)) {
-                header("Location: index.php?action=login&registered=1");
+            $result = $this->userModel->insertUser($data);
+            if ($result) {
+                // Set success flag and ID for modal display
+                $registrationSuccess = true;
+                $registeredId = $result; // This is the generated ID number
+                $formView = "register.php";
+                require __DIR__ . '/../views/auth/auth.php';
                 exit;
             } else {
                 $error = "Registration failed. Please try again.";
@@ -253,7 +330,17 @@ class UserController {
             $user = $this->userModel->findById($id_number);
 
             if($user){
-                echo json_encode(['success' => true]);
+                // Get user's security questions
+                $questions = $this->userModel->getUserAuthAnswers($id_number);
+                
+                echo json_encode([
+                    'success' => true,
+                    'user' => [
+                        'id_number' => $user['id_number'],
+                        'username' => $user['username']
+                    ],
+                    'questions' => $questions
+                ]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Invalid ID Number']);
             }
@@ -345,6 +432,58 @@ public function verifySecurityAnswers() {
         } else {
             echo json_encode(['success'=>false, 'message'=>'Failed to reset password']);
         }
+    }
+
+    //========================================== Check Username Availability =====================================
+    public function checkUsername() {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $username = trim($_POST['username'] ?? '');
+
+            if (empty($username)) {
+                echo json_encode(['available' => false, 'message' => 'Username is required.']);
+                exit;
+            }
+
+            if ($this->userModel->usernameExists($username)) {
+                echo json_encode(['available' => false, 'message' => 'Username is already taken.']);
+            } else {
+                echo json_encode(['available' => true, 'message' => 'Username is available.']);
+            }
+        } else {
+            echo json_encode(['available' => false, 'message' => 'Invalid request method.']);
+        }
+        exit;
+    }
+
+    //========================================== Check Email Availability =====================================
+    public function checkEmail() {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $email = trim($_POST['email'] ?? '');
+
+            if (empty($email)) {
+                echo json_encode(['available' => false, 'message' => 'Email is required.']);
+                exit;
+            }
+
+            // Basic email validation
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                echo json_encode(['available' => false, 'message' => 'Invalid email format.']);
+                exit;
+            }
+
+            if ($this->userModel->emailExists($email)) {
+                echo json_encode(['available' => false, 'message' => 'Email is already registered.']);
+            } else {
+                echo json_encode(['available' => true, 'message' => 'Email is available.']);
+            }
+        } else {
+            echo json_encode(['available' => false, 'message' => 'Invalid request method.']);
+        }
+        exit;
     }
 
 
