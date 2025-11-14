@@ -62,6 +62,18 @@ class UserController {
                 $errors = array_merge($errors, $this->validateName(trim($value), $label));
             }
 
+            // --- ADDRESS VALIDATION (excluding street) ---
+            $addressFields = [
+                'Barangay' => $_POST['barangay'] ?? '',
+                'City'     => $_POST['city'] ?? '',
+                'Province' => $_POST['province'] ?? '',
+                'Country'  => $_POST['country'] ?? ''
+            ];
+
+            foreach ($addressFields as $label => $value) {
+                $errors = array_merge($errors, $this->validateAddressField(trim($value), $label));
+            }
+
             // --- EXTENSION VALIDATION (separate from name validation) ---
             $extension = trim($_POST['extension'] ?? '');
             if ($extension !== '') {
@@ -212,14 +224,14 @@ class UserController {
 
         if ($value === '') return $errors; // skip optional empty
 
-        // Only letters and spaces allowed
-        if (!preg_match('/^[A-Za-z\s]+$/', $value)) {
-            $errors[] = "$field: No special characters allowed.";
+        // Check if starts with a space
+        if (preg_match('/^\s/', $value)) {
+            $errors[] = "$field cannot start with a space.";
         }
 
-        // Numbers cannot precede letters
-        if (preg_match('/^\d+[A-Za-z]/', $value)) {
-            $errors[] = "$field: Numbers cannot precede letters.";
+        // Must start with a letter (not space, number, or special character)
+        if (!preg_match('/^[A-Za-z]/', $value)) {
+            $errors[] = "$field must start with a letter only.";
         }
 
         // No double spaces
@@ -235,6 +247,52 @@ class UserController {
         // No 3 identical letters in a row
         if (preg_match('/(.)\1\1/', strtolower($value))) {
             $errors[] = "$field: 3 identical letters in a row not allowed.";
+        }
+
+        // Must start with a capital letter
+        if (isset($value[0]) && $value[0] !== strtoupper($value[0])) {
+            $errors[] = "$field: Must start with a capital letter.";
+        }
+
+        return $errors;
+    }
+
+    private function validateAddressField($value, $field) {
+        $errors = [];
+
+        if ($value === '') {
+            $errors[] = "$field: This field is required.";
+            return $errors;
+        }
+
+        // Check if starts with a space
+        if (preg_match('/^\s/', $value)) {
+            $errors[] = "$field cannot start with a space.";
+        }
+
+        // Must start with a letter (not space, number, or special character)
+        if (!preg_match('/^[A-Za-z]/', $value)) {
+            $errors[] = "$field must start with a letter only.";
+        }
+
+        // No double spaces
+        if (preg_match('/\s{2,}/', $value)) {
+            $errors[] = "$field: Double spaces not allowed.";
+        }
+
+        // No numbers allowed in address fields (except street)
+        if (preg_match('/\d/', $value)) {
+            $errors[] = "$field: Cannot include numbers.";
+        }
+
+        // No all caps
+        if ($value === strtoupper($value) && strlen($value) > 1) {
+            $errors[] = "$field: Should avoid all caps.";
+        }
+
+        // No 3 identical letters in a row
+        if (preg_match('/(.)\1\1/', strtolower($value))) {
+            $errors[] = "$field: No 3 same letters in a row.";
         }
 
         // Must start with a capital letter

@@ -167,6 +167,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // Name field rules
     if (["first_name", "middle_name", "last_name"].includes(input.name)) {
       const capitalizedFieldName = capitalizeFirst(fieldName);
+
+      // Check if name starts with a space
+      if (rawValue.length > 0 && rawValue.charAt(0) === ' ') {
+        return `${capitalizedFieldName} cannot start with a space.`;
+      }
+
+      // Check if name starts with a number or special character
+      if (rawValue.length > 0 && !/^[A-Za-z]/.test(rawValue.charAt(0))) {
+        return `${capitalizedFieldName} must start with a letter only.`;
+      }
+
+      // Check for double spaces
       if (/\s{2,}/.test(rawValue))
         return `${capitalizedFieldName} cannot contain double spaces.`;
       let positionInWord = -1;
@@ -224,6 +236,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (addressLabels[input.name]) {
       const label = addressLabels[input.name];
+
+      // Check if address field (except street) starts with a space
+      if (input.name !== "street" && rawValue.length > 0 && rawValue.charAt(0) === ' ') {
+        return `${label} cannot start with a space.`;
+      }
+
+      // Check if address field (except street) starts with a number or special character
+      if (input.name !== "street" && rawValue.length > 0 && !/^[A-Za-z]/.test(rawValue.charAt(0))) {
+        return `${label} must start with a letter only.`;
+      }
+
       if (input.name === "street" && value.length < 3)
         return `${label}: Must be at least 3 characters long.`;
 
