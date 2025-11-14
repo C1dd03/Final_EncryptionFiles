@@ -79,7 +79,7 @@ class UserController {
             $password = $_POST['password'] ?? '';
 
             if (preg_match('/([a-zA-Z])\1\1/i', $username)) {
-                $errors[] = "Username cannot contain 3 identical letters in a row.";
+                $errors[] = "Username cannot contain 3 identical letters  q a row.";
             }
 
             if (preg_match('/([a-zA-Z])\1\1/i', $password)) {
