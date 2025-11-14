@@ -124,7 +124,7 @@ require_once __DIR__ . '/../auth/session_protect.php';
     <main class="content">
         <!-- Hero banners -->
         <section class="hero">
-            <img src="https://images.unsplash.com/photo-1599058921721-4832de22c15f?auto=format&fit=crop&w=1200&q=80" alt="Football promotion">
+            <img src="https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=1200&q=80" alt="Football match">
             <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80" alt="Running shoes">
         </section>
 

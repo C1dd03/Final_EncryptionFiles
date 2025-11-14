@@ -183,7 +183,7 @@ if (input.name === "street") {
     const segments = word.split(/[\-.,'/]/); 
     for (let seg of segments) {
       if (/^(?=.*[A-Za-zñÑ])(?=.*\d)[A-Za-zñÑ0-9]+$/.test(seg)) {
-        return `Barangay: Invalid number in '${seg}'. Add a space.`;
+        return `Purok: Invalid number in '${seg}'. Add a space.`;
       }
     }
 
@@ -526,8 +526,24 @@ document.querySelectorAll(".toggle-eye").forEach(icon => {
 
 // Convert username input to lowercase automatically
 const usernameInput = document.querySelector("input[name='username']");
+
 if (usernameInput) {
   usernameInput.addEventListener("input", () => {
-    usernameInput.value = usernameInput.value.toLowerCase();
+    let value = usernameInput.value;
+
+    // Remove leading spaces
+    value = value.replace(/^\s+/, "");
+
+    // Remove multiple spaces inside the username
+    value = value.replace(/\s+/g, " ");
+
+    // Remove trailing spaces
+    value = value.trim();
+
+    // Convert to lowercase
+    value = value.toLowerCase();
+
+    usernameInput.value = value;
   });
 }
+
