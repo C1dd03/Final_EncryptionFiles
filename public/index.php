@@ -47,6 +47,14 @@ switch ($action) {
         $userController->resetPassword();
         break;
 
+    case 'checkUsername':
+        $userController->checkUsername();
+        break;
+
+    case 'checkEmail':
+        $userController->checkEmail();
+        break;
+
     default:
         $userController->showLogin();
         break;

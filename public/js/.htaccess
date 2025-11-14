@@ -22,10 +22,13 @@
     RewriteCond %{HTTP_REFERER} !^https?://(www\.)?yourdomain\.com/ [NC]
     RewriteRule .* /encryption/public/404.html [R=302,L]
 </Files>
-<Files "forgot_password.js">
-    RewriteEngine On
 
-    # Allow only if referer contains your domain
-    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?yourdomain\.com/ [NC]
-    RewriteRule .* /encryption/public/404.html [R=302,L]
-</Files>
+# s
+
+# <Files "script.js">            
+#     RewriteEngine On
+
+#     # Allow only if referer contains your domain
+#     RewriteCond %{HTTP_REFERER} !^https?://(www\.)?yourdomain\.com/ [NC]
+#     RewriteRule .* /encryption/public/404.html [R=302,L]
+# </Files>

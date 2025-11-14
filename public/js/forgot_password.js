@@ -16,7 +16,14 @@ function nextStepForgot(step) {
 
     if (!idInput.value.trim()) {
       msgError.textContent = "Please enter your ID Number";
-      msgError.style.display = "flex"; // or 'block' depende sa imong CSS
+      msgError.style.display = "block";
+      return;
+    }
+
+    // Check if input contains only numbers and hyphens
+    if (!/^[0-9-]+$/.test(idInput.value.trim())) {
+      msgError.textContent = "ID Number must contain only numbers";
+      msgError.style.display = "block";
       return;
     }
 
@@ -27,6 +34,21 @@ function nextStepForgot(step) {
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
+          // Store user data and questions for later use
+          window.userData = data.user;
+          window.userQuestions = data.questions;
+
+          // Populate Step 2 with user info and questions
+          document.getElementById('displayIdNumber').textContent = data.user.id_number;
+          document.getElementById('displayUsername').textContent = data.user.username;
+          
+          // Populate question labels
+          if (data.questions && data.questions.length === 3) {
+            document.getElementById('question1Label').textContent = data.questions[0].question_text;
+            document.getElementById('question2Label').textContent = data.questions[1].question_text;
+            document.getElementById('question3Label').textContent = data.questions[2].question_text;
+          }
+
           // Show success popup
           msgSuccess.classList.add("show");
 
@@ -38,13 +60,13 @@ function nextStepForgot(step) {
           }, 2000);
         } else {
           msgError.textContent = data.message; // Invalid ID Number
-          msgError.style.display = "flex";
+          msgError.style.display = "block";
         }
       })
       .catch((err) => {
         console.error("AJAX error:", err);
         msgError.textContent = "An error occurred. Please try again.";
-        msgError.style.display = "flex";
+        msgError.style.display = "block";
       });
 
     return;
@@ -64,21 +86,47 @@ function nextStepForgot(step) {
       .querySelector('[name="security_answer_3"]')
       .value.trim();
     const securityError = document.getElementById("securityError");
+    const error1 = document.getElementById("error1");
+    const error2 = document.getElementById("error2");
+    const error3 = document.getElementById("error3");
 
-    // Clear previous error
+    // Clear previous errors
     if (securityError) {
       securityError.textContent = "";
       securityError.style.display = "none";
     }
+    if (error1) {
+      error1.textContent = "";
+      error1.style.display = "none";
+    }
+    if (error2) {
+      error2.textContent = "";
+      error2.style.display = "none";
+    }
+    if (error3) {
+      error3.textContent = "";
+      error3.style.display = "none";
+    }
 
-    // Empty input validation
-    if (!ans1 || !ans2 || !ans3) {
-      if (securityError) {
-        securityError.textContent = "Please answer all security questions.";
-        securityError.style.display = "flex";
-      } else {
-        alert("Please answer all security questions.");
-      }
+    // Individual input validation
+    let hasError = false;
+    if (!ans1) {
+      error1.textContent = "Please answer this question";
+      error1.style.display = "block";
+      hasError = true;
+    }
+    if (!ans2) {
+      error2.textContent = "Please answer this question";
+      error2.style.display = "block";
+      hasError = true;
+    }
+    if (!ans3) {
+      error3.textContent = "Please answer this question";
+      error3.style.display = "block";
+      hasError = true;
+    }
+
+    if (hasError) {
       return;
     }
 
@@ -98,13 +146,22 @@ function nextStepForgot(step) {
             securityError.textContent = "";
             securityError.style.display = "none";
           }
+          // Copy user info to Step 3 before moving
+          const step3DisplayId = document.querySelector('.step-3 #displayIdNumber');
+          const step3DisplayUsername = document.querySelector('.step-3 #displayUsername');
+          if (step3DisplayId && window.userData) {
+            step3DisplayId.textContent = window.userData.id_number;
+          }
+          if (step3DisplayUsername && window.userData) {
+            step3DisplayUsername.textContent = window.userData.username;
+          }
           current.classList.remove("active");
           next.classList.add("active");
         } else {
           if (securityError) {
             securityError.textContent =
               data.message || "Verification failed. Please check your answers.";
-            securityError.style.display = "flex";
+            securityError.style.display = "block";
           } else {
             alert(data.message);
           }
@@ -114,7 +171,7 @@ function nextStepForgot(step) {
         console.error("AJAX error:", err);
         if (securityError) {
           securityError.textContent = "An error occurred. Please try again.";
-          securityError.style.display = "flex";
+          securityError.style.display = "block";
         } else {
           alert("An error occurred. Please try again.");
         }
@@ -135,14 +192,37 @@ function prevStepForgot(step) {
 }
 
 // Password strength checker for Step 3
-const passwordInput = document.getElementById("newPassword");
-const confirmPasswordInput = document.getElementById("confirmPassword");
-const strengthBar = document.getElementById("passwordStrengthBar");
-const strengthMessage = document.getElementById("passwordStrengthMessage");
-const passwordError = document.getElementById("passwordError");
-const passwordSuccess = document.getElementById("passwordSuccess");
+let passwordInput, confirmPasswordInput, strengthBar, strengthMessage, passwordError, passwordSuccess;
+
+// Initialize password elements when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  passwordInput = document.getElementById("newPassword");
+  confirmPasswordInput = document.getElementById("confirmPassword");
+  strengthBar = document.getElementById("passwordStrengthBar");
+  strengthMessage = document.getElementById("passwordStrengthMessage");
+  passwordError = document.getElementById("passwordError");
+  passwordSuccess = document.getElementById("passwordSuccess");
+
+  // Event listeners for password strength
+  if (passwordInput) {
+    passwordInput.addEventListener("input", function () {
+      checkPasswordStrength(this.value);
+      if (confirmPasswordInput && confirmPasswordInput.value.length > 0) {
+        checkPasswordMatch();
+      }
+    });
+  }
+
+  if (confirmPasswordInput) {
+    confirmPasswordInput.addEventListener("input", function () {
+      checkPasswordMatch();
+    });
+  }
+});
 
 function checkPasswordStrength(password) {
+  if (!strengthBar || !strengthMessage) return;
+
   let strength = 0;
   let message = "";
   let color = "";
@@ -193,6 +273,8 @@ function checkPasswordStrength(password) {
 
 // Password match checker
 function checkPasswordMatch() {
+  if (!passwordInput || !confirmPasswordInput) return;
+
   const password = passwordInput.value;
   const confirm = confirmPasswordInput.value;
 
@@ -205,23 +287,7 @@ function checkPasswordMatch() {
   }
 }
 
-// Event listeners for password strength
-if (passwordInput) {
-  passwordInput.addEventListener("input", function () {
-    checkPasswordStrength(this.value);
-    if (confirmPasswordInput.value.length > 0) {
-      checkPasswordMatch();
-    }
-  });
-}
-
-if (confirmPasswordInput) {
-  confirmPasswordInput.addEventListener("input", function () {
-    checkPasswordMatch();
-  });
-}
-
-// Handle final submit (Step 3)
+// Handle final submit (Step 3) - removed duplicate event listeners
 form.addEventListener("submit", function (e) {
   e.preventDefault();
   const step3 = document.querySelector(".step-3");
@@ -240,7 +306,7 @@ form.addEventListener("submit", function (e) {
   // Check password match
   if (new_password !== confirm_password) {
     passwordError.textContent = "Mismatch Password";
-    passwordError.style.display = "flex";
+    passwordError.style.display = "block";
     return;
   }
 
@@ -255,7 +321,7 @@ form.addEventListener("submit", function (e) {
   if (strength <= 2) {
     passwordError.textContent =
       "Password is too weak. Please use a stronger password.";
-    passwordError.style.display = "flex";
+    passwordError.style.display = "block";
     return;
   }
 

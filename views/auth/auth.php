@@ -26,11 +26,11 @@
       <li><a href="dashboard.php">Dashboard</a></li>
       <li><a href="logout.php">Logout</a></li>
     <?php else: ?>
-      <?php if ($page === 'login'): ?>
+      <?php if (isset($page) && $page === 'login'): ?>
         <li><a href="index.php?action=register" class="nav-register-link">Register</a></li>
-      <?php elseif ($page === 'register'): ?>
+      <?php elseif (isset($page) && $page === 'register'): ?>
         <li><a href="index.php?action=login">Login</a></li>
-        <?php elseif ($page === 'forgot-password'): ?>
+        <?php elseif (isset($page) && $page === 'forgot-password'): ?>
         <li><a href="index.php?action=login">Login</a></li>
         <li><a href="index.php?action=register">Register</a></li>
       <?php else: ?>
@@ -112,10 +112,10 @@
 
 
 <!---------------------------- Added restrict js code --->
-  <script src="/encryption/public/js/reset-form.php"></script>
+  <script src="/../encryption/public/js/reset-form.php"></script>
   <script src="/../encryption/public/js/login-incorrect-atmp.php"></script>
    <script src="/../encryption/public/js/validation.php"></script>
-   <script src="/../encryption/public/js/forgot_password.php"></script>
+   <script src="/encryption/public/js/forgot_password.php"></script>
 
 </body>
 </html>
