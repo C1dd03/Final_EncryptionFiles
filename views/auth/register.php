@@ -245,7 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (username.length < USERNAME_MIN) return `Username must be at least ${USERNAME_MIN} characters.`;
     if (username.length > USERNAME_MAX) return `Username cannot exceed ${USERNAME_MAX} characters.`;
     if (!/^[A-Za-z]/.test(username)) return "Username: Must start with a letter.";
-    if (!/^[A-Za-z0-9._-]+$/.test(username)) return "Username: Letters, numbers, ., _, - only.";
+    if (!/^[A-Za-z0-9._-]+$/.test(username)) return "Username: Letters, numbers, and . _ - only.";
     if (/\.\.|__|--|\._|_\./.test(username)) return "Username: No consecutive symbols.";
     if (!/[a-zA-Z]/.test(username)) return "Username must contain at least one letter.";
     return null;

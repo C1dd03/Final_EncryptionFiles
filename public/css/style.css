@@ -324,44 +324,10 @@ p {
 
 
 
-/* Radio group styling */
-.extension-field .radio-group {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  margin-top: 5px;
-  margin-bottom: 7px;
-  padding: 10px;
-    border-radius: 3px;
-  border: 1px solid #ccc;
-}
-
-
 .extension{
   font-size: 14px;
   color: #c0c0c0;
 }
-
-.extension-field .radio-group label {
-  display: flex;
-  font-size: 12px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  border-radius: 3px;
-  padding: 5px;
-  cursor: pointer;
-}
-
-.extension-field .radio-group input[type="radio"] {
-  margin-right: 5px;
-  cursor: pointer;
-}
-
-
-
-
-
-
-
 
 
 
