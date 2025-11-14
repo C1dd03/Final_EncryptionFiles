@@ -303,6 +303,13 @@ p {
   border-radius: 3px;
   font-size: 0.9em;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  opacity: 1;
+}
+
+.step-error-container.fade-out {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 
 /* Individual error messages inside container */
@@ -494,7 +501,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   cursor: pointer;
   color: #555;
   font-size: 18px;
-  opacity: 0;            /* 👈 start hidden but keep space */
+  opacity: 0;            /* start hidden but keep space */
   pointer-events: none;  /* prevent clicking while hidden */
   transition: opacity 0.2s ease;
 }
@@ -524,6 +531,10 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .span{
   border-bottom: 2px solid #ff692a;
   margin: 10px 0 10px 0;
+}
+.spn{
+  display: block;
+  margin: 10px 0 20px 0;
 }
 
 /* Autofill fix */

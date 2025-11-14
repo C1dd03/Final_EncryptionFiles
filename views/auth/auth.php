@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pick&Match | Ecommerce Website Design</title>
-  <link rel="stylesheet" href="/encryption/public/css/style.css" />
+  <!-- <link rel="stylesheet" href="/encryption/public/css/style.css" /> -->
   <link rel="stylesheet" href="/encryption/public/css/style.php">
 
   <?php if (isset($formView) && $formView === 'forgot_password.php'): ?>
@@ -110,17 +110,12 @@
   </div>
 
   <?php if (isset($page) && $page === 'login'): ?>
-    
-    <script src="/../encryption/public/js/login-incorrect-atmp.js"></script>
-    <script src="/../encryption/public/js/login-incorrect-atmp.php"></script>
+    <script src="/encryption/public/js/login-incorrect-atmp.php"></script>
+  <?php elseif (isset($page) && $page === 'register'): ?>
+    <script src="/encryption/public/js/reset-form.php"></script>
+    <script src="/encryption/public/js/validation.php"></script>
   <?php else: ?>
-     <script src="/../encryption/public/js/reset-form.js"></script>
-     <script src="/encryption/public/js/reset-form.php"></script>
-    <script src="/../encryption/public/js/validation.js"></script>
-    <script src="/../encryption/public/js/validation.php"></script>s
-    <script src="/../encryption/public/js/forgot.php"></script>
-    <script src="/../encryption/public/js/forgot.js"></script>
-    
+     <script src="/encryption/public/js/forgot.php"></script>
   <?php endif; ?>
 
 

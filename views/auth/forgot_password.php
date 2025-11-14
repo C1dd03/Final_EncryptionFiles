@@ -25,7 +25,7 @@ header("Expires: 0");
 
   <!-- Step 2: Security Question Verification -->
   <div class="step step-2" style="display:none;">
-    <span class="span">Answer your security question</span>
+    <span class="span spn">Answer your security question</span>
 
     <div class="input-field inputfield">
       <select name="question_id" id="fp-question" required>
@@ -58,7 +58,7 @@ header("Expires: 0");
 
   <!-- Step 3: Change Password -->
   <div class="step step-3" style="display:none;">
-    <span class="span">Change Password</span>
+    <span class="span spn">Change Password</span>
 
     <div>
       <div class="pass-input-field inputfield">

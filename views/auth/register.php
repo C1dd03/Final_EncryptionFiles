@@ -54,21 +54,15 @@
       <!-- Dropdown -->
       <select id="extension" name="extension">
         <option value="">Select Extension</option>
-    <option value="Jr">Jr</option>
-    <option value="Sr">Sr</option>
-    <option value="Other">Other</option>
-  </select>
+        <option value="Jr">Jr</option>
+        <option value="Sr">Sr</option>
+        <option value="Other">Other</option>
+      </select>
   
-  <!-- Hidden text input -->
-  <input
-  type="text"
-  id="other_extension"
-  name="other_extension"
-  placeholder="Enter Roman Numeral (I - X)"
-  style="display: none; margin-top: 8px;"
-  />
-
-</div>
+      <!-- Hidden text input -->
+      <input type="text" id="other_extension" name="other_extension" placeholder="Enter Roman Numeral (I - X)" style="display: none;"
+      />
+    </div>
 
 
     
