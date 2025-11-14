@@ -30,10 +30,11 @@ if (isset($_GET['registered']) && $_GET['registered'] == 1): ?>
     <label>Username</label>
   </div>
 
-  <div class="input-field " >
+  <div class="input-field password-field" >
     <input type="password" name="password" class="login-password" placeholder=" " />
   
     <label>Password</label>
+    <i class="fas fa-eye toggle-password"></i>
   </div>
 
 

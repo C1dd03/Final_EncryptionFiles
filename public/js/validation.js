@@ -46,6 +46,9 @@ document.addEventListener('DOMContentLoaded', function () {
   if (confirmPasswordInput) {
     confirmPasswordInput.addEventListener('input', checkPasswordMatch);
   }
+
+  // Toggle password visibility for all password fields
+  initPasswordToggle();
 });
 
 // Regex patterns
@@ -117,32 +120,85 @@ function handlePasswordInput() {
   }
 }
 
+// Check if password and confirm password match
 function checkPasswordMatch() {
-  if (!confirmPasswordInput) return;
+  if (!password || !confirmPasswordInput) return;
 
-  const confirmPassword = confirmPasswordInput.value;
-  const confirmField = confirmPasswordInput.closest('.input-field');
-  const errorContainer = confirmPasswordInput.closest('.form-field').querySelector('.input-error-container');
-
-  if (confirmPassword.length > 0) {
-    if (password.value === confirmPassword) {
-      // Passwords match
-
-      if (errorContainer) {
-        errorContainer.innerHTML = '<p style="color: #23ad5c;">Passwords match</p>';
-      }
-    } else {
-      // Passwords don't match
-
-      if (errorContainer) {
-        errorContainer.innerHTML = '<p style="color: #f80000;">Passwords do not match</p>';
-      }
-    }
-  } else {
-    // Reset when confirm field is empty
-
+  const passwordValue = password.value;
+  const confirmValue = confirmPasswordInput.value;
+  
+  // Find the confirm password field container
+  const confirmField = confirmPasswordInput.closest('.form-field');
+  const confirmInputField = confirmPasswordInput.closest('.input-field');
+  
+  if (!confirmField || !confirmInputField) return;
+  
+  // Get or create the message container
+  let matchMessage = confirmField.querySelector('.password-match-message');
+  if (!matchMessage) {
+    matchMessage = document.createElement('div');
+    matchMessage.className = 'password-match-message';
+    matchMessage.style.fontSize = '12px';
+    matchMessage.style.marginTop = '2px';
+    matchMessage.style.fontWeight = '500';
+    
+    // Insert after the input field but before error container
+    const errorContainer = confirmField.querySelector('.input-error-container');
     if (errorContainer) {
-      errorContainer.innerHTML = '';
+      confirmField.insertBefore(matchMessage, errorContainer);
+    } else {
+      confirmField.appendChild(matchMessage);
     }
   }
+  
+  // Only show validation if confirm password field has content
+  if (confirmValue === '') {
+    matchMessage.style.display = 'none';
+    confirmInputField.style.borderColor = '';
+    return;
+  }
+  
+  // Check if passwords match
+  if (passwordValue === confirmValue && passwordValue !== '') {
+    // Passwords match
+    matchMessage.textContent = 'Password match.';
+    matchMessage.style.color = '#23ad5c';
+    matchMessage.style.display = 'block';
+    confirmInputField.style.borderColor = '#23ad5c';
+  } else {
+    // Passwords don't match
+    matchMessage.textContent = 'Password do not match.';
+    matchMessage.style.color = 'red';
+    matchMessage.style.display = 'block';
+    confirmInputField.style.borderColor = 'red';
+  }
 }
+
+// Initialize password toggle functionality
+function initPasswordToggle() {
+  const toggleIcons = document.querySelectorAll('.toggle-password');
+  
+  toggleIcons.forEach(icon => {
+    icon.addEventListener('click', function() {
+      // Find the input field within the same parent container
+      const container = this.closest('.pass-input-field') || this.closest('.password-field');
+      if (!container) return;
+      
+      const input = container.querySelector('input');
+      if (!input) return;
+      
+      // Toggle password visibility
+      if (input.type === 'password') {
+        input.type = 'text';
+        this.classList.remove('fa-eye');
+        this.classList.add('fa-eye-slash');
+      } else {
+        input.type = 'password';
+        this.classList.remove('fa-eye-slash');
+        this.classList.add('fa-eye');
+      }
+    });
+  });
+}
+
+

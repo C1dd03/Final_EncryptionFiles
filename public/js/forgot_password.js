@@ -196,29 +196,149 @@ let passwordInput, confirmPasswordInput, strengthBar, strengthMessage, passwordE
 
 // Initialize password elements when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
-  passwordInput = document.getElementById("newPassword");
-  confirmPasswordInput = document.getElementById("confirmPassword");
-  strengthBar = document.getElementById("passwordStrengthBar");
-  strengthMessage = document.getElementById("passwordStrengthMessage");
-  passwordError = document.getElementById("passwordError");
-  passwordSuccess = document.getElementById("passwordSuccess");
+  // Small delay to ensure DOM is fully loaded
+  setTimeout(function() {
+    passwordInput = document.getElementById("newPassword");
+    confirmPasswordInput = document.getElementById("confirmPassword");
+    strengthBar = document.getElementById("passwordStrengthBar");
+    strengthMessage = document.getElementById("passwordStrengthMessage");
+    passwordError = document.getElementById("passwordError");
+    passwordSuccess = document.getElementById("passwordSuccess");
 
-  // Event listeners for password strength
-  if (passwordInput) {
-    passwordInput.addEventListener("input", function () {
-      checkPasswordStrength(this.value);
-      if (confirmPasswordInput && confirmPasswordInput.value.length > 0) {
+    // Event listeners for password strength
+    if (passwordInput) {
+      passwordInput.addEventListener("input", function () {
+        checkPasswordStrength(this.value);
+        if (confirmPasswordInput && confirmPasswordInput.value.length > 0) {
+          checkPasswordMatch();
+        }
+      });
+    }
+
+    if (confirmPasswordInput) {
+      confirmPasswordInput.addEventListener("input", function () {
         checkPasswordMatch();
-      }
-    });
-  }
-
-  if (confirmPasswordInput) {
-    confirmPasswordInput.addEventListener("input", function () {
-      checkPasswordMatch();
-    });
-  }
+      });
+    }
+    
+    // Add real-time validation for security answers
+    const securityAnswer1 = document.querySelector('[name="security_answer_1"]');
+    const securityAnswer2 = document.querySelector('[name="security_answer_2"]');
+    const securityAnswer3 = document.querySelector('[name="security_answer_3"]');
+    
+    if (securityAnswer1) {
+      securityAnswer1.addEventListener('input', function() {
+        validateSecurityAnswer(1, this.value);
+      });
+    }
+    
+    if (securityAnswer2) {
+      securityAnswer2.addEventListener('input', function() {
+        validateSecurityAnswer(2, this.value);
+      });
+    }
+    
+    if (securityAnswer3) {
+      securityAnswer3.addEventListener('input', function() {
+        validateSecurityAnswer(3, this.value);
+      });
+    }
+    
+    // Initialize password toggle functionality
+    if (typeof initPasswordToggle === 'function') {
+      initPasswordToggle();
+    } else {
+      // Fallback: initialize password toggle directly
+      const toggleIcons = document.querySelectorAll('.toggle-password');
+      toggleIcons.forEach(icon => {
+        icon.addEventListener('click', function() {
+          // Find the input field within the same parent container
+          const container = this.closest('.pass-input-field') || this.closest('.password-field');
+          if (!container) return;
+          
+          const input = container.querySelector('input');
+          if (!input) return;
+          
+          // Toggle password visibility
+          if (input.type === 'password') {
+            input.type = 'text';
+            this.classList.remove('fa-eye');
+            this.classList.add('fa-eye-slash');
+          } else {
+            input.type = 'password';
+            this.classList.remove('fa-eye-slash');
+            this.classList.add('fa-eye');
+          }
+        });
+      });
+    }
+  }, 100); // 100ms delay
 });
+
+// Function to validate security answers in real-time
+function validateSecurityAnswer(questionId, answer) {
+  // Only validate if we have user data and answer is not empty
+  if (!window.userData || answer.trim() === '') {
+    hideFeedback(questionId);
+    return;
+  }
+  
+  // Get the feedback element
+  const feedbackElement = document.getElementById(`feedback${questionId}`);
+  if (!feedbackElement) return;
+  
+  // Show that we're checking
+  feedbackElement.textContent = 'Checking...';
+  feedbackElement.style.color = '#ffa500'; // Orange
+  feedbackElement.style.display = 'block';
+  
+  // Send AJAX request to validate the answer
+  fetch("index.php?action=validateSecurityAnswer", {
+    method: "POST",
+    body: new URLSearchParams({
+      id_number: window.userData.id_number,
+      question_id: questionId,
+      answer: answer
+    }),
+  })
+  .then((res) => res.json())
+  .then((data) => {
+    if (data.valid !== undefined) {
+      if (data.valid) {
+        // Correct answer
+        feedbackElement.innerHTML = `<i class="fas fa-check-circle" style="color: #23ad5c;"></i> Correct! Your answer: <strong>${escapeHtml(answer)}</strong>`;
+        feedbackElement.style.color = '#23ad5c'; // Green
+      } else {
+        // Incorrect answer
+        feedbackElement.innerHTML = `<i class="fas fa-times-circle" style="color: #e74c3c;"></i> Incorrect. Your answer: <strong>${escapeHtml(answer)}</strong>`;
+        feedbackElement.style.color = '#e74c3c'; // Red
+      }
+      feedbackElement.style.display = 'block';
+    } else {
+      // Error or no data
+      hideFeedback(questionId);
+    }
+  })
+  .catch((err) => {
+    console.error("AJAX error:", err);
+    hideFeedback(questionId);
+  });
+}
+
+// Helper function to hide feedback
+function hideFeedback(questionId) {
+  const feedbackElement = document.getElementById(`feedback${questionId}`);
+  if (feedbackElement) {
+    feedbackElement.style.display = 'none';
+  }
+}
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
 
 function checkPasswordStrength(password) {
   if (!strengthBar || !strengthMessage) return;
@@ -331,12 +451,12 @@ form.addEventListener("submit", function (e) {
   const ans2 = step2.querySelector('[name="security_answer_2"]').value.trim();
   const ans3 = step2.querySelector('[name="security_answer_3"]').value.trim();
 
-  // Use the first answer as the security answer for the reset (as per original logic)
+  // Use the first answer as the security answer for the reset
   fetch("index.php?action=resetPassword", {
     method: "POST",
     body: new URLSearchParams({
       id_number: id_number,
-      security_question: 1, // Using question 1
+      security_question: 1, // Using question 1 (index 1)
       answer: ans1,
       new_password: new_password,
       confirm_password: confirm_password,

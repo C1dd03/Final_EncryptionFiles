@@ -422,17 +422,26 @@ public function verifySecurityAnswers() {
             exit;
         }
 
+        // Get the user's actual security questions and answers
+        $userQuestions = $this->userModel->getUserAuthAnswers($id_number);
+        
+        if (empty($userQuestions)) {
+            echo json_encode(['success' => false, 'message' => 'No security questions found for this user.']);
+            exit;
+        }
+
+        // Map the user's questions to their answers from the form
         $answers = [
-            1 => trim($_POST['security_answer_1'] ?? ''),
-            2 => trim($_POST['security_answer_2'] ?? ''),
-            3 => trim($_POST['security_answer_3'] ?? '')
+            trim($_POST['security_answer_1'] ?? ''),
+            trim($_POST['security_answer_2'] ?? ''),
+            trim($_POST['security_answer_3'] ?? '')
         ];
 
         // Validate all answers are provided
         $emptyAnswers = [];
-        foreach ($answers as $qid => $ans) {
+        foreach ($answers as $index => $ans) {
             if (empty($ans)) {
-                $emptyAnswers[] = $qid;
+                $emptyAnswers[] = $index + 1;
             }
         }
 
@@ -443,9 +452,12 @@ public function verifySecurityAnswers() {
 
         $correctCount = 0;
 
-        foreach ($answers as $qid => $ans) {
-            $record = $this->userModel->getUserAuthAnswer($id_number, $qid);
-            if ($record && password_verify($ans, $record['answer_hash'])) {
+        // Verify each answer against the corresponding user question
+        for ($i = 0; $i < min(count($userQuestions), count($answers)); $i++) {
+            $record = $userQuestions[$i];
+            $answer = $answers[$i];
+            
+            if (password_verify($answer, $record['answer_hash'])) {
                 $correctCount++;
             }
         }
@@ -463,23 +475,79 @@ public function verifySecurityAnswers() {
 }
 
 
+//========================================== Validate Individual Security Answer =====================================
+public function validateSecurityAnswer() {
+    header('Content-Type: application/json; charset=utf-8');
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $id_number = trim($_POST['id_number'] ?? '');
+        $question_index = (int)($_POST['question_id'] ?? 0); // This is now the index (1, 2, 3) rather than question_id
+        $answer = trim($_POST['answer'] ?? '');
+        
+        // Validate required fields
+        if (empty($id_number)) {
+            echo json_encode(['valid' => false, 'message' => 'ID Number is required.']);
+            exit;
+        }
+        
+        if (empty($question_index) || $question_index < 1 || $question_index > 3) {
+            echo json_encode(['valid' => false, 'message' => 'Invalid question index.']);
+            exit;
+        }
+        
+        if (empty($answer)) {
+            echo json_encode(['valid' => false, 'message' => 'Answer is required.']);
+            exit;
+        }
+        
+        // Get the user's actual security questions
+        $userQuestions = $this->userModel->getUserAuthAnswers($id_number);
+        
+        if (empty($userQuestions) || !isset($userQuestions[$question_index - 1])) {
+            echo json_encode(['valid' => false, 'message' => 'No answer found for this question.']);
+            exit;
+        }
+        
+        // Get the stored answer hash for the specific question
+        $record = $userQuestions[$question_index - 1];
+        
+        // Verify the answer
+        $isValid = password_verify($answer, $record['answer_hash']);
+        
+        echo json_encode(['valid' => $isValid]);
+    } else {
+        echo json_encode(['valid' => false, 'message' => 'Invalid request method.']);
+    }
+    exit;
+}
+
+
 
     //=========================================== Reset Password =======================================
     public function resetPassword() {
         $id_number = $_POST['id_number'] ?? '';
-        $question_id = $_POST['security_question'] ?? '';
-        $answer = $_POST['answer'] ?? '';
+        $question_index = (int)($_POST['security_question'] ?? 0); // This is now the index (1, 2, 3) rather than question_id
+        $answer = trim($_POST['answer'] ?? '');
         $new_password = $_POST['new_password'] ?? '';
         $confirm_password = $_POST['confirm_password'] ?? '';
 
         if($new_password !== $confirm_password){
-            echo json_encode(['susccess'=>false, 'message'=>'Passwords do not match']);
+            echo json_encode(['success'=>false, 'message'=>'Passwords do not match']);
             return;
         }
 
-        $record = $this->userModel->getUserAuthAnswer($id_number, $question_id);
+        // Get the user's actual security questions
+        $userQuestions = $this->userModel->getUserAuthAnswers($id_number);
+        
+        if (empty($userQuestions) || !isset($userQuestions[$question_index - 1])) {
+            echo json_encode(['success'=>false, 'message'=>'No security question found']);
+            return;
+        }
+        
+        // Get the stored answer hash for the specific question
+        $record = $userQuestions[$question_index - 1];
 
-        if(!$record || !password_verify($answer, $record['answer_hash'])){
+        if(!password_verify($answer, $record['answer_hash'])){
             echo json_encode(['success'=>false, 'message'=>'Incorrect security answer']);
             return;
         }

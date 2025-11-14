@@ -182,9 +182,10 @@
       </div>
     </div>
     <div class="form-field">
-      <div class="input-field">
+      <div class="input-field password-field">
         <input type="password" name="security_q1" required placeholder=" " />
         <label>Answer</label>
+        <i class="fas fa-eye toggle-password"></i>
       </div>
     </div>
 
@@ -200,9 +201,10 @@
       </div>
     </div>
     <div class="form-field">
-      <div class="input-field">
+      <div class="input-field password-field">
         <input type="password" name="security_q2" required placeholder=" " />
         <label>Answer</label>
+        <i class="fas fa-eye toggle-password"></i>
       </div>
     </div>
 
@@ -218,9 +220,10 @@
       </div>
     </div>
     <div class="form-field">
-      <div class="input-field">
+      <div class="input-field password-field">
         <input type="password" name="security_q3" required placeholder=" " />
         <label>Answer</label>
+        <i class="fas fa-eye toggle-password"></i>
       </div>
     </div>
 
@@ -254,6 +257,7 @@
       <div class="pass-input-field">
         <input type="password" name="password" class="password" required placeholder=" " />
         <label>Password</label>
+        <i class="fas fa-eye toggle-password"></i>
       </div>
       <!-- Password  strenght container bar -->
       <div class="password-strenght-container">
@@ -265,9 +269,10 @@
     </div>
     
     <div class="form-field">
-      <div class="input-field">
+      <div class="input-field password-field">
         <input type="password" name="confirm_password" required placeholder=" " />
         <label>Re-enter-password</label>
+        <i class="fas fa-eye toggle-password"></i>
       </div>
       <div class="input-error-container" aria-live="polite"></div>
     </div>

@@ -43,6 +43,10 @@ switch ($action) {
         $userController->verifySecurityAnswers();
         break;
     
+    case 'validateSecurityAnswer':
+        $userController->validateSecurityAnswer();
+        break;
+    
     case 'resetPassword':
         $userController->resetPassword();
         break;

@@ -66,7 +66,13 @@ CREATE TABLE `auth_questions` (
 INSERT INTO `auth_questions` (`question_id`, `question_text`) VALUES
 (1, 'Who is your best friend in Elementary?'),
 (2, 'What is the name of your favorite pet?'),
-(3, 'Who is your favorite teacher in high school?');
+(3, 'Who is your favorite teacher in high school?'),
+(4, 'What is your mother''s maiden name?'),
+(5, 'What city were you born in?'),
+(6, 'What is your favorite color?'),
+(7, 'What is your favorite food?'),
+(8, 'What was the name of your first school?'),
+(9, 'What is your father''s middle name?');
 
 -- --------------------------------------------------------
 
@@ -197,7 +203,7 @@ ALTER TABLE `addresses`
 -- AUTO_INCREMENT for table `auth_questions`
 --
 ALTER TABLE `auth_questions`
-  MODIFY `question_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `question_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `user_auth_answers`

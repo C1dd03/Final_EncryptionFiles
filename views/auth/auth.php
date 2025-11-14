@@ -101,15 +101,11 @@
       <p class="copyright">Copyright 2025 - CSUCC sites</p>
     </div>
   </div>
-
+      
+  <script src="/../encryption/public/js/forgot_password.js"></script>
   <script src="/../encryption/public/js/reset-form.js"></script>
   <script src="/../encryption/public/js/validation.js"></script>
   <script src="/../encryption/public/js/login-incorrect-atmp.js"></script>
-
-
-   <!---------------------------- Added Forgot Password JS --->
-  <script src="/../encryption/public/js/forgot_password.js"></script>
-
 
 <!---------------------------- Added restrict js code --->
   <script src="/../encryption/public/js/reset-form.php"></script>
