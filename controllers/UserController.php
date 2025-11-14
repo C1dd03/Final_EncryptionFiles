@@ -213,6 +213,25 @@ public function registerUser() {
         exit;
     }
 
+    public function getUserById() {
+        header('Content-Type: application/json');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            return;
+        }
+        $id = trim($_POST['id_number'] ?? '');
+        if ($id === '') {
+            echo json_encode(['success' => false, 'message' => 'Missing id_number.']);
+            return;
+        }
+        $user = $this->userModel->findByIdNumber($id);
+        if (!$user) {
+            echo json_encode(['success' => false, 'message' => 'User not found.']);
+            return;
+        }
+        echo json_encode(['success' => true, 'username' => $user['username']]);
+    }
+
     // --- PRIVATE VALIDATION METHODS ---
 private function validateName($value, $field) {
     $errors = [];

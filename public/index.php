@@ -34,6 +34,9 @@ switch ($action) {
     case 'checkId':
         $controller->checkId();
         break;
+    case 'getUserById':
+        $controller->getUserById();
+        break;
     case 'dashboard':
         // Show dashboard after successful login
         require __DIR__ . '/../views/dashboard/dashboard.php';

@@ -94,7 +94,19 @@ document.addEventListener('DOMContentLoaded', () => {
         showErrors(step1, ['ID not found.'], idInput);
         return;
       }
-      showStep(2);
+      const resp2 = await fetch('index.php?action=getUserById', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'id_number=' + encodeURIComponent(id)
+      });
+      const data2 = await resp2.json();
+      const uname = data2 && data2.success ? data2.username : '';
+      const ok = confirm(`Hello! Is this your account: ${uname} ? Click OK to proceed or Cancel if this isn’t you.`);
+      if (ok) {
+        showStep(2);
+      } else {
+        idInput.focus();
+      }
     } catch (e) {
       showErrors(step1, ['Network error. Please try again.'], idInput);
     }
