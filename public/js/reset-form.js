@@ -169,7 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const capitalizedFieldName = capitalizeFirst(fieldName);
 
       // Check if name starts with a space
-      if (rawValue.length > 0 && rawValue.charAt(0) === ' ') {
+      if (rawValue.length > 0 && rawValue.charAt(0) === " ") {
         return `${capitalizedFieldName} cannot start with a space.`;
       }
 
@@ -207,7 +207,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (charLower === lastLetterLower) {
           repeatCount += 1;
           if (repeatCount === 3)
-            return capitalizeMessage(`${fieldName}: No 3 same letters in a row`);
+            return capitalizeMessage(
+              `${fieldName}: No 3 same letters in a row`
+            );
         } else {
           lastLetterLower = charLower;
           repeatCount = 1;
@@ -238,12 +240,20 @@ document.addEventListener("DOMContentLoaded", () => {
       const label = addressLabels[input.name];
 
       // Check if address field (except street) starts with a space
-      if (input.name !== "street" && rawValue.length > 0 && rawValue.charAt(0) === ' ') {
+      if (
+        input.name !== "street" &&
+        rawValue.length > 0 &&
+        rawValue.charAt(0) === " "
+      ) {
         return `${label} cannot start with a space.`;
       }
 
       // Check if address field (except street) starts with a number or special character
-      if (input.name !== "street" && rawValue.length > 0 && !/^[A-Za-z]/.test(rawValue.charAt(0))) {
+      if (
+        input.name !== "street" &&
+        rawValue.length > 0 &&
+        !/^[A-Za-z]/.test(rawValue.charAt(0))
+      ) {
         return `${label} must start with a letter only.`;
       }
 
@@ -269,7 +279,8 @@ document.addEventListener("DOMContentLoaded", () => {
       for (let i = 0; i < rawValue.length; i++) {
         const char = rawValue[i];
         if (char === " ") {
-          if (previousWasSpace) return `${label}: Cannot contain double spaces.`;
+          if (previousWasSpace)
+            return `${label}: Cannot contain double spaces.`;
           previousWasSpace = true;
           lastLetterLower = null;
           repeatCount = 0;
@@ -295,8 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
           continue;
         }
         if (/\d/.test(char)) {
-          if (!isStreet)
-            return `${label}: Cannot include numbers.`;
+          if (!isStreet) return `${label}: Cannot include numbers.`;
           lastLetterLower = null;
           repeatCount = 0;
           if (!inWord) {
@@ -620,4 +630,3 @@ document.addEventListener("DOMContentLoaded", () => {
   showStep(currentStep);
 });
 // This is your actual JS file
-

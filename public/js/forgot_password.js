@@ -39,14 +39,19 @@ function nextStepForgot(step) {
           window.userQuestions = data.questions;
 
           // Populate Step 2 with user info and questions
-          document.getElementById('displayIdNumber').textContent = data.user.id_number;
-          document.getElementById('displayUsername').textContent = data.user.username;
-          
+          document.getElementById("displayIdNumber").textContent =
+            data.user.id_number;
+          document.getElementById("displayUsername").textContent =
+            data.user.username;
+
           // Populate question labels
           if (data.questions && data.questions.length === 3) {
-            document.getElementById('question1Label').textContent = data.questions[0].question_text;
-            document.getElementById('question2Label').textContent = data.questions[1].question_text;
-            document.getElementById('question3Label').textContent = data.questions[2].question_text;
+            document.getElementById("question1Label").textContent =
+              data.questions[0].question_text;
+            document.getElementById("question2Label").textContent =
+              data.questions[1].question_text;
+            document.getElementById("question3Label").textContent =
+              data.questions[2].question_text;
           }
 
           // Show success popup
@@ -147,8 +152,12 @@ function nextStepForgot(step) {
             securityError.style.display = "none";
           }
           // Copy user info to Step 3 before moving
-          const step3DisplayId = document.querySelector('.step-3 #displayIdNumber');
-          const step3DisplayUsername = document.querySelector('.step-3 #displayUsername');
+          const step3DisplayId = document.querySelector(
+            ".step-3 #displayIdNumber"
+          );
+          const step3DisplayUsername = document.querySelector(
+            ".step-3 #displayUsername"
+          );
           if (step3DisplayId && window.userData) {
             step3DisplayId.textContent = window.userData.id_number;
           }
@@ -192,12 +201,17 @@ function prevStepForgot(step) {
 }
 
 // Password strength checker for Step 3
-let passwordInput, confirmPasswordInput, strengthBar, strengthMessage, passwordError, passwordSuccess;
+let passwordInput,
+  confirmPasswordInput,
+  strengthBar,
+  strengthMessage,
+  passwordError,
+  passwordSuccess;
 
 // Initialize password elements when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener("DOMContentLoaded", function () {
   // Small delay to ensure DOM is fully loaded
-  setTimeout(function() {
+  setTimeout(function () {
     passwordInput = document.getElementById("newPassword");
     confirmPasswordInput = document.getElementById("confirmPassword");
     strengthBar = document.getElementById("passwordStrengthBar");
@@ -220,54 +234,62 @@ document.addEventListener('DOMContentLoaded', function() {
         checkPasswordMatch();
       });
     }
-    
+
     // Add real-time validation for security answers
-    const securityAnswer1 = document.querySelector('[name="security_answer_1"]');
-    const securityAnswer2 = document.querySelector('[name="security_answer_2"]');
-    const securityAnswer3 = document.querySelector('[name="security_answer_3"]');
-    
+    const securityAnswer1 = document.querySelector(
+      '[name="security_answer_1"]'
+    );
+    const securityAnswer2 = document.querySelector(
+      '[name="security_answer_2"]'
+    );
+    const securityAnswer3 = document.querySelector(
+      '[name="security_answer_3"]'
+    );
+
     if (securityAnswer1) {
-      securityAnswer1.addEventListener('input', function() {
+      securityAnswer1.addEventListener("input", function () {
         validateSecurityAnswer(1, this.value);
       });
     }
-    
+
     if (securityAnswer2) {
-      securityAnswer2.addEventListener('input', function() {
+      securityAnswer2.addEventListener("input", function () {
         validateSecurityAnswer(2, this.value);
       });
     }
-    
+
     if (securityAnswer3) {
-      securityAnswer3.addEventListener('input', function() {
+      securityAnswer3.addEventListener("input", function () {
         validateSecurityAnswer(3, this.value);
       });
     }
-    
+
     // Initialize password toggle functionality
-    if (typeof initPasswordToggle === 'function') {
+    if (typeof initPasswordToggle === "function") {
       initPasswordToggle();
     } else {
       // Fallback: initialize password toggle directly
-      const toggleIcons = document.querySelectorAll('.toggle-password');
-      toggleIcons.forEach(icon => {
-        icon.addEventListener('click', function() {
+      const toggleIcons = document.querySelectorAll(".toggle-password");
+      toggleIcons.forEach((icon) => {
+        icon.addEventListener("click", function () {
           // Find the input field within the same parent container
-          const container = this.closest('.pass-input-field') || this.closest('.password-field');
+          const container =
+            this.closest(".pass-input-field") ||
+            this.closest(".password-field");
           if (!container) return;
-          
-          const input = container.querySelector('input');
+
+          const input = container.querySelector("input");
           if (!input) return;
-          
+
           // Toggle password visibility
-          if (input.type === 'password') {
-            input.type = 'text';
-            this.classList.remove('fa-eye');
-            this.classList.add('fa-eye-slash');
+          if (input.type === "password") {
+            input.type = "text";
+            this.classList.remove("fa-eye");
+            this.classList.add("fa-eye-slash");
           } else {
-            input.type = 'password';
-            this.classList.remove('fa-eye-slash');
-            this.classList.add('fa-eye');
+            input.type = "password";
+            this.classList.remove("fa-eye-slash");
+            this.classList.add("fa-eye");
           }
         });
       });
@@ -278,64 +300,68 @@ document.addEventListener('DOMContentLoaded', function() {
 // Function to validate security answers in real-time
 function validateSecurityAnswer(questionId, answer) {
   // Only validate if we have user data and answer is not empty
-  if (!window.userData || answer.trim() === '') {
+  if (!window.userData || answer.trim() === "") {
     hideFeedback(questionId);
     return;
   }
-  
+
   // Get the feedback element
   const feedbackElement = document.getElementById(`feedback${questionId}`);
   if (!feedbackElement) return;
-  
+
   // Show that we're checking
-  feedbackElement.textContent = 'Checking...';
-  feedbackElement.style.color = '#ffa500'; // Orange
-  feedbackElement.style.display = 'block';
-  
+  feedbackElement.textContent = "Checking...";
+  feedbackElement.style.color = "#ffa500"; // Orange
+  feedbackElement.style.display = "block";
+
   // Send AJAX request to validate the answer
   fetch("index.php?action=validateSecurityAnswer", {
     method: "POST",
     body: new URLSearchParams({
       id_number: window.userData.id_number,
       question_id: questionId,
-      answer: answer
+      answer: answer,
     }),
   })
-  .then((res) => res.json())
-  .then((data) => {
-    if (data.valid !== undefined) {
-      if (data.valid) {
-        // Correct answer
-        feedbackElement.innerHTML = `<i class="fas fa-check-circle" style="color: #23ad5c;"></i> Correct! Your answer: <strong>${escapeHtml(answer)}</strong>`;
-        feedbackElement.style.color = '#23ad5c'; // Green
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.valid !== undefined) {
+        if (data.valid) {
+          // Correct answer
+          feedbackElement.innerHTML = `<i class="fas fa-check-circle" style="color: #23ad5c;"></i> Correct! Your answer: <strong>${escapeHtml(
+            answer
+          )}</strong>`;
+          feedbackElement.style.color = "#23ad5c"; // Green
+        } else {
+          // Incorrect answer
+          feedbackElement.innerHTML = `<i class="fas fa-times-circle" style="color: #e74c3c;"></i> Incorrect. Your answer: <strong>${escapeHtml(
+            answer
+          )}</strong>`;
+          feedbackElement.style.color = "#e74c3c"; // Red
+        }
+        feedbackElement.style.display = "block";
       } else {
-        // Incorrect answer
-        feedbackElement.innerHTML = `<i class="fas fa-times-circle" style="color: #e74c3c;"></i> Incorrect. Your answer: <strong>${escapeHtml(answer)}</strong>`;
-        feedbackElement.style.color = '#e74c3c'; // Red
+        // Error or no data
+        hideFeedback(questionId);
       }
-      feedbackElement.style.display = 'block';
-    } else {
-      // Error or no data
+    })
+    .catch((err) => {
+      console.error("AJAX error:", err);
       hideFeedback(questionId);
-    }
-  })
-  .catch((err) => {
-    console.error("AJAX error:", err);
-    hideFeedback(questionId);
-  });
+    });
 }
 
 // Helper function to hide feedback
 function hideFeedback(questionId) {
   const feedbackElement = document.getElementById(`feedback${questionId}`);
   if (feedbackElement) {
-    feedbackElement.style.display = 'none';
+    feedbackElement.style.display = "none";
   }
 }
 
 // Helper function to escape HTML
 function escapeHtml(text) {
-  const div = document.createElement('div');
+  const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
 }

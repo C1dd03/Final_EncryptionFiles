@@ -3,10 +3,10 @@ header("Content-Type: application/javascript");
 
 // Allow only if coming from your site
 $referrer = $_SERVER['HTTP_REFERER'] ?? '';
-$host = $_SERVER['SERVER_NAME'] ?? '';
 
-if (empty($referrer) || strpos($referrer, $host) === false) {
-    header("Location: /encryption/public/404.html");
+// Allow localhost/127.0.0.1 for local development
+if (empty($referrer) || (!strpos($referrer, 'localhost') && !strpos($referrer, '127.0.0.1'))) {
+    header("Location: ../404.html");
     exit;
 }
 
