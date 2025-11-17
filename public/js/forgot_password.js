@@ -9,21 +9,29 @@ function nextStepForgot(step) {
   // Step 1: Verify ID via AJAX
   if (step === 1) {
     const idInput = current.querySelector('[name="id_number"]');
+    const msgError = current.querySelector(".message-error");
 
     // Clear previous message
-    msgError.textContent = "";
-    msgError.style.display = "none";
+    if (msgError) {
+      msgError.textContent = "";
+      msgError.style.visibility = "hidden";
+    }
 
     if (!idInput.value.trim()) {
-      msgError.textContent = "Please enter your ID Number";
-      msgError.style.display = "block";
+      if (msgError) {
+        msgError.textContent = "Please enter your ID Number";
+        msgError.style.visibility = "visible";
+      }
       return;
     }
 
     // Check if input contains only numbers and hyphens
     if (!/^[0-9-]+$/.test(idInput.value.trim())) {
-      msgError.textContent = "ID Number must contain only numbers";
-      msgError.style.display = "block";
+      if (msgError) {
+        msgError.textContent =
+          "ID Number must contain only numbers and hyphens";
+        msgError.style.visibility = "visible";
+      }
       return;
     }
 
@@ -64,14 +72,18 @@ function nextStepForgot(step) {
             document.querySelector(".step-2").classList.add("active");
           }, 2000);
         } else {
-          msgError.textContent = data.message; // Invalid ID Number
-          msgError.style.display = "block";
+          if (msgError) {
+            msgError.textContent = data.message; // Invalid ID Number
+            msgError.style.visibility = "visible";
+          }
         }
       })
       .catch((err) => {
         console.error("AJAX error:", err);
-        msgError.textContent = "An error occurred. Please try again.";
-        msgError.style.display = "block";
+        if (msgError) {
+          msgError.textContent = "An error occurred. Please try again.";
+          msgError.style.visibility = "visible";
+        }
       });
 
     return;
@@ -98,36 +110,42 @@ function nextStepForgot(step) {
     // Clear previous errors
     if (securityError) {
       securityError.textContent = "";
-      securityError.style.display = "none";
+      securityError.style.visibility = "hidden";
     }
     if (error1) {
       error1.textContent = "";
-      error1.style.display = "none";
+      error1.style.visibility = "hidden";
     }
     if (error2) {
       error2.textContent = "";
-      error2.style.display = "none";
+      error2.style.visibility = "hidden";
     }
     if (error3) {
       error3.textContent = "";
-      error3.style.display = "none";
+      error3.style.visibility = "hidden";
     }
 
     // Individual input validation
     let hasError = false;
     if (!ans1) {
-      error1.textContent = "Please answer this question";
-      error1.style.display = "block";
+      if (error1) {
+        error1.textContent = "Please answer this question";
+        error1.style.visibility = "visible";
+      }
       hasError = true;
     }
     if (!ans2) {
-      error2.textContent = "Please answer this question";
-      error2.style.display = "block";
+      if (error2) {
+        error2.textContent = "Please answer this question";
+        error2.style.visibility = "visible";
+      }
       hasError = true;
     }
     if (!ans3) {
-      error3.textContent = "Please answer this question";
-      error3.style.display = "block";
+      if (error3) {
+        error3.textContent = "Please answer this question";
+        error3.style.visibility = "visible";
+      }
       hasError = true;
     }
 
@@ -149,7 +167,7 @@ function nextStepForgot(step) {
         if (data.success) {
           if (securityError) {
             securityError.textContent = "";
-            securityError.style.display = "none";
+            securityError.style.visibility = "hidden";
           }
           // Copy user info to Step 3 before moving
           const step3DisplayId = document.querySelector(
@@ -170,7 +188,7 @@ function nextStepForgot(step) {
           if (securityError) {
             securityError.textContent =
               data.message || "Verification failed. Please check your answers.";
-            securityError.style.display = "block";
+            securityError.style.visibility = "visible";
           } else {
             alert(data.message);
           }
@@ -180,7 +198,7 @@ function nextStepForgot(step) {
         console.error("AJAX error:", err);
         if (securityError) {
           securityError.textContent = "An error occurred. Please try again.";
-          securityError.style.display = "block";
+          securityError.style.visibility = "visible";
         } else {
           alert("An error occurred. Please try again.");
         }
@@ -201,37 +219,75 @@ function prevStepForgot(step) {
 }
 
 // Password strength checker for Step 3
-let passwordInput,
-  confirmPasswordInput,
+let forgotPasswordInput,
+  forgotConfirmPasswordInput,
   strengthBar,
   strengthMessage,
-  passwordError,
-  passwordSuccess;
+  passwordSuccess,
+  submitButton;
 
 // Initialize password elements when DOM is ready
 document.addEventListener("DOMContentLoaded", function () {
   // Small delay to ensure DOM is fully loaded
   setTimeout(function () {
-    passwordInput = document.getElementById("newPassword");
-    confirmPasswordInput = document.getElementById("confirmPassword");
+    forgotPasswordInput = document.getElementById("newPassword");
+    forgotConfirmPasswordInput = document.getElementById("confirmPassword");
     strengthBar = document.getElementById("passwordStrengthBar");
     strengthMessage = document.getElementById("passwordStrengthMessage");
-    passwordError = document.getElementById("passwordError");
     passwordSuccess = document.getElementById("passwordSuccess");
+    submitButton = document.querySelector(".step-3 .btn_submit");
 
-    // Event listeners for password strength
-    if (passwordInput) {
-      passwordInput.addEventListener("input", function () {
+    console.log("Elements initialized:", {
+      strengthBar,
+      strengthMessage,
+      passwordSuccess,
+      submitButton,
+    });
+
+    // Event listeners for password strength and match validation
+    if (forgotPasswordInput) {
+      forgotPasswordInput.addEventListener("input", function () {
         checkPasswordStrength(this.value);
-        if (confirmPasswordInput && confirmPasswordInput.value.length > 0) {
-          checkPasswordMatch();
+        // Check password match if confirm password has content
+        if (
+          forgotConfirmPasswordInput &&
+          forgotConfirmPasswordInput.value.length > 0
+        ) {
+          checkForgotPasswordMatch();
+        }
+        // Clear any previous error when user starts typing
+        if (typeof clearFieldError === "function") {
+          clearFieldError(this);
+          // Show password strength message again when clearing errors
+          const passwordStrengthMessage = document.getElementById(
+            "passwordStrengthMessage"
+          );
+          if (passwordStrengthMessage) {
+            passwordStrengthMessage.style.visibility = "visible";
+          }
         }
       });
     }
 
-    if (confirmPasswordInput) {
-      confirmPasswordInput.addEventListener("input", function () {
-        checkPasswordMatch();
+    if (forgotConfirmPasswordInput) {
+      forgotConfirmPasswordInput.addEventListener("input", function () {
+        checkForgotPasswordMatch();
+        // Clear any previous error when user starts typing
+        if (typeof clearFieldError === "function") {
+          clearFieldError(this);
+        }
+      });
+      // Check password match on page load if there's content
+      if (forgotConfirmPasswordInput.value.length > 0) {
+        checkForgotPasswordMatch();
+      }
+    }
+
+    // Add real-time validation for ID number
+    const idInput = document.querySelector('.step-1 [name="id_number"]');
+    if (idInput) {
+      idInput.addEventListener("input", function () {
+        validateIdNumber(this.value);
       });
     }
 
@@ -248,66 +304,149 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (securityAnswer1) {
       securityAnswer1.addEventListener("input", function () {
+        validateSecurityAnswerField(1, this.value);
         validateSecurityAnswer(1, this.value);
       });
+      // Show feedback immediately if there's a value
+      if (securityAnswer1.value.trim() !== "") {
+        validateSecurityAnswer(1, securityAnswer1.value);
+      }
     }
 
     if (securityAnswer2) {
       securityAnswer2.addEventListener("input", function () {
+        validateSecurityAnswerField(2, this.value);
         validateSecurityAnswer(2, this.value);
       });
+      // Show feedback immediately if there's a value
+      if (securityAnswer2.value.trim() !== "") {
+        validateSecurityAnswer(2, securityAnswer2.value);
+      }
     }
 
     if (securityAnswer3) {
       securityAnswer3.addEventListener("input", function () {
+        validateSecurityAnswerField(3, this.value);
         validateSecurityAnswer(3, this.value);
       });
+      // Show feedback immediately if there's a value
+      if (securityAnswer3.value.trim() !== "") {
+        validateSecurityAnswer(3, securityAnswer3.value);
+      }
     }
 
     // Initialize password toggle functionality
-    if (typeof initPasswordToggle === "function") {
-      initPasswordToggle();
-    } else {
-      // Fallback: initialize password toggle directly
-      const toggleIcons = document.querySelectorAll(".toggle-password");
-      toggleIcons.forEach((icon) => {
-        icon.addEventListener("click", function () {
-          // Find the input field within the same parent container
-          const container =
-            this.closest(".pass-input-field") ||
-            this.closest(".password-field");
-          if (!container) return;
-
-          const input = container.querySelector("input");
-          if (!input) return;
-
-          // Toggle password visibility
-          if (input.type === "password") {
-            input.type = "text";
-            this.classList.remove("fa-eye");
-            this.classList.add("fa-eye-slash");
-          } else {
-            input.type = "password";
-            this.classList.remove("fa-eye-slash");
-            this.classList.add("fa-eye");
+    // Use a small delay to ensure the validation.js initPasswordToggle has run
+    setTimeout(function () {
+      if (typeof initPasswordToggle === "function") {
+        initPasswordToggle();
+      } else {
+        // Fallback: initialize password toggle directly
+        const toggleIcons = document.querySelectorAll(".toggle-password");
+        toggleIcons.forEach((icon) => {
+          // Check if we've already attached an event listener to prevent duplicates
+          if (icon.dataset.listenerAttached === "true") {
+            return;
           }
+
+          // Check if we've already attached an event listener to prevent duplicates
+          if (icon.dataset.listenerAttached === "true") {
+            return;
+          }
+
+          icon.addEventListener("click", function () {
+            // Find the input field within the same parent container
+            const container =
+              this.closest(".pass-input-field") ||
+              this.closest(".password-field");
+            if (!container) return;
+
+            const input = container.querySelector("input");
+            if (!input) return;
+
+            // Toggle password visibility
+            if (input.type === "password") {
+              input.type = "text";
+              this.classList.remove("fa-eye");
+              this.classList.add("fa-eye-slash");
+            } else {
+              input.type = "password";
+              this.classList.remove("fa-eye-slash");
+              this.classList.add("fa-eye");
+            }
+          });
+
+          // Mark that we've attached a listener to this icon
+          icon.dataset.listenerAttached = "true";
         });
-      });
-    }
+      }
+
+      // No need to check form validity on page load since we're not disabling the button
+    }, 200); // Slightly longer delay to ensure validation.js has run
   }, 100); // 100ms delay
 });
 
+// Function to validate ID number in real-time
+function validateIdNumber(idNumber) {
+  const msgError = document.querySelector(".step-1 .message-error");
+  if (!msgError) return;
+
+  // Clear previous message
+  msgError.textContent = "";
+  msgError.style.visibility = "hidden";
+
+  if (idNumber.trim() === "") {
+    return; // Don't show error for empty field
+  }
+
+  // Check if input contains only numbers and hyphens
+  if (!/^[0-9-]+$/.test(idNumber.trim())) {
+    msgError.textContent = "ID Number must contain only numbers and hyphens";
+    msgError.style.visibility = "visible";
+  }
+}
+
+// Function to validate security answer fields in real-time
+function validateSecurityAnswerField(questionId, answer) {
+  const errorElement = document.getElementById(`error${questionId}`);
+  if (!errorElement) return;
+
+  // Clear previous message
+  errorElement.textContent = "";
+  errorElement.style.visibility = "hidden";
+
+  if (answer.trim() === "") {
+    errorElement.textContent = "Please answer this question";
+    errorElement.style.visibility = "visible";
+  }
+}
+
+// Helper function to hide feedback
+function hideFeedback(questionId) {
+  const feedbackElement = document.getElementById(`feedback${questionId}`);
+  if (feedbackElement) {
+    feedbackElement.style.display = "none";
+    feedbackElement.innerHTML = ""; // Clear the content as well
+  }
+}
+
 // Function to validate security answers in real-time
 function validateSecurityAnswer(questionId, answer) {
-  // Only validate if we have user data and answer is not empty
-  if (!window.userData || answer.trim() === "") {
+  // Get the feedback element
+  const feedbackElement = document.getElementById(`feedback${questionId}`);
+  if (!feedbackElement) return;
+
+  // If answer is empty, hide feedback and let the field validation handle the error message
+  if (answer.trim() === "") {
     hideFeedback(questionId);
     return;
   }
 
-  // Get the feedback element
-  const feedbackElement = document.getElementById(`feedback${questionId}`);
-  if (!feedbackElement) return;
+  // Only validate if we have user data and answer is not empty
+  if (!window.userData) {
+    hideFeedback(questionId);
+    return;
+  }
 
   // Show that we're checking
   feedbackElement.textContent = "Checking...";
@@ -328,18 +467,16 @@ function validateSecurityAnswer(questionId, answer) {
       if (data.valid !== undefined) {
         if (data.valid) {
           // Correct answer
-          feedbackElement.innerHTML = `<i class="fas fa-check-circle" style="color: #23ad5c;"></i> Correct! Your answer: <strong>${escapeHtml(
-            answer
-          )}</strong>`;
+          feedbackElement.innerHTML =
+            '<p style="color: #23ad5c;">Correct answer!</p>';
           feedbackElement.style.color = "#23ad5c"; // Green
         } else {
           // Incorrect answer
-          feedbackElement.innerHTML = `<i class="fas fa-times-circle" style="color: #e74c3c;"></i> Incorrect. Your answer: <strong>${escapeHtml(
-            answer
-          )}</strong>`;
+          feedbackElement.innerHTML =
+            '<p style="color: #e74c3c;">Incorrect answer!</p>';
           feedbackElement.style.color = "#e74c3c"; // Red
         }
-        feedbackElement.style.display = "block";
+        // feedbackElement.style.display = "block";
       } else {
         // Error or no data
         hideFeedback(questionId);
@@ -351,14 +488,6 @@ function validateSecurityAnswer(questionId, answer) {
     });
 }
 
-// Helper function to hide feedback
-function hideFeedback(questionId) {
-  const feedbackElement = document.getElementById(`feedback${questionId}`);
-  if (feedbackElement) {
-    feedbackElement.style.display = "none";
-  }
-}
-
 // Helper function to escape HTML
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -367,7 +496,11 @@ function escapeHtml(text) {
 }
 
 function checkPasswordStrength(password) {
-  if (!strengthBar || !strengthMessage) return;
+  console.log("checkPasswordStrength called with password:", password);
+  if (!strengthBar || !strengthMessage) {
+    console.log("Strength bar or message not found");
+    return;
+  }
 
   let strength = 0;
   let message = "";
@@ -377,60 +510,200 @@ function checkPasswordStrength(password) {
   if (password.length === 0) {
     strengthBar.style.display = "none";
     strengthMessage.style.display = "none";
+    strengthMessage.style.visibility = "hidden";
     return;
   }
 
   strengthBar.style.display = "block";
   strengthMessage.style.display = "block";
+  strengthMessage.style.visibility = "visible";
 
   // Check for lowercase
-  if (/[a-z]/.test(password)) strength++;
+  const hasLower = /[a-z]/.test(password);
   // Check for uppercase
-  if (/[A-Z]/.test(password)) strength++;
+  const hasUpper = /[A-Z]/.test(password);
   // Check for numbers
-  if (/[0-9]/.test(password)) strength++;
+  const hasNumber = /[0-9]/.test(password);
   // Check for special characters
-  if (/[^a-zA-Z0-9]/.test(password)) strength++;
+  const hasSpecial = /[^a-zA-Z0-9]/.test(password);
   // Check length
-  if (password.length >= 8) strength++;
+  const hasLength = password.length >= 8;
 
-  // Determine strength level
-  if (strength <= 2) {
-    message = "Weak";
-    color = "#f80000"; // Red
-    width = "33%";
-  } else if (strength === 3 || strength === 4) {
-    message = "Medium";
-    color = "#ffa500"; // Orange
-    width = "66%";
+  // Calculate strength (0-5)
+  if (hasLower) strength++;
+  if (hasUpper) strength++;
+  if (hasNumber) strength++;
+  if (hasSpecial) strength++;
+  if (hasLength) strength++;
+
+  // Create detailed feedback message
+  let missing = [];
+  if (!hasLower) missing.push("lowercase letter");
+  if (!hasUpper) missing.push("uppercase letter");
+  if (!hasNumber) missing.push("number");
+  if (!hasSpecial) missing.push("special character");
+  if (!hasLength) missing.push("8+ characters");
+
+  // Determine strength level with detailed feedback
+  if (strength < 4) {
+    if (missing.length > 0) {
+      message = "Missing: " + missing.join(", ");
+    } else {
+      message =
+        "Your password is too weak (must be 8+ chars, include upper, lower, number)";
+    }
+    color = "red";
+    width = "25%";
+  } else if (strength >= 4 && strength <= 4) {
+    if (missing.length > 0) {
+      message = "Add " + missing.join(", ") + " for stronger password";
+    } else {
+      message =
+        "Your password is medium (add special characters for more strength)";
+    }
+    color = "orange";
+    width = "75%";
   } else {
-    message = "Strong";
-    color = "#00ff00"; // Green
+    message = "Your password is strong";
+    color = "#23ad5c";
     width = "100%";
   }
 
   strengthBar.style.width = width;
   strengthBar.style.backgroundColor = color;
-  strengthMessage.textContent = `Password Strength: ${message}`;
+  strengthMessage.textContent = message;
   strengthMessage.style.color = color;
   strengthMessage.style.marginLeft = "5px";
-  strengthMessage.style.fontSize = "12px";
+  strengthMessage.style.fontSize = "11px";
+  strengthMessage.style.visibility = "visible";
+
+  // Hide the error message when showing strength message
+  const newPasswordInput = document.getElementById("newPassword");
+  if (typeof clearFieldError === "function" && newPasswordInput) {
+    clearFieldError(newPasswordInput);
+  }
 }
 
-// Password match checker
-function checkPasswordMatch() {
-  if (!passwordInput || !confirmPasswordInput) return;
+// Password match checker for forgot password
+function checkForgotPasswordMatch() {
+  if (!forgotPasswordInput || !forgotConfirmPasswordInput) return;
 
-  const password = passwordInput.value;
-  const confirm = confirmPasswordInput.value;
+  const password = forgotPasswordInput.value;
+  const confirm = forgotConfirmPasswordInput.value;
 
-  if (confirm.length > 0 && password !== confirm) {
-    confirmPasswordInput.style.borderBottom = "1px solid rgba(255,0,0,0.5)";
+  const confirmField = forgotConfirmPasswordInput.closest(
+    ".forgot-confirm-field"
+  );
+  if (!confirmField) return;
+
+  let matchMessage = confirmField.querySelector(
+    ".password-match-message-forgot"
+  );
+  if (!matchMessage) return;
+
+  // Clear previous error messages
+  const passwordError = confirmField.querySelector(".message-error");
+  if (passwordError) passwordError.textContent = "";
+
+  if (confirm === "") {
+    matchMessage.style.display = "none";
+    forgotConfirmPasswordInput.style.borderBottom = "";
     return false;
-  } else {
-    confirmPasswordInput.style.borderBottom = "";
+  }
+
+  if (password === confirm) {
+    matchMessage.textContent = "Passwords match.";
+    matchMessage.style.color = "#23ad5c";
+    matchMessage.style.display = "block";
+    forgotConfirmPasswordInput.style.borderBottom =
+      "1px solid rgba(0,255,0,0.5)";
     return true;
   }
+
+  matchMessage.textContent = "Password does not match";
+  matchMessage.style.color = "red";
+  matchMessage.style.display = "block";
+  forgotConfirmPasswordInput.style.borderBottom = "1px solid rgba(255,0,0,0.5)";
+
+  return false;
+}
+
+// Function to check if password meets requirements
+function isPasswordValid(password, confirmPassword) {
+  // Get or create the password message element
+  // let passwordMessage = document.querySelector("#passwordMessage");
+  // if (!passwordMessage) {
+  //   passwordMessage = document.createElement("div");
+  //   passwordMessage.id = "passwordMessage";
+
+  //   // Insert below the password input field
+  //   const passwordInput = document.getElementById("newPassword");
+  //   if (passwordInput && passwordInput.parentNode) {
+  //     passwordInput.parentNode.insertBefore(
+  //       passwordMessage,
+  //       passwordInput.nextSibling
+  //     );
+  //   }
+  // }
+
+  // Style the message
+  // passwordMessage.style.textAlign = "center";
+  // passwordMessage.style.marginTop = "5px";
+  // passwordMessage.style.fontSize = "12px";
+  // passwordMessage.style.width = "100%";
+
+  // Check password strength
+  const hasLower = /[a-z]/.test(password);
+  const hasUpper = /[A-Z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[^a-zA-Z0-9]/.test(password);
+  const hasLength = password.length >= 8;
+
+  let strength = 0;
+  if (hasLower) strength++;
+  if (hasUpper) strength++;
+  if (hasNumber) strength++;
+  if (hasSpecial) strength++;
+  if (hasLength) strength++;
+
+  let missing = [];
+  if (!hasLower) missing.push("lowercase letter");
+  if (!hasUpper) missing.push("uppercase letter");
+  if (!hasNumber) missing.push("number");
+  if (!hasSpecial) missing.push("special character");
+  if (!hasLength) missing.push("8+ characters");
+
+  // Weak password (less than 4 criteria met)
+  if (strength < 4) {
+    if (missing.length > 0) {
+      return { valid: false, message: "Missing: " + missing.join(", ") };
+    } else {
+      return { valid: false, message: "Your password is too weak" };
+    }
+  } else if (strength === 4) {
+    if (missing.length > 0) {
+      return {
+        valid: false,
+        message: "Add " + missing.join(", ") + " for stronger passwords",
+      };
+      message.style.textColor = clearInterval;
+    } else {
+      return {
+        valid: false,
+        message: "Your password is medium. Please make it stronger.",
+      };
+    }
+  }
+  // Medium password (exactly 4 criteria met) - not acceptable per requirements
+
+  // Strong password (all 5 criteria met)
+  return { valid: true };
+}
+
+// Function to check form validity and show alerts
+function checkFormValidity() {
+  // This function is kept for compatibility but doesn't disable the button
+  return true;
 }
 
 // Handle final submit (Step 3) - removed duplicate event listeners
@@ -445,29 +718,104 @@ form.addEventListener("submit", function (e) {
   ).value;
 
   // Clear previous messages
-  passwordError.textContent = "";
-  passwordError.style.display = "none";
   passwordSuccess.style.display = "none";
 
-  // Check password match
-  if (new_password !== confirm_password) {
-    passwordError.textContent = "Mismatch Password";
-    passwordError.style.display = "block";
+  // Clear password match message
+  if (typeof checkForgotPasswordMatch === "function") {
+    checkForgotPasswordMatch();
+  }
+
+  // Get the password input fields
+  const newPasswordInput = document.getElementById("newPassword");
+  const confirmPasswordInput = document.getElementById("confirmPassword");
+
+  // Clear previous errors using clearFieldError function (with safety check)
+  if (typeof clearFieldError === "function") {
+    if (newPasswordInput) clearFieldError(newPasswordInput);
+    if (confirmPasswordInput) clearFieldError(confirmPasswordInput);
+  }
+
+  // Check if passwords are provided
+  let hasErrors = false;
+
+  if (!new_password) {
+    if (typeof setFieldError === "function" && newPasswordInput) {
+      setFieldError(newPasswordInput, "New Password is required");
+    }
+    hasErrors = true;
+  }
+
+  if (!confirm_password) {
+    if (typeof setFieldError === "function" && confirmPasswordInput) {
+      setFieldError(confirmPasswordInput, "Re-enter Password is required");
+    }
+    hasErrors = true;
+  }
+
+  // If either field is missing, stop submission
+  if (hasErrors) {
     return;
   }
 
-  // Check password strength
-  let strength = 0;
-  if (/[a-z]/.test(new_password)) strength++;
-  if (/[A-Z]/.test(new_password)) strength++;
-  if (/[0-9]/.test(new_password)) strength++;
-  if (/[^a-zA-Z0-9]/.test(new_password)) strength++;
-  if (new_password.length >= 8) strength++;
+  // Check for password validation errors before submission
+  // Get the password strength message element
+  const passwordStrengthMessage = document.getElementById(
+    "passwordStrengthMessage"
+  );
 
-  if (strength <= 2) {
-    passwordError.textContent =
-      "Password is too weak. Please use a stronger password.";
-    passwordError.style.display = "block";
+  // Check password strength using our isPasswordValid function
+  if (typeof isPasswordValid === "function") {
+    const passwordValidation = isPasswordValid(new_password, confirm_password);
+    if (!passwordValidation.valid) {
+      if (typeof setFieldError === "function" && newPasswordInput) {
+        setFieldError(newPasswordInput, passwordValidation.message);
+        // Set the error container color based on password strength
+        const errorContainer = findErrorContainer(newPasswordInput);
+        if (errorContainer) {
+          // Determine color based on message content
+          let color = "red"; // Default to red for weak passwords
+          if (
+            passwordValidation.message.includes("medium") ||
+            passwordValidation.message.includes("Add") ||
+            passwordValidation.message.includes("stronger")
+          ) {
+            color = "orange"; // Orange for medium strength passwords
+          }
+          errorContainer.style.color = color;
+          // Center the error message without causing spacing issues
+          errorContainer.style.textAlign = "center";
+          errorContainer.style.position = "absolute";
+          errorContainer.style.left = "50%";
+          errorContainer.style.transform = "translateX(-50%)";
+          errorContainer.style.width = "100%";
+        }
+        // Hide the password strength message when showing error
+        if (passwordStrengthMessage) {
+          passwordStrengthMessage.style.visibility = "hidden";
+        }
+      }
+      hasErrors = true;
+    }
+  }
+
+  // If there are password strength errors, stop submission
+  if (hasErrors) {
+    return;
+  }
+
+  //Check if passwords don't match using our checkForgotPasswordMatch function
+  if (typeof checkForgotPasswordMatch === "function") {
+    const passwordsMatch = checkForgotPasswordMatch();
+    if (!passwordsMatch) {
+      if (typeof setFieldError === "function" && confirmPasswordInput) {
+        setFieldError(confirmPasswordInput, "");
+      }
+      hasErrors = true;
+    }
+  }
+
+  // If there are password mismatch errors, stop submission
+  if (hasErrors) {
     return;
   }
 
@@ -491,24 +839,84 @@ form.addEventListener("submit", function (e) {
     .then((res) => res.json())
     .then((data) => {
       if (data.success) {
-        passwordSuccess.textContent = "Successfully Change Password";
-        passwordSuccess.style.display = "block";
-        passwordSuccess.style.borderLeft = "3px solid #22c55e";
-        passwordSuccess.style.backgroundColor = "#f0fdf4";
-        passwordSuccess.style.color = "#16a34a";
+        // Show success modal
+        showSuccessModal(
+          data.message || "Your password has been successfully changed!"
+        );
 
-        // Redirect to login after 2 seconds
-        setTimeout(() => {
-          window.location.href = "index.php?action=login";
-        }, 2000);
+        // Redirect to login after 3 seconds
+        // setTimeout(() => {
+        //   window.location.href = "index.php?action=login";
+        // }, 3000);
       } else {
-        passwordError.textContent = data.message || "Failed to reset password.";
-        passwordError.style.display = "flex";
+        // Show error under new password field
+        if (typeof setFieldError === "function" && newPasswordInput) {
+          setFieldError(
+            newPasswordInput,
+            data.message || "Failed to reset password."
+          );
+        }
       }
     })
     .catch((err) => {
       console.error("AJAX error:", err);
-      passwordError.textContent = "An error occurred. Please try again.";
-      passwordError.style.display = "flex";
+      // Show error under new password field
+      if (typeof setFieldError === "function" && newPasswordInput) {
+        setFieldError(newPasswordInput, "An error occurred. Please try again.");
+      }
     });
 });
+
+// Function to show password reset success popup
+function showPasswordResetSuccessPopup(message) {
+  // Create popup container if it doesn't exist
+  let popup = document.getElementById("passwordResetSuccessPopup");
+  if (!popup) {
+    popup = document.createElement("div");
+    popup.id = "passwordResetSuccessPopup";
+    popup.className = "success-popup centered";
+    popup.innerHTML = `
+      <div class="success-popup-content">
+        <i class="fas fa-check-circle"></i>
+        <p>${message}</p>
+      </div>
+    `;
+    document.body.appendChild(popup);
+  } else {
+    // Update message if popup already exists
+    const messageElement = popup.querySelector("p");
+    if (messageElement) {
+      messageElement.textContent = message;
+    }
+    // Ensure it's centered
+    popup.className = "success-popup centered";
+  }
+
+  // Show the popup
+  popup.style.display = "block";
+
+  // Hide popup after 3 seconds
+  // setTimeout(() => {
+  //   popup.style.display = "none";
+  // }, 3000);
+}
+
+// Function to show success modal
+function showSuccessModal(message) {
+  const modal = document.getElementById("successModal");
+  if (modal) {
+    // Update the message
+    const messageElement = modal.querySelector(".success-message");
+    if (messageElement) {
+      messageElement.innerHTML = message.replace(/\n/g, "<br>");
+    }
+
+    // Show the modal
+    modal.style.display = "flex";
+
+    // Add class to trigger animation
+    setTimeout(() => {
+      modal.classList.add("show");
+    }, 10);
+  }
+}

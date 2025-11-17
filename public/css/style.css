@@ -52,7 +52,7 @@ p {
 /* <================== IMAGE AND FORM SECTION ================== */
 
 .account-page {
-  padding: 50px 0;
+  padding: 30px 0;
   background: radial-gradient(#fff, #ffd6d6);
 }
 
@@ -70,11 +70,13 @@ p {
 
 /* Default */
 .form-container {
+  position: fixed;
   background: #fff;
-  width: 410px;
+  width: 700px;
+
   position: relative;
   text-align: center;
-  padding: 40px;
+  padding: 30px;
   margin: auto;
   border-radius: 3px;
   box-shadow: 0 0 20px 0px rgba(0, 0, 0, 0.1);
@@ -93,11 +95,12 @@ p {
 }
 
 /* When forgot-password form or step-3 is shown */
-.form-container:has(.forgot-password),
-.form-container:has(.register-form .step-3.active) {
-  width: 460px;
+.form-container:has(.forgot-password) {
+  width: 410px;
 }
-
+.register-form .step-3.active {
+  width: 635px;
+}
 /* When forgot-password form is shown */
 .form-container:has(.login-form) {
   width: 380px;
@@ -110,7 +113,7 @@ p {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 5px;
 }
 
 /* addd */
@@ -141,12 +144,20 @@ p {
   cursor: not-allowed;
 }
 
+.empty-mgs {
+  min-height: 1.4em; /* Reserve space for one line of error text */
+  line-height: 1.4;
+  margin: 4px 0;
+  visibility: hidden; /* Keep space but hide content when empty */
+}
+
 .empty-mgs.error {
   flex: none;
   background-color: #fdecea;
   border-left: 3px solid #e74c3c;
   padding: 2px;
   color: #c0392b;
+  visibility: visible; /* Show when has content */
 }
 
 /* Inputs */
@@ -406,43 +417,68 @@ input[type="password"]::-webkit-textfield-decoration-container {
 }
 
 /* Password Strength bar */
-.password-strenght-container {
+.password-strength-container {
   width: 100%;
-
-  background-color: transparent;
+  background-color: #e0e0e0; /* Light gray background for the progress bar track */
   height: 3px;
+  position: absolute;
+  top: 36px;
+  left: 0;
 }
 
-.password-strenght {
-  display: none;
+.password-strength {
   width: 0%;
   height: 3px;
-  /* background-color: #f80000; */
-  transition: 0.5s;
+  background-color: #f80000; /* Red by default */
+  transition: width 0.5s ease, background-color 0.5s ease;
   border-radius: 5px;
+  display: block;
 }
 
-/* Password Strengt message */
+/* Password Strength message */
 #message {
-  margin-left: 5px;
-  font-size: 12px;
-  display: none;
+  font-size: 10px;
+  position: absolute;
+  top: 38px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  text-align: center;
+  width: 100%;
 }
+
+/* #passwordStrengthMessage {
+  font-size: 11px;
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  text-align: center;
+  width: 100%;
+  visibility: hidden;
+} */
 
 /* add msg  */
 
 .msg {
   text-align: center;
-  font-size: 12px;
+  font-size: 11px;
+  min-height: 1.4em; /* Reserve space for one line of message text */
+  line-height: 1.4;
+  margin: 4px 0;
+  visibility: hidden; /* Keep space but hide content when empty */
 }
 
 .msg.success {
   color: green;
+  visibility: visible; /* Show when has content */
 }
 
 .msg.error {
   color: rgb(189, 17, 17);
-  font-size: 12px;
+  font-size: 11px;
+  visibility: visible; /* Show when has content */
 }
 
 .age-sex {
@@ -453,8 +489,8 @@ input[type="password"]::-webkit-textfield-decoration-container {
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   width: 100%;
+  /* Consistent spacing between fields per specification */
 }
 
 .form-field .input-field,
@@ -462,20 +498,7 @@ input[type="password"]::-webkit-textfield-decoration-container {
   margin: 0;
 }
 
-.form-field .input-error-container,
-.password-container .input-error-container {
-  font-size: 12px;
-  color: red;
-  line-height: 1.4;
-  padding-left: 4px;
-}
-
-.form-field .input-error-container:empty,
-.password-container .input-error-container:empty {
-  display: none;
-}
-
-.age-sex-column {
+s .age-sex-column {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -524,7 +547,7 @@ input[type="password"]::-webkit-textfield-decoration-container {
 
 .btn {
   color: #555;
-  margin-top: 10px;
+  /* margin-top: 10px; */
   font-size: 14px;
   transition: 0.2s;
   border: none;
@@ -534,8 +557,8 @@ input[type="password"]::-webkit-textfield-decoration-container {
 
 .message {
   color: #555;
-  margin-top: 10px;
-  font-size: 12px;
+  /* margin-top: 10px; */
+  font-size: 11px;
   border: none;
   background: none;
 }
@@ -572,7 +595,6 @@ input[type="password"]::-webkit-textfield-decoration-container {
 .register-form .step-4 {
   display: none;
   flex-direction: column;
-  gap: 8px;
   animation: fadeIn 0.4s ease;
 }
 
@@ -631,6 +653,32 @@ input:-webkit-autofill:focus {
   margin-top: 4px;
   display: block;
   font-style: italic;
+}
+
+/* Plain error message styling per specification */
+.form-field .input-error-container,
+.password-container .input-error-container {
+  font-size: 11px;
+  color: red;
+  min-height: 1.4em; /* Reserve space for one line of error text */
+  margin: 4px 0px 10px 0px; /* Consistent spacing */
+  line-height: 1.4;
+  padding-left: 4px;
+  visibility: hidden;
+  text-align: center; /* Keep space but hide content when empty */
+}
+
+.form-field .input-error-container:empty,
+.password-container .input-error-container:empty {
+  visibility: hidden; /* Keep the space but hide content */
+}
+
+/* Password match message */
+.password-match-message {
+  font-size: 12px;
+  position: absolute;
+  margin-top: 2px;
+  visibility: hidden; /* Keep space but hide content when empty */
 }
 
 /* Invalid input field (red border) */
@@ -712,11 +760,6 @@ ul {
   margin-left: 20px;
 }
 
-
-
-
-
-
 /* <===================== FORGOT PASSWORD SECTION ================== */
 .step {
   display: none;
@@ -729,7 +772,6 @@ ul {
 .step.active {
   display: block;
 }
-
 
 .btn {
   padding: 0.5rem 1rem;
@@ -766,16 +808,39 @@ ul {
   /* hover:bg-gray-600 */
 }
 
-
-
-.message-error {
-
-  font-size: 12px;
-  display: none;
+/* Forgot password error messages */
+.step .message-error {
+  font-size: 11px;
+  display: block;
+  visibility: hidden; /* Keep space but hide content when empty */
   justify-content: center;
-  margin-bottom: 15px;
+  margin-bottom: 0px;
   text-align: center;
   color: #e71a1a;
+  min-height: 1.4em; /* Reserve space for one line of error text */
+  line-height: 1.4;
+}
+
+.step .message-error:empty {
+  visibility: hidden;
+}
+
+/* Security question feedback */
+.answer-feedback {
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  text-align: center;
+  justify-content: center;
+  margin-top: 5px;
+}
+
+.answer-feedback i {
+  font-size: 16px;
 }
 
 .message-success {
@@ -838,6 +903,7 @@ ul {
   z-index: 9999;
   opacity: 0;
   visibility: hidden;
+
   transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
@@ -847,8 +913,15 @@ ul {
 }
 
 .success-modal-content {
-  background: linear-gradient(180deg, #9DC86F 0%, #9DC86F 50%, #FFFFFF 50%, #FFFFFF 100%);
-  width: 400px;
+  background: linear-gradient(
+    180deg,
+    #9dc86f 0%,
+    #9dc86f 50%,
+    #ffffff 50%,
+    #ffffff 100%
+  );
+  width: 350px;
+  height: 350px;
   border-radius: 15px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   text-align: center;
@@ -869,47 +942,47 @@ ul {
 }
 
 .success-icon {
-  padding: 60px 0 30px 0;
+  padding: 40px 0 20px 0;
 }
 
 .success-icon i {
-  color: #FFFFFF;
-  font-size: 100px;
+  color: #ffffff;
+  font-size: 50px;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
 }
 
 .success-title {
-  color: #FFFFFF;
-  font-size: 28px;
+  color: #ffffff;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 3px;
   margin: 0;
-  padding-bottom: 40px;
+  padding-bottom: 20px;
 }
 
 .success-message {
   color: #6b6b6b;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.6;
   margin: 30px 0 15px 0;
-  padding: 0 30px;
+  padding: 0 10px;
 }
 
 .success-id {
   color: #333;
   font-size: 16px;
-  margin: 10px 0 25px 0;
+  margin: 10px 0 20px 0;
 }
 
 .success-id strong {
-  color: #9DC86F;
+  color: #9dc86f;
   font-size: 18px;
   font-weight: 700;
 }
 
 .success-btn {
-  background: linear-gradient(135deg, #9DC86F 0%, #7DB84A 100%);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, #9dc86f 0%, #7db84a 100%);
+  color: #ffffff;
   border: none;
   padding: 14px 50px;
   border-radius: 30px;
@@ -922,7 +995,7 @@ ul {
 }
 
 .success-btn:hover {
-  background: linear-gradient(135deg, #7DB84A 0%, #6BA03A 100%);
+  background: linear-gradient(135deg, #7db84a 0%, #6ba03a 100%);
   box-shadow: 0 6px 16px rgba(157, 200, 111, 0.4);
   transform: translateY(-2px);
 }
@@ -932,16 +1005,89 @@ ul {
   box-shadow: 0 3px 8px rgba(157, 200, 111, 0.3);
 }
 
-/* Security answer feedback */
-.answer-feedback {
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* Success Popup Styles */
+.success-popup {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: none;
 }
 
-.answer-feedback i {
-  font-size: 16px;
+.success-popup-content {
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 5px;
+  padding: 15px 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.success-popup-content i {
+  color: #28a745;
+  font-size: 24px;
+}
+
+.success-popup-content p {
+  margin: 0;
+  color: #155724;
+  font-weight: 500;
+}
+
+.number {
+  background-color: #ccc;
+  border-radius: 50%;
+  padding: 2px;
+  width: 30px;
+  height: 30px;
+  color: black;
+}
+.line {
+  width: 150px;
+  height: 4px;
+  background-color: #ccc;
+}
+
+.line2 {
+  width: 40px;
+  background-color: transparent;
+}
+.num-title {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  align-items: center;
+  width: 50px;
+  gap: 5px;
+}
+
+.title-container .line,
+.title-container-forgot-pass .line {
+  width: 25px;
+  background-color: transparent;
+}
+
+.title {
+  font-size: 10px;
+}
+.forgot-pass {
+  margin-top: 10px;
+}
+.title-container-forgot-pass {
+  margin-bottom: 10px;
+}
+.forgot-pass .line {
+  width: 100px;
+}
+
+.active-step {
+  background-color: orange !important;
+  color: white !important;
+}
+
+.active-line {
+  background-color: orange !important;
 }

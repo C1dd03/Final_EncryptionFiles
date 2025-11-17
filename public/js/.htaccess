@@ -23,7 +23,7 @@
     RewriteRule .* /encryption/public/404.html [R=302,L]
 </Files>
 
-Protect reset-form.js from direct access
+# Protect reset-form.js from direct access
 <Files "forgot_password.js">
     RewriteEngine On
 

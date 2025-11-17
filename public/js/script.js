@@ -43,12 +43,19 @@ function checkPasswordStrength() {
   if (/[A-Z]/.test(password)) strength++;
   if (/[0-9]/.test(password)) strength++;
   if (/[^a-zA-Z0-9]/.test(password)) strength++;
+  
+  // Check length separately
+  const hasLength = password.length >= 8;
+  if (hasLength) strength++;
 
   const levels = ["Too Weak", "Weak", "Medium", "Strong", "Very Strong"];
   strengthSpan.textContent = password ? levels[strength] : "";
-  strengthSpan.style.color = strength < 3 ? "red" : "green";
+  
+  // Updated: Password must meet minimum requirements (at least 4 criteria) - medium strength (4/5) is not acceptable
+  // For a password to be considered strong, it must have at least 5 criteria (including length)
+  strengthSpan.style.color = strength < 5 ? "red" : "green";
 
-  return strength >= 3;
+  return strength >= 5;
 }
 
 // Confirm password match

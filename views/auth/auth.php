@@ -102,17 +102,17 @@
     </div>
   </div>
       
-  <script src="/../encryption/public/js/forgot_password.js"></script>
   <script src="/../encryption/public/js/reset-form.js"></script>
+  <script src="/../encryption/public/js/forgot_password.js"></script>
   <script src="/../encryption/public/js/validation.js"></script>
   <script src="/../encryption/public/js/login-incorrect-atmp.js"></script>
   
 
 <!---------------------------- Added restrict js code --->
   <script src="/../encryption/public/js/reset-form.php"></script>
-  <script src="/../encryption/public/js/login-incorrect-atmp.php"></script>
-  <script src="/../encryption/public/js/validation.php"></script>
   <script src="/../encryption/public/js/forgot_password.php"></script>
+  <script src="/../encryption/public/js/validation.php"></script>
+  <script src="/../encryption/public/js/login-incorrect-atmp.php"></script>
   
 
 </body>

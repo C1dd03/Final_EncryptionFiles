@@ -61,6 +61,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     container.innerText = message;
+    // Set font size to 12px as requested
+    container.style.fontSize = "11px";
+    // Make sure the container is visible when it has content
+    container.style.visibility = message ? "visible" : "hidden";
     if (isError) {
       container.style.color = "red";
       input.style.borderBottom = "1px solid rgba(255,0,0,0.5)";
@@ -68,12 +72,31 @@ document.addEventListener("DOMContentLoaded", () => {
       container.style.color = "green";
       input.style.borderBottom = "1px solid rgba(0,255,0,0.5)";
     }
+
+    // Hide password match message when showing error for confirm password field
+    if (input.name === "confirm_password") {
+      const matchMessage = document.querySelector(".password-match-message");
+      if (matchMessage) {
+        matchMessage.style.visibility = "hidden";
+      }
+    }
   }
 
   function clearFieldError(input) {
     const container = findErrorContainer(input);
-    if (container) container.innerText = "";
+    if (container) {
+      container.innerText = "";
+      container.style.visibility = "hidden"; // Hide the container when cleared
+    }
     input.style.borderBottom = "";
+
+    // Show password match message when clearing error for confirm password field
+    if (input.name === "confirm_password") {
+      const matchMessage = document.querySelector(".password-match-message");
+      if (matchMessage) {
+        matchMessage.style.visibility = "visible";
+      }
+    }
   }
 
   function clearStepErrors(step = steps[currentStep]) {
@@ -363,7 +386,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (addressNoSpecialCharFields.has(input.name)) {
           return `${label}: Special characters are not allowed.`;
         }
-        return `${label}: Only period (.) and dash (-) allowed special characters.`;
+        return `${label}: Only period (.) and dash (-) allowed`;
       }
 
       // Check for all caps (only for non-street fields: barangay, city, province, country)
@@ -414,7 +437,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!validExtensions.includes(normalized)) {
         return capitalizeMessage(
-          "Name Extension must be Jr., Sr., or Roman numerals I to X."
+          "Name Extension must be Jr, Sr, or Roman numerals I–X"
         );
       }
 
@@ -485,12 +508,112 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!validateStep(step)) allValid = false;
     });
 
+    // Check for password validation errors
+    const passwordInput = document.querySelector(".password");
+    const confirmPasswordInput = document.querySelector(
+      'input[name="confirm_password"]'
+    );
+    const passwordMessage = document.querySelector("#message");
+    const passwordMatchMessage = document.querySelector(
+      ".password-match-message"
+    );
+
+    // Check if password field is empty
+    if (passwordInput && passwordInput.value.trim() === "") {
+      // If password is empty, show "Password is required" error
+      allValid = false;
+      setFieldError(passwordInput, "Password is required.", true);
+      // Hide the password strength message when showing required error
+      if (passwordMessage) {
+        passwordMessage.style.display = "none";
+      }
+    } else {
+      // Check password strength
+      if (passwordMessage && passwordMessage.textContent) {
+        const passwordText = passwordMessage.textContent;
+        if (
+          passwordText.includes("Missing:") ||
+          passwordText.includes("too weak")
+        ) {
+          allValid = false;
+          // Display the password error with detailed feedback
+          if (passwordInput) {
+            setFieldError(passwordInput, passwordText, true);
+            // Set error container color to red to match password strength
+            const errorContainer = findErrorContainer(passwordInput);
+            if (errorContainer) {
+              errorContainer.style.color = "red";
+            }
+            // Hide the password strength message when showing error
+            if (passwordMessage) {
+              passwordMessage.style.display = "none";
+            }
+          }
+        } else if (passwordText.includes("Add ")) {
+          // For medium strength passwords, we now prevent submission
+          // This has been updated to require strong passwords only
+          allValid = false;
+          if (passwordInput) {
+            setFieldError(passwordInput, passwordText, true);
+            // Set error container color to red to match password strength
+            const errorContainer = findErrorContainer(passwordInput);
+            if (errorContainer) {
+              errorContainer.style.color = "orange";
+            }
+            // Hide the password strength message when showing error
+            if (passwordMessage) {
+              passwordMessage.style.display = "none";
+            }
+          }
+        } else {
+          // Clear the error if password is strong
+          if (passwordInput) {
+            clearFieldError(passwordInput);
+            // Show the password strength message when clearing error
+            if (passwordMessage) {
+              passwordMessage.style.display = "block";
+            }
+          }
+        }
+      }
+    }
+
+    // Check if passwords don't match
+    if (passwordMatchMessage && passwordMatchMessage.textContent) {
+      const matchText = passwordMatchMessage.textContent;
+      if (matchText.includes("does not match")) {
+        allValid = false;
+        // Display the password match error in the appropriate error container
+        if (confirmPasswordInput) {
+          setFieldError(confirmPasswordInput, "Password does not match.", true);
+          // Hide the password match message when showing error
+          if (passwordMatchMessage) {
+            passwordMatchMessage.style.visibility = "hidden";
+          }
+        }
+      } else {
+        // Clear the error if passwords match
+        if (confirmPasswordInput) {
+          clearFieldError(confirmPasswordInput);
+          // Show the password match message when clearing error
+          if (passwordMatchMessage) {
+            passwordMatchMessage.style.visibility = "visible";
+          }
+        }
+      }
+    }
+
     if (!allValid) {
-      alert("Please fix the errors before submitting.");
+      // Don't use alert, just prevent submission
       return false;
     }
     return true;
   };
+
+  // Make functions globally accessible
+  window.setFieldError = setFieldError;
+  window.clearFieldError = clearFieldError;
+  window.findErrorContainer = findErrorContainer;
 
   /*** Auto-capitalize on blur ***/
   steps.forEach((step) => {
@@ -628,5 +751,244 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /*** Initial Display ***/
   showStep(currentStep);
+
+  // Password strength elements
+  password = document.querySelector(".password");
+  message = document.querySelector("#message");
+  passInputField = document.querySelector(".pass-input-field");
+  passwordStrength = document.querySelector(".password-strength");
+  registerConfirmPasswordInput = document.querySelector(
+    'input[name="confirm_password"]'
+  );
+
+  // Only attach listeners if elements exist
+  if (password) {
+    password.addEventListener("input", handlePasswordInput);
+    password.addEventListener("input", checkRegisterPasswordMatch); // Also check match when password changes
+  }
+
+  if (registerConfirmPasswordInput) {
+    registerConfirmPasswordInput.addEventListener(
+      "input",
+      checkRegisterPasswordMatch
+    );
+  }
+
+  // Toggle password visibility for all password fields
+  initPasswordToggle();
+
+  // Regex patterns
+  let regExpLower = /[a-z]/; // lowercase letters
+  let regExpUpper = /[A-Z]/; // uppercase letters
+  let regExpNumber = /\d/; // numbers
+  let regExpSpecial = /[!@#$%^&*(),.?":{}|<>_\-]/; // special characters
+
+  function handlePasswordInput() {
+    if (!password || !message || !passInputField || !passwordStrength) return;
+
+    let val = password.value;
+    let strength = 0;
+
+    if (val != "") {
+      message.style.display = "block";
+      passwordStrength.style.display = "block";
+
+      // Count how many conditions are satisfied
+      let hasLower = regExpLower.test(val);
+      let hasUpper = regExpUpper.test(val);
+      let hasNumber = regExpNumber.test(val);
+      let hasSpecial = regExpSpecial.test(val);
+      let hasLength = val.length >= 8;
+
+      // Calculate strength (0-5)
+      if (hasLower) strength++;
+      if (hasUpper) strength++;
+      if (hasNumber) strength++;
+      if (hasSpecial) strength++;
+      if (hasLength) strength++;
+
+      // Create detailed feedback message
+      let missing = [];
+      if (!hasLower) missing.push("lowercase letter");
+      if (!hasUpper) missing.push("uppercase letter");
+      if (!hasNumber) missing.push("number");
+      if (!hasSpecial) missing.push("special character");
+      if (!hasLength) missing.push("8+ characters");
+
+      // Apply styling based on strength
+      if (strength < 4) {
+        passInputField.style.borderColor = "red";
+        message.style.display = "block";
+        if (missing.length > 0) {
+          message.textContent = "Missing: " + missing.join(", ");
+        } else {
+          message.textContent = "Your password is too weak";
+        }
+        message.style.color = "red";
+        passwordStrength.style.width = "25%";
+        passwordStrength.style.backgroundColor = "red";
+      } else if (strength >= 4 && strength <= 4) {
+        passInputField.style.borderColor = "orange";
+        message.style.display = "block";
+        if (missing.length > 0) {
+          message.textContent =
+            "Add " + missing.join(", ") + " for stronger password";
+        } else {
+          message.textContent = "Your password is medium";
+        }
+        message.style.color = "orange";
+        passwordStrength.style.width = "75%";
+        passwordStrength.style.backgroundColor = "orange";
+      } else {
+        passInputField.style.borderColor = "green";
+        message.style.display = "block";
+        message.textContent = "Your password is strong";
+        message.style.color = "#23ad5c";
+        passwordStrength.style.width = "100%";
+        passwordStrength.style.backgroundColor = "#23ad5c";
+      }
+    } else {
+      passwordStrength.style.display = "none";
+      message.style.display = "none";
+      passInputField.style.borderColor = "#ccc";
+    }
+  }
+
+  // Helper function to show password error container
+  function showPasswordErrorContainer(passwordInput) {
+    if (passwordInput) {
+      const errorContainer = findErrorContainer(passwordInput);
+      if (errorContainer) {
+        errorContainer.style.visibility = "visible";
+      }
+    }
+  }
+
+  // Helper function to hide password error container
+  function hidePasswordErrorContainer(passwordInput) {
+    if (passwordInput) {
+      const errorContainer = findErrorContainer(passwordInput);
+      if (errorContainer) {
+        errorContainer.style.visibility = "hidden";
+      }
+    }
+  }
+
+  // Check if password and confirm password match for registration form
+  function checkRegisterPasswordMatch() {
+    if (!password || !registerConfirmPasswordInput) return;
+
+    const passwordValue = password.value;
+    const confirmValue = registerConfirmPasswordInput.value;
+
+    // Find the confirm password field container
+    const confirmField = registerConfirmPasswordInput.closest(".form-field");
+    const confirmInputField =
+      registerConfirmPasswordInput.closest(".input-field");
+
+    if (!confirmField || !confirmInputField) return;
+
+    // Get or create the message container
+    let matchMessage = document.querySelector(".password-match-message");
+    if (!matchMessage) {
+      matchMessage = document.createElement("div");
+      matchMessage.className = "password-match-message";
+      matchMessage.style.fontSize = "11px";
+      matchMessage.style.position = "absolute";
+      matchMessage.style.marginTop = "2px";
+
+      // Insert after the input field but before error container
+      const errorContainer = confirmField.querySelector(
+        ".input-error-container"
+      );
+      if (errorContainer) {
+        confirmField.insertBefore(matchMessage, errorContainer);
+      } else {
+        confirmField.appendChild(matchMessage);
+      }
+    }
+
+    // Only show validation if confirm password field has content
+    if (confirmValue === "") {
+      matchMessage.style.visibility = "hidden";
+      confirmInputField.style.borderColor = "";
+      return;
+    }
+
+    // Check if passwords match
+    if (passwordValue === confirmValue && passwordValue !== "") {
+      // Passwords match
+      matchMessage.textContent = "Password match.";
+      matchMessage.style.color = "#23ad5c";
+      matchMessage.style.visibility = "visible";
+      confirmInputField.style.borderColor = "#23ad5c";
+      // Hide error container when showing match message
+      hideConfirmPasswordErrorContainer(registerConfirmPasswordInput);
+    } else {
+      // Passwords don't match
+      matchMessage.textContent = "Password does not match.";
+      matchMessage.style.color = "red";
+      matchMessage.style.visibility = "visible";
+      confirmInputField.style.borderColor = "red";
+      // Hide error container when showing match message
+      hideConfirmPasswordErrorContainer(registerConfirmPasswordInput);
+    }
+  }
+
+  // Helper function to show confirm password error container
+  function showConfirmPasswordErrorContainer(confirmPasswordInput) {
+    if (confirmPasswordInput) {
+      const errorContainer = findErrorContainer(confirmPasswordInput);
+      if (errorContainer) {
+        errorContainer.style.visibility = "visible";
+      }
+    }
+  }
+
+  // Helper function to hide confirm password error container
+  function hideConfirmPasswordErrorContainer(confirmPasswordInput) {
+    if (confirmPasswordInput) {
+      const errorContainer = findErrorContainer(confirmPasswordInput);
+      if (errorContainer) {
+        errorContainer.style.visibility = "hidden";
+      }
+    }
+  }
+
+  // Initialize password toggle functionality
+  function initPasswordToggle() {
+    const toggleIcons = document.querySelectorAll(".toggle-password");
+
+    toggleIcons.forEach((icon) => {
+      // Check if we've already attached an event listener to prevent duplicates
+      if (icon.dataset.listenerAttached === "true") {
+        return;
+      }
+
+      icon.addEventListener("click", function () {
+        // Find the input field within the same parent container
+        const container =
+          this.closest(".pass-input-field") || this.closest(".password-field");
+        if (!container) return;
+
+        const input = container.querySelector("input");
+        if (!input) return;
+
+        // Toggle password visibility
+        if (input.type === "password") {
+          input.type = "text";
+          this.classList.remove("fa-eye");
+          this.classList.add("fa-eye-slash");
+        } else {
+          input.type = "password";
+          this.classList.remove("fa-eye-slash");
+          this.classList.add("fa-eye");
+        }
+      });
+
+      // Mark that we've attached a listener to this icon
+      icon.dataset.listenerAttached = "true";
+    });
+  }
 });
 // This is your actual JS file

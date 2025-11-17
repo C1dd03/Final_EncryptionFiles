@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", function () {
       loginForm.querySelector("input[type='submit']"));
 
   const FAILS_PER_STAGE = 3;
-  const LOCK_DURATIONS = [15, 30, 5]; // seconds
+  const LOCK_DURATIONS = [15, 30, 60]; // seconds
 
   const savedForgotLinkVisible =
     localStorage.getItem("forgotLinkVisible") === "true";
@@ -54,6 +54,13 @@ document.addEventListener("DOMContentLoaded", function () {
     messageDiv.classList.remove("error", "success");
     if (type === "error") messageDiv.classList.add("error");
     if (type === "success") messageDiv.classList.add("success");
+
+    // Handle visibility
+    if (text) {
+      messageDiv.style.visibility = "visible";
+    } else {
+      messageDiv.style.visibility = "hidden";
+    }
   }
 
   function setForgotLinkVisible(visible) {

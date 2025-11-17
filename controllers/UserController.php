@@ -120,8 +120,39 @@ class UserController {
             $username = trim($_POST['username'] ?? '');
             $password = $_POST['password'] ?? '';
 
+            // Check password strength
+            $hasLower = preg_match('/[a-z]/', $password);
+            $hasUpper = preg_match('/[A-Z]/', $password);
+            $hasNumber = preg_match('/[0-9]/', $password);
+            $hasSpecial = preg_match('/[^a-zA-Z0-9]/', $password);
+            $hasLength = strlen($password) >= 8;
+            
+            $missing = [];
+            if (!$hasLower) $missing[] = "lowercase letter";
+            if (!$hasUpper) $missing[] = "uppercase letter";
+            if (!$hasNumber) $missing[] = "number";
+            if (!$hasSpecial) $missing[] = "special character";
+            if (!$hasLength) $missing[] = "8+ characters";
+            
+            // Calculate strength (0-5)
+            $strength = 0;
+            if ($hasLower) $strength++;
+            if ($hasUpper) $strength++;
+            if ($hasNumber) $strength++;
+            if ($hasSpecial) $strength++;
+            if ($hasLength) $strength++;
+            
+            // Password must meet minimum requirements (at least 4 criteria)
+            if ($strength < 4) {
+                if (!empty($missing)) {
+                    $errors[] = "Password is too weak. Missing: " . implode(", ", $missing);
+                } else {
+                    $errors[] = "Password is too weak. Must be 8+ characters with uppercase, lowercase, number, and special character.";
+                }
+            }
+
             if (preg_match('/([a-zA-Z])\1\1/i', $username)) {
-                $errors[] = "Username cannot contain 3 identical letters  q a row.";
+                $errors[] = "Username cannot contain 3 identical letters in a row.";
             }
 
             if (preg_match('/([a-zA-Z])\1\1/i', $password)) {
@@ -536,6 +567,38 @@ public function validateSecurityAnswer() {
             return;
         }
 
+        // Check password strength
+        $hasLower = preg_match('/[a-z]/', $new_password);
+        $hasUpper = preg_match('/[A-Z]/', $new_password);
+        $hasNumber = preg_match('/[0-9]/', $new_password);
+        $hasSpecial = preg_match('/[^a-zA-Z0-9]/', $new_password);
+        $hasLength = strlen($new_password) >= 8;
+        
+        $missing = [];
+        if (!$hasLower) $missing[] = "lowercase letter";
+        if (!$hasUpper) $missing[] = "uppercase letter";
+        if (!$hasNumber) $missing[] = "number";
+        if (!$hasSpecial) $missing[] = "special character";
+        if (!$hasLength) $missing[] = "8+ characters";
+        
+        // Calculate strength (0-5)
+        $strength = 0;
+        if ($hasLower) $strength++;
+        if ($hasUpper) $strength++;
+        if ($hasNumber) $strength++;
+        if ($hasSpecial) $strength++;
+        if ($hasLength) $strength++;
+        
+        // Updated: Password must meet minimum requirements (at least 4 criteria) - medium strength (3/5) is not acceptable
+        if ($strength < 4) {
+            if (!empty($missing)) {
+                echo json_encode(['success'=>false, 'message'=>'Password is too weak. Missing: ' . implode(", ", $missing)]);
+            } else {
+                echo json_encode(['success'=>false, 'message'=>'Password is too weak. Must be 8+ characters with uppercase, lowercase, and number.']);
+            }
+            return;
+        }
+
         // Get the user's actual security questions
         $userQuestions = $this->userModel->getUserAuthAnswers($id_number);
         
@@ -554,7 +617,7 @@ public function validateSecurityAnswer() {
 
         $hashed = password_hash($new_password, PASSWORD_BCRYPT);
         if($this->userModel->updatePassword($id_number, $hashed)){
-            echo json_encode(['success'=>true, 'message'=>'Password reset successfully']);
+            echo json_encode(['success'=>true, 'message'=>'Your password has been successfully changed!']);
         } else {
             echo json_encode(['success'=>false, 'message'=>'Failed to reset password']);
         }
