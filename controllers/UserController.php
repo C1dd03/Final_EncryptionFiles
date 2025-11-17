@@ -118,7 +118,28 @@ class UserController {
 
             // --- USERNAME & PASSWORD VALIDATION ---
             $username = trim($_POST['username'] ?? '');
+            $email = trim($_POST['email'] ?? '');
             $password = $_POST['password'] ?? '';
+
+            // Check for spaces in username
+            if (preg_match('/\s/', $_POST['username'] ?? '')) {
+                $errors[] = "Username cannot contain spaces.";
+            }
+
+            // Check for double spaces in username
+            if (preg_match('/\s{2,}/', $_POST['username'] ?? '')) {
+                $errors[] = "Username cannot contain double spaces.";
+            }
+
+            // Check for spaces in email
+            if (preg_match('/\s/', $_POST['email'] ?? '')) {
+                $errors[] = "Email cannot contain spaces.";
+            }
+
+            // Check for double spaces in email
+            if (preg_match('/\s{2,}/', $_POST['email'] ?? '')) {
+                $errors[] = "Email cannot contain double spaces.";
+            }
 
             // Check password strength
             $hasLower = preg_match('/[a-z]/', $password);
@@ -234,7 +255,7 @@ class UserController {
                 'zip'         => $_POST['zip'] ?? '',
                 'security_answers' => $securityAnswers,
                 'username'    => $username,
-                'email'       => trim($_POST['email'] ?? ''),
+                'email'       => $email,
                 'password'    => password_hash($password, PASSWORD_DEFAULT) // hashed for security
             ];
 
