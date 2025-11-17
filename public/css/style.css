@@ -1043,29 +1043,44 @@ ul {
   width: 30px;
   height: 30px;
   color: black;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
 }
-.line {
-  width: 150px;
-  height: 4px;
-  background-color: #ccc;
+
+/* Active step indicator styling */
+.number.active {
+  background-color: #ff692a;
+  color: white;
+}
+
+.line.active {
+  background-color: #ff692a;
 }
 
 .line2 {
   width: 40px;
   background-color: transparent;
 }
+
+.line {
+  width: 150px;
+  height: 4px;
+  background-color: #ccc;
+}
+
 .num-title {
   display: flex;
   flex-direction: column;
   justify-content: center;
-
   align-items: center;
   width: 50px;
   gap: 5px;
 }
 
-.title-container .line,
-.title-container-forgot-pass .line {
+.title-container .line:not(.active),
+.title-container-forgot-pass .line:not(.active) {
   width: 25px;
   background-color: transparent;
 }
@@ -1073,21 +1088,22 @@ ul {
 .title {
   font-size: 10px;
 }
+
 .forgot-pass {
   margin-top: 10px;
 }
+
 .title-container-forgot-pass {
-  margin-bottom: 10px;
+  margin-bottom: 5px;
 }
+
+.forgot-pass .line:not(.active) {
+  width: 100px;
+  background-color:#ccc ;
+}
+
 .forgot-pass .line {
   width: 100px;
+  background-color: #ff692a;
 }
 
-.active-step {
-  background-color: orange !important;
-  color: white !important;
-}
-
-.active-line {
-  background-color: orange !important;
-}

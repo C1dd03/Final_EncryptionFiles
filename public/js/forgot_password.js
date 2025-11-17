@@ -22,6 +22,8 @@ function nextStepForgot(step) {
         msgError.textContent = "Please enter your ID Number";
         msgError.style.visibility = "visible";
       }
+      // Reset step indicators to current step
+      updateForgotStepIndicators(1);
       return;
     }
 
@@ -32,6 +34,8 @@ function nextStepForgot(step) {
           "ID Number must contain only numbers and hyphens";
         msgError.style.visibility = "visible";
       }
+      // Reset step indicators to current step
+      updateForgotStepIndicators(1);
       return;
     }
 
@@ -70,12 +74,16 @@ function nextStepForgot(step) {
             msgSuccess.classList.remove("show");
             document.querySelector(".step-1").classList.remove("active");
             document.querySelector(".step-2").classList.add("active");
+            // Update step indicators
+            updateForgotStepIndicators(2);
           }, 2000);
         } else {
           if (msgError) {
             msgError.textContent = data.message; // Invalid ID Number
             msgError.style.visibility = "visible";
           }
+          // Reset step indicators to current step
+          updateForgotStepIndicators(1);
         }
       })
       .catch((err) => {
@@ -84,6 +92,8 @@ function nextStepForgot(step) {
           msgError.textContent = "An error occurred. Please try again.";
           msgError.style.visibility = "visible";
         }
+        // Reset step indicators to current step
+        updateForgotStepIndicators(1);
       });
 
     return;
@@ -150,6 +160,8 @@ function nextStepForgot(step) {
     }
 
     if (hasError) {
+      // Reset step indicators to current step
+      updateForgotStepIndicators(2);
       return;
     }
 
@@ -184,6 +196,8 @@ function nextStepForgot(step) {
           }
           current.classList.remove("active");
           next.classList.add("active");
+          // Update step indicators
+          updateForgotStepIndicators(3);
         } else {
           if (securityError) {
             securityError.textContent =
@@ -192,6 +206,8 @@ function nextStepForgot(step) {
           } else {
             alert(data.message);
           }
+          // Reset step indicators to current step
+          updateForgotStepIndicators(2);
         }
       })
       .catch((err) => {
@@ -202,6 +218,8 @@ function nextStepForgot(step) {
         } else {
           alert("An error occurred. Please try again.");
         }
+        // Reset step indicators to current step
+        updateForgotStepIndicators(2);
       });
 
     return; // stop here to wait for AJAX
@@ -216,17 +234,47 @@ function prevStepForgot(step) {
   const prev = document.querySelector(`.step-${step - 1}`);
   current.classList.remove("active");
   prev.classList.add("active");
+  
+  // Update step indicators
+  updateForgotStepIndicators(step - 1);
 }
 
-// Password strength checker for Step 3
-let forgotPasswordInput,
-  forgotConfirmPasswordInput,
-  strengthBar,
-  strengthMessage,
-  passwordSuccess,
-  submitButton;
+// Update step indicators for forgot password form
+function updateForgotStepIndicators(currentStep) {
+  // Get all number and line elements
+  const numbers = document.querySelectorAll('.forgot-pass .number');
+  const lines = document.querySelectorAll('.forgot-pass .line');
+  
+  // Reset all indicators
+  numbers.forEach(num => {
+    num.classList.remove('active');
+  });
+  
+  lines.forEach(line => {
+    line.classList.remove('active');
+  });
+  
+  // Activate indicators based on current step
+  switch(currentStep) {
+    case 1:
+      if (numbers[0]) numbers[0].classList.add('active');
+      break;
+    case 2:
+      if (numbers[0]) numbers[0].classList.add('active');
+      if (lines[0]) lines[0].classList.add('active');
+      if (numbers[1]) numbers[1].classList.add('active');
+      break;
+    case 3:
+      if (numbers[0]) numbers[0].classList.add('active');
+      if (lines[0]) lines[0].classList.add('active');
+      if (numbers[1]) numbers[1].classList.add('active');
+      if (lines[1]) lines[1].classList.add('active');
+      if (numbers[2]) numbers[2].classList.add('active');
+      break;
+  }
+}
 
-// Initialize password elements when DOM is ready
+// Initialize step indicators on page load
 document.addEventListener("DOMContentLoaded", function () {
   // Small delay to ensure DOM is fully loaded
   setTimeout(function () {
@@ -247,6 +295,25 @@ document.addEventListener("DOMContentLoaded", function () {
     // Event listeners for password strength and match validation
     if (forgotPasswordInput) {
       forgotPasswordInput.addEventListener("input", function () {
+        // Check if password contains spaces
+        if (/\s/.test(this.value)) {
+          // Show space error and clear any existing errors
+          if (typeof setFieldError === "function") {
+            setFieldError(this, "New Password cannot contain spaces");
+          }
+          // Hide password strength elements
+          if (strengthBar) strengthBar.style.display = "none";
+          if (strengthMessage) {
+            strengthMessage.style.display = "none";
+            strengthMessage.style.visibility = "hidden";
+          }
+          // Clear password match message if it exists
+          if (typeof checkForgotPasswordMatch === "function") {
+            checkForgotPasswordMatch();
+          }
+          return;
+        }
+        
         checkPasswordStrength(this.value);
         // Check password match if confirm password has content
         if (
@@ -271,6 +338,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (forgotConfirmPasswordInput) {
       forgotConfirmPasswordInput.addEventListener("input", function () {
+        // Check if confirm password contains spaces
+        if (/\s/.test(this.value)) {
+          // Show space error and clear any existing errors
+          if (typeof setFieldError === "function") {
+            setFieldError(this, "Re-enter Password cannot contain spaces");
+          }
+          // Clear password match message if it exists
+          if (typeof checkForgotPasswordMatch === "function") {
+            checkForgotPasswordMatch();
+          }
+          return;
+        }
+        
         checkForgotPasswordMatch();
         // Clear any previous error when user starts typing
         if (typeof clearFieldError === "function") {
@@ -384,6 +464,9 @@ document.addEventListener("DOMContentLoaded", function () {
       // No need to check form validity on page load since we're not disabling the button
     }, 200); // Slightly longer delay to ensure validation.js has run
   }, 100); // 100ms delay
+
+  // Initialize step indicators
+  updateForgotStepIndicators(1);
 });
 
 // Function to validate ID number in real-time
@@ -738,22 +821,35 @@ form.addEventListener("submit", function (e) {
   // Check if passwords are provided
   let hasErrors = false;
 
-  if (!new_password) {
+  // Check if new password contains spaces (prioritize over empty check)
+  if (/\s/.test(new_password)) {
+    if (typeof setFieldError === "function" && newPasswordInput) {
+      setFieldError(newPasswordInput, "New Password cannot contain spaces");
+    }
+    hasErrors = true;
+  } else if (!new_password) {
     if (typeof setFieldError === "function" && newPasswordInput) {
       setFieldError(newPasswordInput, "New Password is required");
     }
     hasErrors = true;
   }
 
-  if (!confirm_password) {
+  // Check if confirm password contains spaces (prioritize over empty check)
+  if (/\s/.test(confirm_password)) {
+    if (typeof setFieldError === "function" && confirmPasswordInput) {
+      setFieldError(confirmPasswordInput, "Re-enter Password cannot contain spaces");
+    }
+    hasErrors = true;
+  } else if (!confirm_password) {
     if (typeof setFieldError === "function" && confirmPasswordInput) {
       setFieldError(confirmPasswordInput, "Re-enter Password is required");
     }
     hasErrors = true;
   }
 
-  // If either field is missing, stop submission
+  // If either field has errors, stop submission
   if (hasErrors) {
+    // Stay on current step (Step 3), no need to update step indicators
     return;
   }
 
@@ -800,6 +896,7 @@ form.addEventListener("submit", function (e) {
 
   // If there are password strength errors, stop submission
   if (hasErrors) {
+    // Stay on current step (Step 3), no need to update step indicators
     return;
   }
 
@@ -816,6 +913,7 @@ form.addEventListener("submit", function (e) {
 
   // If there are password mismatch errors, stop submission
   if (hasErrors) {
+    // Stay on current step (Step 3), no need to update step indicators
     return;
   }
 
@@ -840,14 +938,12 @@ form.addEventListener("submit", function (e) {
     .then((data) => {
       if (data.success) {
         // Show success modal
-        showSuccessModal(
-          data.message || "Your password has been successfully changed!"
-        );
-
+        showSuccessModal(data.message || "Your password has been successfully changed!");
+        
         // Redirect to login after 3 seconds
-        // setTimeout(() => {
-        //   window.location.href = "index.php?action=login";
-        // }, 3000);
+        setTimeout(() => {
+          window.location.href = "index.php?action=login";
+        }, 3000);
       } else {
         // Show error under new password field
         if (typeof setFieldError === "function" && newPasswordInput) {
@@ -856,6 +952,8 @@ form.addEventListener("submit", function (e) {
             data.message || "Failed to reset password."
           );
         }
+        // Stay on current step (Step 3)
+        updateForgotStepIndicators(3);
       }
     })
     .catch((err) => {
@@ -864,17 +962,19 @@ form.addEventListener("submit", function (e) {
       if (typeof setFieldError === "function" && newPasswordInput) {
         setFieldError(newPasswordInput, "An error occurred. Please try again.");
       }
+      // Stay on current step (Step 3)
+      updateForgotStepIndicators(3);
     });
 });
 
 // Function to show password reset success popup
 function showPasswordResetSuccessPopup(message) {
   // Create popup container if it doesn't exist
-  let popup = document.getElementById("passwordResetSuccessPopup");
+  let popup = document.getElementById('passwordResetSuccessPopup');
   if (!popup) {
-    popup = document.createElement("div");
-    popup.id = "passwordResetSuccessPopup";
-    popup.className = "success-popup centered";
+    popup = document.createElement('div');
+    popup.id = 'passwordResetSuccessPopup';
+    popup.className = 'success-popup centered';
     popup.innerHTML = `
       <div class="success-popup-content">
         <i class="fas fa-check-circle"></i>
@@ -884,39 +984,39 @@ function showPasswordResetSuccessPopup(message) {
     document.body.appendChild(popup);
   } else {
     // Update message if popup already exists
-    const messageElement = popup.querySelector("p");
+    const messageElement = popup.querySelector('p');
     if (messageElement) {
       messageElement.textContent = message;
     }
     // Ensure it's centered
-    popup.className = "success-popup centered";
+    popup.className = 'success-popup centered';
   }
-
+  
   // Show the popup
-  popup.style.display = "block";
-
+  popup.style.display = 'block';
+  
   // Hide popup after 3 seconds
-  // setTimeout(() => {
-  //   popup.style.display = "none";
-  // }, 3000);
+  setTimeout(() => {
+    popup.style.display = 'none';
+  }, 3000);
 }
 
 // Function to show success modal
 function showSuccessModal(message) {
-  const modal = document.getElementById("successModal");
+  const modal = document.getElementById('successModal');
   if (modal) {
     // Update the message
-    const messageElement = modal.querySelector(".success-message");
+    const messageElement = modal.querySelector('.success-message');
     if (messageElement) {
-      messageElement.innerHTML = message.replace(/\n/g, "<br>");
+      messageElement.innerHTML = message.replace(/\n/g, '<br>');
     }
-
+    
     // Show the modal
-    modal.style.display = "flex";
-
+    modal.style.display = 'flex';
+    
     // Add class to trigger animation
     setTimeout(() => {
-      modal.classList.add("show");
+      modal.classList.add('show');
     }, 10);
   }
 }

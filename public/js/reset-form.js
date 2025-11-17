@@ -8,6 +8,10 @@ document.addEventListener("DOMContentLoaded", () => {
     steps.forEach((step, idx) =>
       step.classList.toggle("active", idx === stepIndex)
     );
+
+    // Update step indicators
+    updateStepIndicators(stepIndex + 1);
+
     clearStepErrors(steps[stepIndex]);
   }
 
@@ -172,6 +176,9 @@ document.addEventListener("DOMContentLoaded", () => {
       province: `${addressLabels.province}: This field is required.`,
       country: `${addressLabels.country}: This field is required.`,
       zip: "Zip Code: This field is required.",
+      security_q1: "Answer 1 is required.",
+      security_q2: "Answer 2 is required.",
+      security_q3: "Answer 3 is required."
     };
 
     function capitalizeMessage(msg) {
@@ -246,14 +253,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (positionInWord > 0 && char === char.toUpperCase()) {
           if (value === value.toUpperCase() && value.length > 1) {
-            return `${capitalizedFieldName} should avoid all caps (e.g., SRRSS).`;
+            return `${capitalizedFieldName} should avoid all caps`;
           }
           return `${capitalizedFieldName} cannot contain capital letters after the first letter of each name.`;
         }
       }
 
       if (value === value.toUpperCase() && value.length > 1)
-        return `${capitalizedFieldName} should avoid all caps (e.g., SRRSS).`;
+        return `${capitalizedFieldName} should avoid all caps`;
 
       if (!namePattern.test(value))
         return `${capitalizedFieldName} can only contain letters and spaces.`;
@@ -262,12 +269,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (addressLabels[input.name]) {
       const label = addressLabels[input.name];
 
-      // Check if address field (except street) starts with a space
-      if (
-        input.name !== "street" &&
-        rawValue.length > 0 &&
-        rawValue.charAt(0) === " "
-      ) {
+      // Check if address field starts with a space
+      if (rawValue.length > 0 && rawValue.charAt(0) === " ") {
         return `${label} cannot start with a space.`;
       }
 
@@ -329,7 +332,32 @@ document.addEventListener("DOMContentLoaded", () => {
           continue;
         }
         if (/\d/.test(char)) {
+          const pattern = /^(Purok|Street)[ -]?[0-9]{1,2}-?[A-Z]$/;
+          const purokPattern = /^Purok[- ]?[0-9]{1,2}-?[A-Z]$/;
+          if (isStreet === pattern) return `${label}: Cannot include numbers.`;
           if (!isStreet) return `${label}: Cannot include numbers.`;
+
+          // For street field, check if number is properly separated
+          // Allow format like "Purok-1C" or "Purok 1-C" but reject "Purok 1Ampayon" or "Purok 1Cdwdw"
+          if (i > 0) {
+            const prevChar = rawValue[i - 1];
+
+            // ❌ If previous character is a letter and next char is number = invalid
+            if (/[A-Za-z]/.test(prevChar) && rawValue[i].match(/[0-9]/)) {
+              return `${label}: Cannot include numbers.`;
+            }
+
+            // ❌ If full string contains numbers in wrong place
+            else if (!pattern.test(rawValue)) {
+              return `${label}: Cannot include numbers.`;
+            }
+
+            // ❌ If Purok format is wrong
+            else if (!purokPattern.test(rawValue)) {
+              return `${label}: Invalid Purok format. Example: Purok 1-C or Purok-1C`;
+            }
+          }
+
           lastLetterLower = null;
           repeatCount = 0;
           if (!inWord) {
@@ -338,7 +366,17 @@ document.addEventListener("DOMContentLoaded", () => {
             wordHasDigit = true;
             wordIndex += 1;
           } else if (seenLetterInWord) {
-            return `${label}: Cannot include numbers.`;
+            // If we've seen a letter and now see a digit, check if it's properly separated
+            // Allow digits after dash or space but not after letters without separator
+            const prevChar = rawValue[i - 1];
+            if (
+              prevChar !== " " &&
+              prevChar !== "-" &&
+              /[A-Za-z]/.test(prevChar)
+            ) {
+              return `${label}: Cannot include numbers.`;
+            }
+            wordHasDigit = true;
           } else {
             wordHasDigit = true;
           }
@@ -369,7 +407,15 @@ document.addEventListener("DOMContentLoaded", () => {
             seenLetterInWord = true;
             wordHasDigit = false;
           } else if (char === char.toUpperCase()) {
-            return `${label}: Cannot contain capital letters after the first letter of each name.`;
+            // For street fields, allow capital letters after digits (e.g., in "Purok-1C")
+            // Only check for invalid capitalization if we're not right after a digit
+            const prevChar = i > 0 ? rawValue[i - 1] : "";
+            const isAfterDigit = /\d/.test(prevChar);
+
+            // If it's not a street field, or if it is a street field but not right after a digit
+            if (!isStreet || (isStreet && !isAfterDigit)) {
+              return `${label}: Cannot contain capital letters after the first letter of each name.`;
+            }
           }
 
           const charLower = char.toLowerCase();
@@ -398,7 +444,7 @@ document.addEventListener("DOMContentLoaded", () => {
           lettersOnly === lettersOnly.toUpperCase() &&
           !hasLowercaseLetter
         )
-          return `${label}: Should avoid all caps (e.g., SRRSS).`;
+          return `${label}: Should avoid all caps`;
       }
     }
 
@@ -461,6 +507,19 @@ document.addEventListener("DOMContentLoaded", () => {
       if (age < 18) return "You must be at least 18 years old to register.";
     }
 
+    // Add this new validation section for security answers
+    // Security answer validation - check for spaces
+    if (input.name.startsWith('security_q')) {
+      // Check if answer contains only spaces
+      if (/^\s+$/.test(rawValue)) {
+        return "Answer cannot contain only spaces.";
+      }
+      // Check if answer contains any spaces
+      else if (/\s/.test(rawValue)) {
+        return "Answer cannot contain spaces.";
+      }
+    }
+
     return null; // valid
   }
 
@@ -488,6 +547,51 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /*** Step Navigation ***/
+
+  // Update step indicators based on current step
+  function updateStepIndicators(currentStep) {
+    // Get all number and line elements
+    const numbers = document.querySelectorAll(".number");
+    const lines = document.querySelectorAll(".line");
+
+    // Reset all indicators
+    numbers.forEach((num) => {
+      num.classList.remove("active");
+    });
+
+    lines.forEach((line) => {
+      line.classList.remove("active");
+    });
+
+    // Activate indicators based on current step
+    switch (currentStep) {
+      case 1:
+        if (numbers[0]) numbers[0].classList.add("active");
+        break;
+      case 2:
+        if (numbers[0]) numbers[0].classList.add("active");
+        if (lines[0]) lines[0].classList.add("active");
+        if (numbers[1]) numbers[1].classList.add("active");
+        break;
+      case 3:
+        if (numbers[0]) numbers[0].classList.add("active");
+        if (lines[0]) lines[0].classList.add("active");
+        if (numbers[1]) numbers[1].classList.add("active");
+        if (lines[1]) lines[1].classList.add("active");
+        if (numbers[2]) numbers[2].classList.add("active");
+        break;
+      case 4:
+        if (numbers[0]) numbers[0].classList.add("active");
+        if (lines[0]) lines[0].classList.add("active");
+        if (numbers[1]) numbers[1].classList.add("active");
+        if (lines[1]) lines[1].classList.add("active");
+        if (numbers[2]) numbers[2].classList.add("active");
+        if (lines[2]) lines[2].classList.add("active");
+        if (numbers[3]) numbers[3].classList.add("active");
+        break;
+    }
+  }
+
   window.nextStep = function (stepNum) {
     const current = steps[stepNum - 1];
     if (validateStep(current)) {
@@ -518,9 +622,17 @@ document.addEventListener("DOMContentLoaded", () => {
       ".password-match-message"
     );
 
-    // Check if password field is empty
-    if (passwordInput && passwordInput.value.trim() === "") {
-      // If password is empty, show "Password is required" error
+    // Check if password contains any spaces (prioritize over empty check)
+    if (passwordInput && /\s/.test(passwordInput.value)) {
+      // Check if password contains any spaces
+      allValid = false;
+      setFieldError(passwordInput, "Password cannot contain spaces.", true);
+      // Hide the password strength message when showing space error
+      if (passwordMessage) {
+        passwordMessage.style.display = "none";
+      }
+    } else if (passwordInput && passwordInput.value.trim() === "") {
+      // If password is empty after trimming, show "Password is required" error
       allValid = false;
       setFieldError(passwordInput, "Password is required.", true);
       // Hide the password strength message when showing required error
@@ -578,8 +690,28 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Check if passwords don't match
-    if (passwordMatchMessage && passwordMatchMessage.textContent) {
+    // Check if confirm password contains any spaces (prioritize over empty check)
+    if (confirmPasswordInput && /\s/.test(confirmPasswordInput.value)) {
+      // Check if confirm password contains any spaces
+      allValid = false;
+      setFieldError(
+        confirmPasswordInput,
+        "Confirm password cannot contain spaces.",
+        true
+      );
+    } else if (
+      confirmPasswordInput &&
+      confirmPasswordInput.value.trim() === ""
+    ) {
+      // If confirm password is empty after trimming, show "Re-enter Password is required" error
+      allValid = false;
+      setFieldError(
+        confirmPasswordInput,
+        "Re-enter Password is required.",
+        true
+      );
+    } else if (passwordMatchMessage && passwordMatchMessage.textContent) {
+      // Check if passwords don't match
       const matchText = passwordMatchMessage.textContent;
       if (matchText.includes("does not match")) {
         allValid = false;
@@ -619,8 +751,13 @@ document.addEventListener("DOMContentLoaded", () => {
   steps.forEach((step) => {
     const inputs = step.querySelectorAll("input, select");
     inputs.forEach((input) => {
-      // Skip username and email - they have their own real-time validation
-      if (input.name === "username" || input.name === "email") {
+      // Skip username, email, and password fields - they have their own real-time validation
+      if (
+        input.name === "username" ||
+        input.name === "email" ||
+        input.name === "password" ||
+        input.name === "confirm_password"
+      ) {
         return;
       }
 
@@ -789,9 +926,28 @@ document.addEventListener("DOMContentLoaded", () => {
     let val = password.value;
     let strength = 0;
 
+    // Check if password contains any spaces (prioritize over empty check)
+    if (/\s/.test(val)) {
+      passInputField.style.borderColor = "red";
+      message.style.display = "block";
+      message.textContent = "Password cannot contain spaces";
+      message.style.color = "red";
+      passwordStrength.style.display = "none";
+      // Clear any existing error messages
+      clearFieldError(password);
+      return;
+    } else if (val.trim() === "") {
+      passInputField.style.borderColor = "#ccc";
+      message.style.display = "none";
+      passwordStrength.style.display = "none";
+      return;
+    }
+
     if (val != "") {
       message.style.display = "block";
       passwordStrength.style.display = "block";
+      // Clear any existing error messages when user starts typing
+      clearFieldError(password);
 
       // Count how many conditions are satisfied
       let hasLower = regExpLower.test(val);
@@ -908,8 +1064,19 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Only show validation if confirm password field has content
-    if (confirmValue === "") {
+    // Check if confirm password contains any spaces (prioritize over empty check)
+    if (/\s/.test(confirmValue)) {
+      matchMessage.textContent = "Re-enter password cannot contain spaces";
+      matchMessage.style.color = "red";
+      matchMessage.style.visibility = "visible";
+      confirmInputField.style.borderColor = "red";
+      // Clear any existing error messages
+      clearFieldError(registerConfirmPasswordInput);
+      return;
+    }
+
+    // Check if confirm password is empty after trimming
+    if (confirmValue.trim() === "") {
       matchMessage.style.visibility = "hidden";
       confirmInputField.style.borderColor = "";
       return;
@@ -922,6 +1089,8 @@ document.addEventListener("DOMContentLoaded", () => {
       matchMessage.style.color = "#23ad5c";
       matchMessage.style.visibility = "visible";
       confirmInputField.style.borderColor = "#23ad5c";
+      // Clear any existing error messages when user starts typing
+      clearFieldError(registerConfirmPasswordInput);
       // Hide error container when showing match message
       hideConfirmPasswordErrorContainer(registerConfirmPasswordInput);
     } else {
@@ -930,6 +1099,8 @@ document.addEventListener("DOMContentLoaded", () => {
       matchMessage.style.color = "red";
       matchMessage.style.visibility = "visible";
       confirmInputField.style.borderColor = "red";
+      // Clear any existing error messages when user starts typing
+      clearFieldError(registerConfirmPasswordInput);
       // Hide error container when showing match message
       hideConfirmPasswordErrorContainer(registerConfirmPasswordInput);
     }

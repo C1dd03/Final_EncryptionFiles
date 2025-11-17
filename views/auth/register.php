@@ -204,7 +204,7 @@
                 <option value="2">What is the name of your favorite pet?</option>
                 <option value="3">Who is your favorite teacher in high school?</option>
               </select>
-              <label>Question 1</label>
+              <label style="width: 120px; text-align: start;">Question 1</label>
             </div>
           </div>
           <!-- <div class="form-field">
@@ -223,7 +223,7 @@
                 <option value="5">What city were you born in?</option>
                 <option value="6">What is your favorite color?</option>
               </select>
-              <label>Question 2</label>
+              <label style="width: 120px; text-align: start;">Question 2</label>
             </div>
           </div>
           <!-- <div class="form-field">
@@ -242,7 +242,7 @@
                 <option value="8">What was the name of your first school?</option>
                 <option value="9">What is your father’s middle name?</option>
               </select>
-              <label>Question 3</label>
+              <label style="width: 120px; text-align: start;">Question 3</label>
             </div>
         </div>
         <!-- <div class="form-field">
@@ -384,3 +384,4 @@ function goToLogin() {
 }
 </script>
 <?php endif; ?>
+<script src="../../public/js/reset-form.js"></script>

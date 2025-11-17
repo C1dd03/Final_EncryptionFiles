@@ -202,6 +202,14 @@ class UserController {
                 if ($entry['answer'] === '') {
                     $errors[] = 'Answer ' . ($index + 1) . ': Please provide an answer.';
                 }
+                // Check if answer contains only spaces
+                elseif (preg_match('/^\s+$/', $entry['answer'])) {
+                    $errors[] = 'Answer ' . ($index + 1) . ': Cannot contain only spaces.';
+                }
+                // Check if answer contains any spaces
+                elseif (preg_match('/\s/', $entry['answer'])) {
+                    $errors[] = 'Answer ' . ($index + 1) . ': Cannot contain spaces.';
+                }
             }
 
             if (!empty($errors)) {
@@ -284,6 +292,40 @@ class UserController {
         if (isset($value[0]) && $value[0] !== strtoupper($value[0])) {
             $errors[] = "$field: Must start with a capital letter.";
         }
+        
+        // Check for capital letters after the first letter of each name
+        // For street field, allow capital letters after digits (e.g., in "Purok-1C")
+        if ($field === 'Purok/Street') {
+            // Split by spaces and dashes to get words
+            $words = preg_split('/[\s\-]+/', $value);
+            foreach ($words as $word) {
+                // Check each character in the word after the first
+                for ($i = 1; $i < strlen($word); $i++) {
+                    $char = $word[$i];
+                    // If it's a letter and uppercase
+                    if (ctype_alpha($char) && ctype_upper($char)) {
+                        // Check if the previous character is a digit
+                        $prevChar = $word[$i-1];
+                        if (!ctype_digit($prevChar)) {
+                            $errors[] = "$field: Cannot contain capital letters after the first letter of each name.";
+                            break 2; // Break out of both loops
+                        }
+                    }
+                }
+            }
+        } else {
+            // For other fields, check normal capitalization rules
+            $words = preg_split('/\s+/', $value);
+            foreach ($words as $word) {
+                for ($i = 1; $i < strlen($word); $i++) {
+                    $char = $word[$i];
+                    if (ctype_alpha($char) && ctype_upper($char)) {
+                        $errors[] = "$field: Cannot contain capital letters after the first letter of each name.";
+                        break 2; // Break out of both loops
+                    }
+                }
+            }
+        }
 
         return $errors;
     }
@@ -311,9 +353,18 @@ class UserController {
             $errors[] = "$field: Double spaces not allowed.";
         }
 
-        // No numbers allowed in address fields (except street)
-        if (preg_match('/\d/', $value)) {
-            $errors[] = "$field: Cannot include numbers.";
+        // Special validation for street field
+        if ($field === 'Purok/Street') {
+            // Check for invalid number placement (e.g., "Purok 1Ampayon")
+            // Numbers must be separated from letters by space or dash
+            if (preg_match('/[A-Za-z]\d/', $value)) {
+                $errors[] = "$field: Cannot include numbers.";
+            }
+        } else {
+            // No numbers allowed in other address fields
+            if (preg_match('/\d/', $value)) {
+                $errors[] = "$field: Cannot include numbers.";
+            }
         }
 
         // No all caps

@@ -116,10 +116,10 @@
             <div class="password-match-message-forgot" id="confirmPasswordRequired" style="font-size: 12px;" ></div>
             <p class="message-error" id="passwordError"></p>
         </div>
-        <!-- <div class="flex justify-between mt-2"> -->
-
-            <button type="submit" class="btn_submit ">Change Password</button>
-    
+        <div class="flex justify-between mt-2">
+            <button type="button" class="btn prev-btn " style="margin-bottom: 10px;" onclick="prevStepForgot(3)">&lt; Prev</button>
+            <button type="submit" class="btn_submit">Change Password</button>
+        </div>
     </div>
 </form>
 <p class="toggle-link" style="margin-top: 15px;">
@@ -144,5 +144,6 @@ function goToLogin() {
     window.location.href = "index.php?action=login";
 }
 </script>
+<script src="../../public/js/forgot_password.js"></script>
 
 

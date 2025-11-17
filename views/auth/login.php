@@ -25,12 +25,12 @@ if (isset($_GET['registered']) && $_GET['registered'] == 1): ?>
 
     <p class="empty-mgs" ></p>
 
-  <div class="input-field">
+  <div class="input-field" style="margin-bottom: 10px;">
     <input type="text" name="username" class="login-email"  placeholder=" " />
     <label>Username</label>
   </div>
 
-  <div class="input-field password-field" >
+  <div class="input-field password-field" style="margin-bottom: 10px;">
     <input type="password" name="password" class="login-password" placeholder=" " />
   
     <label>Password</label>
