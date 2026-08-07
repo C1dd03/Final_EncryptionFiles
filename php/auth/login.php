@@ -26,7 +26,7 @@ if (isset($_GET['registered']) && $_GET['registered'] == 1): ?>
 
   <p class="empty-mgs"></p>
   <div class="form-field" style="margin-bottom: 10px;">
-    <div class="input-field" style="">
+    <div class="input-field" >
       <input type="text" name="username" class="login-email" placeholder=" " />
       <label>Username</label>
     </div>

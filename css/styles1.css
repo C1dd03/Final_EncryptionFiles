@@ -68,7 +68,7 @@ p {
 /* <================== IMAGE AND FORM SECTION ================== */
 
 .account-page {
-    min-height: 75vh;
+    min-height:78vh;
     padding: 30px 0;
     background: radial-gradient(
         circle at top,
