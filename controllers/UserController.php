@@ -485,7 +485,10 @@ class UserController
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = strtolower($user['role'] ?? 'user');
 
-            // Record Login Audit Log
+            // Record Login Audit Log — always use Philippine local time
+            date_default_timezone_set('Asia/Manila');
+            $loginTime = date('Y-m-d H:i:s');
+
             $ip = $_SERVER['REMOTE_ADDR'] ?? '::1';
             if ($ip === '127.0.0.1') $ip = '::1';
             $host = gethostname() ?: 'DESKTOP-SYSTEM';
@@ -504,7 +507,7 @@ class UserController
                 strtolower($user['role'] ?? 'user'),
                 'Login',
                 $details,
-                date('Y-m-d H:i:s'),
+                $loginTime,
                 null
             );
             $_SESSION['audit_log_id'] = $auditId;

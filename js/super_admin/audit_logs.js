@@ -23,6 +23,11 @@ document.addEventListener("DOMContentLoaded", function () {
   // Initialize
   loadAuditLogs();
 
+  // ✅ Real-time polling — reload audit logs every 3 seconds
+  setInterval(function () {
+    loadAuditLogs(true);
+  }, 3000);
+
   // Event Listeners
   if (searchInput) {
     searchInput.addEventListener("input", function () {
@@ -88,17 +93,20 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Fetch Audit Logs
-  function loadAuditLogs() {
+  // silent = true means polling refresh — no spinner, no flicker
+  function loadAuditLogs(silent) {
     if (!auditTableBody) return;
 
-    auditTableBody.innerHTML = `
-      <tr>
-        <td colspan="8" class="empty-state">
-          <i class="fa-solid fa-spinner fa-spin"></i>
-          <p>Loading audit log records...</p>
-        </td>
-      </tr>
-    `;
+    if (!silent) {
+      auditTableBody.innerHTML = `
+        <tr>
+          <td colspan="8" class="empty-state">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            <p>Loading audit log records...</p>
+          </td>
+        </tr>
+      `;
+    }
 
     const url = `../../php/auth/index.php?action=getAuditLogs&search=${encodeURIComponent(
       currentSearch
@@ -282,17 +290,14 @@ document.addEventListener("DOMContentLoaded", function () {
   function formatDate(dateTimeStr) {
     if (!dateTimeStr) return "-";
     try {
-      const dt = new Date(dateTimeStr);
-      if (isNaN(dt.getTime())) return dateTimeStr;
-      return dt.toLocaleString("en-US", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      }).replace(",", "");
+      // PHP/MySQL returns datetime as "YYYY-MM-DD HH:mm:ss" in Philippine local time.
+      // Parse directly without timezone conversion so the displayed time matches
+      // exactly what was stored (Asia/Manila).
+      const normalized = dateTimeStr.trim().replace(' ', 'T');
+      const parts = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+      if (!parts) return dateTimeStr;
+      const [, yyyy, mm, dd, hh, min, ss] = parts;
+      return `${mm}/${dd}/${yyyy} ${hh}:${min}:${ss}`;
     } catch (e) {
       return dateTimeStr;
     }

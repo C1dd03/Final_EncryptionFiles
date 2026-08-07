@@ -673,6 +673,7 @@ class User
     public function logAuditAction(?string $id_number, string $username, string $role, string $action, string $details, ?string $timeIn = null, ?string $timeOut = null): int
     {
         try {
+            date_default_timezone_set('Asia/Manila');
             $sql = "INSERT INTO audit_logs (id_number, username, role, action, details, time_in, time_out) 
                     VALUES (:id_number, :username, :role, :action, :details, :time_in, :time_out)";
             $stmt = $this->conn->prepare($sql);
@@ -692,20 +693,61 @@ class User
         }
     }
 
-    public function updateAuditLogTimeout(int $auditId, ?string $details = null): bool
+    public function updateActiveLoginToLogout(?string $username = null, ?string $id_number = null, ?int $auditId = null, ?string $details = null): bool
     {
         try {
-            if ($details !== null) {
-                $stmt = $this->conn->prepare("UPDATE audit_logs SET time_out = NOW(), details = :details WHERE id = :id");
-                return $stmt->execute([':details' => $details, ':id' => $auditId]);
-            } else {
-                $stmt = $this->conn->prepare("UPDATE audit_logs SET time_out = NOW() WHERE id = :id");
-                return $stmt->execute([':id' => $auditId]);
+            date_default_timezone_set('Asia/Manila');
+            $now = date('Y-m-d H:i:s');
+
+            // 1. Try to update by session auditId first if provided
+            if ($auditId && $auditId > 0) {
+                $sql = "UPDATE audit_logs SET action = 'Logout', time_out = :time_out WHERE id = :id";
+                $stmt = $this->conn->prepare($sql);
+                $stmt->execute([':time_out' => $now, ':id' => $auditId]);
+                if ($stmt->rowCount() > 0) {
+                    return true;
+                }
             }
+
+            // 2. If auditId didn't match or wasn't provided, find the active Login record for this user
+            if (!empty($username) || !empty($id_number)) {
+                $sql = "UPDATE audit_logs SET action = 'Logout', time_out = :time_out 
+                        WHERE action = 'Login' AND time_out IS NULL 
+                        AND (username = :username OR (id_number = :id_number AND id_number != '')) 
+                        ORDER BY id DESC LIMIT 1";
+                $stmt = $this->conn->prepare($sql);
+                $stmt->execute([
+                    ':time_out'  => $now,
+                    ':username'  => $username ?? '',
+                    ':id_number' => $id_number ?? ''
+                ]);
+                if ($stmt->rowCount() > 0) {
+                    return true;
+                }
+            }
+
+            // 3. Fallback: If no active Login record was found at all, log a Logout entry
+            if (!empty($username) || !empty($id_number)) {
+                $this->logAuditAction(
+                    $id_number,
+                    $username ?? 'Unknown',
+                    'user',
+                    'Logout',
+                    $details ?? 'User logged out.',
+                    $now,
+                    $now
+                );
+            }
+            return true;
         } catch (Exception $e) {
-            error_log("Failed to update audit log timeout: " . $e->getMessage());
+            error_log("Failed to update active login to logout: " . $e->getMessage());
             return false;
         }
+    }
+
+    public function updateAuditLogTimeout(int $auditId, ?string $details = null): bool
+    {
+        return $this->updateActiveLoginToLogout(null, null, $auditId, $details);
     }
 
     public function getUserOrAdminByIdNumber(string $id_number): ?array

@@ -1,4 +1,6 @@
 <?php
+date_default_timezone_set('Asia/Manila');
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -24,11 +26,14 @@ if ($username) {
     }
 
     $details = "User logged out. IP: {$ip} | Host: {$host} | Device: {$device}";
-    if ($auditId && $auditId > 0) {
-        $userModel->updateAuditLogTimeout((int)$auditId, $details);
-    } else {
-        $userModel->logAuditAction($userId, $username, $role, 'Logout', $details, date('Y-m-d H:i:s'), date('Y-m-d H:i:s'));
-    }
+
+    // Update the existing Login audit record to Logout — do NOT insert a new row
+    $userModel->updateActiveLoginToLogout(
+        $username,
+        $userId,
+        $auditId ? (int)$auditId : null,
+        $details
+    );
 }
 
 session_unset();
@@ -43,5 +48,3 @@ header("Expires: 0");
 // ✅ Redirect to login
 header("Location: index.php?action=login");
 exit();
-
-
