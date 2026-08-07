@@ -478,14 +478,24 @@ class UserController
             }
 
             // Success
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
             $_SESSION['user_id'] = $user['id_number'];
             $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = strtolower($user['role'] ?? 'user');
+
+            $redirectUrl = 'index.php?action=dashboard';
+            if ($_SESSION['role'] === 'superadmin' || $_SESSION['role'] === 'admin') {
+                $redirectUrl = '../super_admin/dashboard.php';
+            }
 
             echo json_encode([
                 'success' => true,
-                'redirect' => 'index.php?action=dashboard'
+                'redirect' => $redirectUrl
             ]);
             return;
+
         }
 
         echo json_encode(['success' => false, 'message' => 'Invalid request method.', 'errorType' => 'invalidMethod']);

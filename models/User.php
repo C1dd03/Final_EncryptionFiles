@@ -215,4 +215,50 @@ class User
             return false;
         }
     }
+
+    /* ========================== DASHBOARD STATS ======================== */
+    public function getDashboardStats(): array
+    {
+        $stats = [
+            'total_accounts'   => 0,
+            'active_admins'    => 0,
+            'active_users'     => 0,
+            'blocked_accounts' => 0
+        ];
+
+        try {
+            // Total Accounts
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM users");
+            $stats['total_accounts'] = (int) $stmt->fetchColumn();
+
+            // Active Admins (role admin or superadmin & status active)
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role IN ('admin', 'superadmin') AND status = 'active'");
+            $stats['active_admins'] = (int) $stmt->fetchColumn();
+
+            // Active Users (role user & status active)
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role = 'user' AND status = 'active'");
+            $stats['active_users'] = (int) $stmt->fetchColumn();
+
+            // Blocked Accounts (status block in users OR blocked in block_list)
+            $userBlockedCount = 0;
+            try {
+                $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE status = 'block'");
+                $userBlockedCount = (int) $stmt->fetchColumn();
+            } catch (PDOException $e) {}
+
+            $blockListCount = 0;
+            try {
+                $stmt = $this->conn->query("SELECT COUNT(*) FROM block_list WHERE status = 'blocked'");
+                $blockListCount = (int) $stmt->fetchColumn();
+            } catch (PDOException $e) {}
+
+            $stats['blocked_accounts'] = max($userBlockedCount, $blockListCount);
+
+        } catch (PDOException $e) {
+            error_log("Failed to fetch dashboard stats: " . $e->getMessage());
+        }
+
+        return $stats;
+    }
 }
+

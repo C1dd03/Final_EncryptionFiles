@@ -47,7 +47,9 @@ INSERT INTO `addresses` (`address_id`, `id_number`, `purok_street`, `barangay`, 
 (2, '132131', 'cabadbaran city', 'barang4', 'dsadasd', 'sadsadas', 'Philippines', '123131'),
 (3, '12345', 'cabadbaran city', 'barang4', 'dsadasd', 'sadsadas', 'Philippines', '123131'),
 (4, '', '', '', '', '', '', ''),
-(5, '2026-0001', 'Purok 1C', 'Ampayon', 'Butuan City', 'Agusan Del Norte', 'Philippines', '8600');
+(5, '2026-0001', 'Purok 1C', 'Ampayon', 'Butuan City', 'Agusan Del Norte', 'Philippines', '8600'),
+(6, '2026-0000', 'Admin HQ', 'Central', 'Cabadbaran City', 'Agusan Del Norte', 'Philippines', '8605');
+
 
 -- --------------------------------------------------------
 
@@ -143,9 +145,11 @@ INSERT INTO `users` (`id_number`, `first_name`, `middle_name`, `last_name`, `ext
 ('1234-1234', 'Dodo', 'S.', 'Acido', '', '2000-02-22', 'male', 25, 'Justin', NULL, '$2y$10$zyE2q.bmV5VMeST3A8zU3.EKCNHUp3p3xLqTe9bDnkJqqSjmIjbLe', '2025-09-19 13:54:20', 'user', 'active', 0),
 ('12345', 'Jan', '', 'Acido', '', '2025-09-17', 'male', 0, 'jan', NULL, '$2y$10$SewzTr7hOTqZzDBLnhMfrOcNaa.SMjlVjL3qTnSBViNPJjrcB7oSi', '2025-09-24 08:03:48', 'user', 'active', 0),
 ('132131', 'Cris', 'Justin', 'Acdio', '', '2001-07-25', 'male', 24, 'james', NULL, '$2y$10$/ISb.8BX/vV9.cE38Q6EXu6xbA10TiXYcrYlnlbOKSsHL2hwCRv0m', '2025-09-24 07:09:48', 'user', 'active', 0),
+('2026-0000', 'Super', 'System', 'Admin', NULL, '2000-01-01', 'male', 26, 'superadmin', 'superadmin@system.com', '$2y$10$n4mPdxosAJPsYkbcY6KizeUi1bRwM1zpEPwzHMOACf6.1i0X7IkYC', '2026-08-07 13:00:00', 'superadmin', 'active', 0),
 ('2026-0001', 'Jerwil', '', 'Umpad', NULL, '2007-01-10', 'male', 19, 'jerwil.umpad@csucc.edu.ph', 'jerwil.umpad@csucc.edu.ph', '$2y$10$UjjJNoclC/xHZFIVpw532Op85gLm52VhayLjj9JxVR8u.NnF.85xe', '2026-08-06 06:10:15', 'user', 'active', 0),
 ('2323-1232', 'Cris', '', 'Acido', '', '2000-12-23', 'male', 24, 'jstin', NULL, '$2y$10$4G18rQjzifqnKBqPrJK6f.NIsMGZhKmAv6.z4EijG/4BaHQYAIZRK', '2025-09-19 14:11:59', 'user', 'active', 0),
 ('4234-1234', 'Cri Justin', 'Salazar', 'Acido', '', '2003-09-03', 'male', 22, 'cris', NULL, '$2y$10$9SRX7R4dC4p9WZC4bZj/zeNrHSrw6whqaE.AM..FXSCqXBAokqzLu', '2025-09-16 16:11:57', 'user', 'active', 0);
+
 
 -- --------------------------------------------------------
 

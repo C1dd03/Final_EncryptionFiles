@@ -26,8 +26,22 @@ switch ($action) {
 
     /* ========================== ADD DASHBOARD ======================== */
     case 'dashboard':
-        require_once __DIR__ . '/../../php/home/homepage.php';
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $role = strtolower($_SESSION['role'] ?? 'user');
+        if ($role === 'superadmin' || $role === 'admin') {
+            header("Location: ../super_admin/dashboard.php");
+            exit();
+        } else {
+            require_once __DIR__ . '/../../php/home/homepage.php';
+        }
         break;
+
+    case 'superadmin_dashboard':
+        header("Location: ../super_admin/dashboard.php");
+        exit();
+
 
     /* ========================== ADD LOGOUT ======================== */
     case 'logout':

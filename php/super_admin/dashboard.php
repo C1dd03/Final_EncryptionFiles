@@ -1,7 +1,21 @@
 <?php
+require_once __DIR__ . '/../auth/session_protect.php';
+require_once __DIR__ . '/../../models/User.php';
+
+// Check role authorization
+$role = strtolower($_SESSION['role'] ?? '');
+if ($role !== 'superadmin' && $role !== 'admin') {
+    header("Location: ../auth/index.php?action=login");
+    exit();
+}
+
 $pageTitle = 'Dashboard';
 $activePage = 'dashboard';
+
+$userModel = new User();
+$stats = $userModel->getDashboardStats();
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -24,7 +38,7 @@ $activePage = 'dashboard';
             <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
             <div>
               <h3>Total Accounts</h3>
-              <div class="stat-value">1,248</div>
+              <div class="stat-value"><?= number_format($stats['total_accounts']) ?></div>
               <p>Registered users & admins</p>
             </div>
           </div>
@@ -33,7 +47,7 @@ $activePage = 'dashboard';
             <div class="stat-icon"><i class="fa-solid fa-user-shield"></i></div>
             <div>
               <h3>Active Admins</h3>
-              <div class="stat-value">12</div>
+              <div class="stat-value"><?= number_format($stats['active_admins']) ?></div>
               <p>Managing the system</p>
             </div>
           </div>
@@ -42,7 +56,7 @@ $activePage = 'dashboard';
             <div class="stat-icon"><i class="fa-solid fa-user-group"></i></div>
             <div>
               <h3>Active Users</h3>
-              <div class="stat-value">1,120</div>
+              <div class="stat-value"><?= number_format($stats['active_users']) ?></div>
               <p>Standard users</p>
             </div>
           </div>
@@ -51,11 +65,12 @@ $activePage = 'dashboard';
             <div class="stat-icon"><i class="fa-solid fa-ban"></i></div>
             <div>
               <h3>Blocked Accounts</h3>
-              <div class="stat-value">16</div>
+              <div class="stat-value"><?= number_format($stats['blocked_accounts']) ?></div>
               <p>Restricted access</p>
             </div>
           </div>
         </div>
+
       </main>
     </div>
   </div>
