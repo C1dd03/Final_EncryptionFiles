@@ -36,18 +36,14 @@
 
       <a href="manage_admins.php" class="nav-link <?= $activePage === 'manage_admins' ? 'active' : '' ?>">
         <span class="nav-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-8 2a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm0 2c-2.67 0-8 1.34-8 4v1h8Zm8 0c-.7 0-1.39.1-2 .29a4.56 4.56 0 0 1 2 3.71h6v-1c0-2.66-5.33-4-6-4Z"></path>
-          </svg>
+          <i class="fa-solid fa-user-shield"></i>
         </span>
         <span class="nav-label">Manage Admins</span>
       </a>
 
       <a href="manage_users.php" class="nav-link <?= $activePage === 'manage_users' ? 'active' : '' ?>">
         <span class="nav-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-3.33 0-10 1.67-10 5v1h20v-1c0-3.33-6.67-5-10-5Zm8-1a3 3 0 1 0-3-3 3 3 0 0 0 3 3Z"></path>
-          </svg>
+          <i class="fa-solid fa-users"></i>
         </span>
         <span class="nav-label">Manage Users</span>
       </a>
