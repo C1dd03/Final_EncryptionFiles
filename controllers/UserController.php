@@ -485,6 +485,30 @@ class UserController
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = strtolower($user['role'] ?? 'user');
 
+            // Record Login Audit Log
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '::1';
+            if ($ip === '127.0.0.1') $ip = '::1';
+            $host = gethostname() ?: 'DESKTOP-SYSTEM';
+            $agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Browser';
+            $device = 'Microsoft Edge';
+            if (strpos($agent, 'Chrome') !== false && strpos($agent, 'Edg') === false) {
+                $device = 'Google Chrome';
+            } elseif (strpos($agent, 'Firefox') !== false) {
+                $device = 'Mozilla Firefox';
+            }
+
+            $details = "Login successful. IP: {$ip} | Host: {$host} | Device: {$device}";
+            $auditId = $this->userModel->logAuditAction(
+                $user['id_number'],
+                $user['username'],
+                strtolower($user['role'] ?? 'user'),
+                'Login',
+                $details,
+                date('Y-m-d H:i:s'),
+                null
+            );
+            $_SESSION['audit_log_id'] = $auditId;
+
             $redirectUrl = 'index.php?action=dashboard';
             if ($_SESSION['role'] === 'superadmin' || $_SESSION['role'] === 'admin') {
                 $redirectUrl = '../super_admin/dashboard.php';
@@ -1211,6 +1235,116 @@ class UserController
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to delete user account.']);
         }
+        exit;
+    }
+
+    /* ========================== BLOCK LIST ACTIONS ======================== */
+
+    public function getBlockList()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $search = trim($_GET['search'] ?? '');
+        $status = trim($_GET['status'] ?? 'blocked'); // Default filter is 'blocked'
+        $page   = max(1, (int)($_GET['page'] ?? 1));
+        $limit  = in_array((int)($_GET['limit'] ?? 10), [10, 25, 50, 100], true) ? (int)$_GET['limit'] : 10;
+
+        $totalRecords = $this->userModel->getBlockListCount($search, $status);
+        $totalPages   = max(1, (int)ceil($totalRecords / $limit));
+        if ($page > $totalPages && $totalPages > 0) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $limit;
+
+        $records = $this->userModel->getBlockList($search, $status, $offset, $limit);
+
+        echo json_encode([
+            'success'      => true,
+            'data'         => $records,
+            'totalRecords' => $totalRecords,
+            'totalPages'   => $totalPages,
+            'currentPage'  => $page,
+            'limit'        => $limit
+        ]);
+        exit;
+    }
+
+    public function getBlockDetail()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Valid block record ID is required.']);
+            exit;
+        }
+
+        $detail = $this->userModel->getBlockDetail($id);
+        if ($detail) {
+            echo json_encode(['success' => true, 'data' => $detail]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Block list record not found.']);
+        }
+        exit;
+    }
+
+    public function unblockAccount()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid block record ID.']);
+            exit;
+        }
+
+        $adminUsername = $_SESSION['username'] ?? 'superadmin';
+        $adminRole     = $_SESSION['role'] ?? 'superadmin';
+
+        $unblocked = $this->userModel->unblockAccount($id, $adminUsername, $adminRole);
+        if ($unblocked) {
+            echo json_encode(['success' => true, 'message' => 'Account has been unblocked successfully.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to unblock account.']);
+        }
+        exit;
+    }
+
+    /* ========================== AUDIT LOGS ACTIONS ======================== */
+
+    public function getAuditLogs()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $search    = trim($_GET['search'] ?? '');
+        $action    = trim($_GET['action_filter'] ?? $_GET['action'] ?? 'all');
+        $role      = trim($_GET['role_filter'] ?? $_GET['role'] ?? 'all');
+        $startDate = trim($_GET['start_date'] ?? '');
+        $endDate   = trim($_GET['end_date'] ?? '');
+        $page      = max(1, (int)($_GET['page'] ?? 1));
+        $limit     = in_array((int)($_GET['limit'] ?? 10), [10, 25, 50, 100], true) ? (int)$_GET['limit'] : 10;
+
+        $totalRecords = $this->userModel->getAuditLogsCount($search, $action, $role, $startDate, $endDate);
+        $totalPages   = max(1, (int)ceil($totalRecords / $limit));
+        if ($page > $totalPages && $totalPages > 0) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $limit;
+
+        $records = $this->userModel->getAuditLogs($search, $action, $role, $startDate, $endDate, $offset, $limit);
+
+        echo json_encode([
+            'success'      => true,
+            'data'         => $records,
+            'totalRecords' => $totalRecords,
+            'totalPages'   => $totalPages,
+            'currentPage'  => $page,
+            'limit'        => $limit
+        ]);
         exit;
     }
 }

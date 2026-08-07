@@ -1,0 +1,359 @@
+/* Audit Logs Custom Styles */
+
+.audit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.audit-header h2 {
+  margin: 0 0 4px 0;
+  font-size: 1.5rem;
+  color: var(--farm-text);
+  font-weight: 600;
+}
+
+.audit-header p {
+  margin: 0;
+  color: var(--farm-muted);
+  font-size: 0.9rem;
+}
+
+/* Control Card: Search & Filters */
+.control-card {
+  background: var(--farm-white);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 4px 15px rgba(47, 63, 51, 0.06);
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.control-left,
+.control-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.search-box {
+  position: relative;
+  min-width: 280px;
+}
+
+.search-box i {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--farm-muted);
+  font-size: 14px;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 9px 14px 9px 38px;
+  border: 1px solid var(--farm-border);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  outline: none;
+  background: #ffffff;
+  color: var(--farm-text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-box input:focus {
+  border-color: var(--farm-card-1);
+  box-shadow: 0 0 0 3px rgba(88, 129, 87, 0.15);
+}
+
+.filter-select {
+  padding: 9px 14px;
+  border: 1px solid var(--farm-border);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  outline: none;
+  background: #ffffff;
+  color: var(--farm-text);
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.filter-select:focus {
+  border-color: var(--farm-card-1);
+}
+
+.date-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--farm-muted);
+}
+
+.date-input {
+  padding: 8px 12px;
+  border: 1px solid var(--farm-border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  outline: none;
+  background: #ffffff;
+  color: var(--farm-text);
+  transition: border-color 0.2s ease;
+}
+
+.date-input:focus {
+  border-color: var(--farm-card-1);
+}
+
+.btn-clear-date {
+  background: transparent;
+  border: 1px solid var(--farm-border);
+  color: var(--farm-muted);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-clear-date:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.entries-select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--farm-muted);
+}
+
+/* Audit Table Card */
+.table-card {
+  background: var(--farm-white);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(47, 63, 51, 0.06);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.audit-table th,
+.audit-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(154, 166, 142, 0.25);
+  white-space: nowrap;
+}
+
+.audit-table th {
+  background: rgba(88, 129, 87, 0.08);
+  color: var(--farm-text);
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.audit-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.audit-table tbody tr:hover {
+  background: rgba(218, 229, 207, 0.35);
+}
+
+.details-cell {
+  max-width: 320px;
+  white-space: normal !important;
+  word-break: break-word;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 16px !important;
+  color: var(--farm-muted);
+}
+
+.empty-state i {
+  font-size: 2.2rem;
+  margin-bottom: 12px;
+  color: var(--farm-border);
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Action Badges */
+.action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.badge-login {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+
+.badge-logout {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+}
+
+.badge-create {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #6ee7b7;
+}
+
+.badge-update {
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #38bdf8;
+}
+
+.badge-delete {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.badge-block {
+  background: #fde8e8;
+  color: #9b1c1c;
+  border: 1px solid #f8b4b4;
+}
+
+.badge-unblock {
+  background: #def7ec;
+  color: #03543f;
+  border: 1px solid #84e1bc;
+}
+
+.badge-default {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+/* Role Badges */
+.role-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.role-superadmin {
+  background: rgba(139, 92, 246, 0.12);
+  color: #6d28d9;
+}
+
+.role-admin {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.role-user {
+  background: rgba(107, 114, 128, 0.12);
+  color: #374151;
+}
+
+/* Table Footer / Pagination */
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-top: 1px solid rgba(154, 166, 142, 0.25);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pagination-info {
+  font-size: 0.85rem;
+  color: var(--farm-muted);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--farm-border);
+  background: #ffffff;
+  color: var(--farm-text);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.page-link:hover:not(.disabled):not(.active) {
+  border-color: var(--farm-card-1);
+  color: var(--farm-card-1);
+  background: rgba(218, 229, 207, 0.3);
+}
+
+.page-link.active {
+  background: var(--farm-card-1);
+  color: var(--farm-white);
+  border-color: var(--farm-card-1);
+  font-weight: 600;
+}
+
+.page-link.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

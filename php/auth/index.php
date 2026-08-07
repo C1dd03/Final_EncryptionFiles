@@ -113,7 +113,21 @@ switch ($action) {
         $userController->deleteStandardUser();
         break;
 
+    /* ========================== BLOCK LIST ROUTES ======================== */
+    case 'getBlockList':
+        $userController->getBlockList();
+        break;
+    case 'getBlockDetail':
+        $userController->getBlockDetail();
+        break;
+    case 'unblockAccount':
+        $userController->unblockAccount();
+        break;
 
+    /* ========================== AUDIT LOGS ROUTES ======================== */
+    case 'getAuditLogs':
+        $userController->getAuditLogs();
+        break;
 
     default:
         $userController->showLogin();
