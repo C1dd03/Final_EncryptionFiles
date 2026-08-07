@@ -1,6 +1,11 @@
 document.addEventListener("DOMContentLoaded", function () {
   const loginForm = document.querySelector(".login-form");
   const messageDiv = document.getElementById("login-message");
+  const usernameInput = loginForm?.querySelector('input[name="username"]');
+  const passwordInput = loginForm?.querySelector('input[name="password"]');
+  const usernameError = document.getElementById("username-error");
+  const passwordError = document.getElementById("password-error");
+  const formError = document.getElementById("login-form-error");
   const forgotLink =
     document.querySelector(".login-forgot-password a") ||
     document.querySelector(".login-forgot-password");
@@ -63,6 +68,47 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  function clearInlineErrors() {
+    if (usernameError) {
+      usernameError.textContent = "";
+      usernameError.style.display = "none";
+    }
+
+    if (passwordError) {
+      passwordError.textContent = "";
+      passwordError.style.display = "none";
+    }
+
+    if (formError) {
+      formError.textContent = "";
+      formError.style.display = "none";
+    }
+  }
+
+  function setFieldError(type, text) {
+    if (type === "username") {
+      if (usernameError) {
+        usernameError.textContent = text;
+        usernameError.style.display = text ? "block" : "none";
+      }
+    } else if (type === "password") {
+      if (passwordError) {
+        passwordError.textContent = text;
+        passwordError.style.display = text ? "block" : "none";
+      }
+    } else if (type === "form") {
+      if (formError) {
+        formError.textContent = text;
+        formError.style.display = text ? "block" : "none";
+      }
+    }
+  }
+
+  function showInlineError(type, text) {
+    clearInlineErrors();
+    setFieldError(type, text);
+  }
+
   function setForgotLinkVisible(visible) {
     if (!forgotLink) return;
     forgotLink.style.display = visible ? "flex" : "none";
@@ -96,6 +142,28 @@ document.addEventListener("DOMContentLoaded", function () {
     saveState();
     disableFormElements(true);
     startCountdown(seconds);
+  }
+
+  function showThirdAttemptMessage(data) {
+    if (data.errorType === "usernameWrong") {
+      showInlineError("username", "Username does not exist.");
+      return;
+    }
+
+    if (data.errorType === "passwordWrong") {
+      showInlineError("password", "Password is incorrect.");
+      return;
+    }
+
+    if (data.errorType === "bothWrong") {
+      showInlineError("form", "Invalid username and password.");
+      return;
+    }
+
+    setMessage(
+      data.message || `Invalid credentials. Attempt ${consecutiveFails}/${FAILS_PER_STAGE}`,
+      "error"
+    );
   }
 
   function startCountdown(initialSeconds = null) {
@@ -143,6 +211,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (!loginForm) return;
 
+  [usernameInput, passwordInput].forEach((input) => {
+    if (input) {
+      input.addEventListener("input", clearInlineErrors);
+    }
+  });
+
   loginForm.addEventListener("submit", function (e) {
     e.preventDefault();
 
@@ -163,14 +237,19 @@ document.addEventListener("DOMContentLoaded", function () {
     const username = formData.get("username");
     const password = formData.get("password");
 
+    clearInlineErrors();
+    setMessage("", "");
+
     if (!username && !password) {
-      setMessage("Username and password are required.", "error");
+      clearInlineErrors();
+      setFieldError("username", "Username is required.");
+      setFieldError("password", "Password is required.");
       return;
     } else if (!username) {
-      setMessage("Username is required.", "error");
+      showInlineError("username", "Username is required.");
       return;
     } else if (!password) {
-      setMessage("Password is required.", "error");
+      showInlineError("password", "Password is required.");
       return;
     }
 
@@ -207,24 +286,29 @@ document.addEventListener("DOMContentLoaded", function () {
             const seconds =
               LOCK_DURATIONS[Math.min(stageIndex, LOCK_DURATIONS.length - 1)];
             if (stageIndex < LOCK_DURATIONS.length - 1) stageIndex += 1;
-            startLock(seconds);
+            showThirdAttemptMessage(data);
+            setTimeout(() => {
+              startLock(seconds);
+            }, 1200);
             consecutiveFails = 0;
             saveState();
             return;
           }
 
-          //Show specific error messages
-          // if (data.error === "username") {
-          //   setMessage("Email is incorrect.", "error");
-          // } else if (data.error === "password") {
-          //   setMessage("Password is incorrect.", "error");
-          // } else {
-          //   setMessage(
-          //     data.message ||
-          //       `Invalid credentials. Attempt ${consecutiveFails}/${FAILS_PER_STAGE}`,
-          //     "error"
-          //   );
-          // }
+          if (data.errorType === "usernameWrong") {
+            showInlineError("username", "Username does not exist.");
+            return;
+          }
+
+          if (data.errorType === "passwordWrong") {
+            showInlineError("password", "Password is incorrect.");
+            return;
+          }
+
+          if (data.errorType === "bothWrong") {
+            showInlineError("form", "Invalid username and password.");
+            return;
+          }
 
           setMessage(
             data.message ||

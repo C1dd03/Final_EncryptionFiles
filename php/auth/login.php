@@ -25,19 +25,22 @@ if (isset($_GET['registered']) && $_GET['registered'] == 1): ?>
   <h2>Login</h2>
 
   <p class="empty-mgs"></p>
-
-  <div class="input-field" style="margin-bottom: 10px;">
-    <input type="text" name="username" class="login-email" placeholder=" " />
-    <label>Username</label>
+  <div class="form-field" style="margin-bottom: 10px;">
+    <div class="input-field" style="">
+      <input type="text" name="username" class="login-email" placeholder=" " />
+      <label>Username</label>
+    </div>
+    <div class="field-error" id="username-error" role="alert" style="display:none; color:#dc3545; font-size:12px;"></div>
   </div>
 
-  <div class="input-field password-field" style="margin-bottom: 10px;">
-    <input type="password" name="password" class="login-password" placeholder=" " />
-
-    <label>Password</label>
-    <i class="fas fa-eye-slash toggle-password"></i>
+  <div class="form-field" style="margin-bottom: 10px;">
+    <div class="input-field password-field">
+      <input type="password" name="password" class="login-password" placeholder=" " />
+      <label>Password</label>
+      <i class="fas fa-eye-slash toggle-password"></i>
+    </div>
+    <div class="field-error" id="password-error" role="alert" style="display:none; color:#dc3545; font-size:12px;"></div>
   </div>
-
 
   <button class="btn_submit">Login</button>
 
@@ -48,6 +51,7 @@ if (isset($_GET['registered']) && $_GET['registered'] == 1): ?>
   <p class="toggle-link register-link">
     Don't have an account? <a href="index.php?action=register"><b>Register</b></a>
   </p>
+  <div class="field-error" id="login-form-error" role="alert" style="display:none; color:#dc3545; font-size:12px; margin-top:4px; text-align:center;"></div>
 
   <!-- add login-message -->
   <div class="msg" id="login-message" role="status" aria-live="polite" style="text-align: center;"></div>

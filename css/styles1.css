@@ -206,6 +206,11 @@ p {
   border-radius: 3px;
   border: 1px solid var(--farm-border);
 }
+
+.input-field:has(+ .field-error[style*="display: block"]) {
+  box-shadow: 0 0 0 1px rgba(220, 53, 69, 0.15);
+  border-bottom: 1px solid #dc3545;
+}
 .pass-input-field {
   /* add pass-input-field */
   position: relative;
