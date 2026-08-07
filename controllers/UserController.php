@@ -2,35 +2,40 @@
 
 require_once __DIR__ . '/../models/User.php';
 
-class UserController {
+class UserController
+{
     private $userModel;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->userModel = new User();
     }
 
     // Show Login Page
-    public function showLogin() {
+    public function showLogin()
+    {
         $page = 'login';               // ✅ define first
         $formView = "login.php";
-        require __DIR__ . '/../views/auth/auth.php';
+        require __DIR__ . '/../php/auth/auth.php';
     }
 
     // Show Register Page
-    public function showRegister() {
+    public function showRegister()
+    {
         $page = 'register';            // ✅ define first
         $nextId = $this->userModel->generateIdNumber();
         $formView = "register.php";
-        require __DIR__ . '/../views/auth/auth.php';
+        require __DIR__ . '/../php/auth/auth.php';
     }
 
 
 
 
     /* ========================== ADD LOGOUT ======================== */
-    public function logout() {
+    public function logout()
+    {
         $formView = "logout.php";
-        require __DIR__ . '/../views/auth/auth.php';
+        require __DIR__ . '/../php/auth/auth.php';
     }
 
 
@@ -38,14 +43,16 @@ class UserController {
 
 
     // Show Forgot Password Page
-    public function showForgotPassword() {
-        $page = 'forgot-password'; 
+    public function showForgotPassword()
+    {
+        $page = 'forgot-password';
         $formView = "forgot_password.php";
-        require __DIR__ . '/../views/auth/auth.php';
+        require __DIR__ . '/../php/auth/auth.php';
     }
 
     // ✅ Handle Registration (POST)
-    public function registerUser() {
+    public function registerUser()
+    {
         $error = null;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -147,14 +154,14 @@ class UserController {
             $hasNumber = preg_match('/[0-9]/', $password);
             $hasSpecial = preg_match('/[^a-zA-Z0-9]/', $password);
             $hasLength = strlen($password) >= 8;
-            
+
             $missing = [];
             if (!$hasLower) $missing[] = "lowercase letter";
             if (!$hasUpper) $missing[] = "uppercase letter";
             if (!$hasNumber) $missing[] = "number";
             if (!$hasSpecial) $missing[] = "special character";
             if (!$hasLength) $missing[] = "8+ characters";
-            
+
             // Calculate strength (0-5)
             $strength = 0;
             if ($hasLower) $strength++;
@@ -162,7 +169,7 @@ class UserController {
             if ($hasNumber) $strength++;
             if ($hasSpecial) $strength++;
             if ($hasLength) $strength++;
-            
+
             // Password must meet minimum requirements (at least 4 criteria)
             if ($strength < 4) {
                 if (!empty($missing)) {
@@ -184,7 +191,7 @@ class UserController {
             if (!empty($errors)) {
                 $error = implode("<br>", $errors);
                 $formView = "register.php";
-                require __DIR__ . '/../views/auth/auth.php';
+                require __DIR__ . '/../php/auth/auth.php';
                 return;
             }
 
@@ -236,7 +243,7 @@ class UserController {
             if (!empty($errors)) {
                 $error = implode("<br>", $errors);
                 $formView = "register.php";
-                require __DIR__ . '/../views/auth/auth.php';
+                require __DIR__ . '/../php/auth/auth.php';
                 return;
             }
 
@@ -266,7 +273,7 @@ class UserController {
                 $registrationSuccess = true;
                 $registeredId = $result; // This is the generated ID number
                 $formView = "register.php";
-                require __DIR__ . '/../views/auth/auth.php';
+                require __DIR__ . '/../php/auth/auth.php';
                 exit;
             } else {
                 $error = "Registration failed. Please try again.";
@@ -275,11 +282,12 @@ class UserController {
 
         // --- DEFAULT SHOW REGISTER FORM ---
         $formView = "register.php";
-        require __DIR__ . '/../views/auth/auth.php';
+        require __DIR__ . '/../php/auth/auth.php';
     }
 
     // --- PRIVATE VALIDATION METHODS ---
-    private function validateName($value, $field) {
+    private function validateName($value, $field)
+    {
         $errors = [];
 
         if ($value === '') return $errors; // skip optional empty
@@ -313,11 +321,11 @@ class UserController {
         if (isset($value[0]) && $value[0] !== strtoupper($value[0])) {
             $errors[] = "$field: Must start with a capital letter.";
         }
-        
+
         // Check for capital letters after the first letter of each name
         // For street field, allow capital letters after digits (e.g., in "Purok-1C")
         if ($field === 'Purok/Street') {
-            // Split by spaces and dashes to get words
+            // Split by spaces and dashes to get words  
             $words = preg_split('/[\s\-]+/', $value);
             foreach ($words as $word) {
                 // Check each character in the word after the first
@@ -326,7 +334,7 @@ class UserController {
                     // If it's a letter and uppercase
                     if (ctype_alpha($char) && ctype_upper($char)) {
                         // Check if the previous character is a digit
-                        $prevChar = $word[$i-1];
+                        $prevChar = $word[$i - 1];
                         if (!ctype_digit($prevChar)) {
                             $errors[] = "$field: Cannot contain capital letters after the first letter of each name.";
                             break 2; // Break out of both loops
@@ -351,7 +359,8 @@ class UserController {
         return $errors;
     }
 
-    private function validateAddressField($value, $field) {
+    private function validateAddressField($value, $field)
+    {
         $errors = [];
 
         if ($value === '') {
@@ -365,7 +374,7 @@ class UserController {
         }
 
         // Must start with a letter (not space, number, or special character)
-        if (!preg_match('/^[A-Za-z]/', $value)) {
+        if ($field !== 'Purok/Street' && !preg_match('/^[A-Za-z]/', $value)) {
             $errors[] = "$field must start with a letter only.";
         }
 
@@ -376,10 +385,14 @@ class UserController {
 
         // Special validation for street field
         if ($field === 'Purok/Street') {
-            // Check for invalid number placement (e.g., "Purok 1Ampayon")
-            // Numbers must be separated from letters by space or dash
-            if (preg_match('/[A-Za-z]\d/', $value)) {
-                $errors[] = "$field: Cannot include numbers.";
+            if (preg_match('/^\s*[A-Za-z]\s+/', $value)) {
+                $errors[] = "$field: Invalid street format.";
+            }
+            if (preg_match('/[A-Za-z]\d/', $value) && !preg_match('/[A-Za-z][ .-]\d/', $value)) {
+                $errors[] = "$field: Numbers must be separated from letters by a space, period, or dash.";
+            }
+            if (preg_match('/\d[a-zA-Z]{2,}/', $value)) {
+                $errors[] = "$field: Only a single letter may follow a number directly.";
             }
         } else {
             // No numbers allowed in other address fields
@@ -413,7 +426,8 @@ class UserController {
 
 
     /* ========================== ADD LOGIN CONTROLLER ======================== */
-    public function loginUser() {
+    public function loginUser()
+    {
         session_start();
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -441,7 +455,7 @@ class UserController {
             // Check if username exists
             $user = $this->userModel->findByUsername($username);
 
-            
+
 
             /*++++++++++++++++++++ ADD INVALID USERNAME AND PASSWORD =============================================*/
 
@@ -450,7 +464,7 @@ class UserController {
                 echo json_encode(['success' => false, 'message' => 'Invalid Username and password .', 'errorType' => 'bothWrong']);
                 return;
             }
-            
+
             // Username wrong
             if (!$user) {
                 echo json_encode(['success' => false, 'message' => 'Username not found.', 'errorType' => 'usernameWrong']);
@@ -481,19 +495,20 @@ class UserController {
 
 
 
-    
+
     //========================================== Verify ID =====================================
-    public function verifyId() {
+    public function verifyId()
+    {
         header('Content-Type: application/json; charset=utf-8');
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id_number = trim($_POST['id_number'] ?? '');
             $user = $this->userModel->findById($id_number);
 
-            if($user){
+            if ($user) {
                 // Get user's security questions
                 $questions = $this->userModel->getUserAuthAnswers($id_number);
-                
+
                 echo json_encode([
                     'success' => true,
                     'user' => [
@@ -513,129 +528,132 @@ class UserController {
 
 
     //========================================== Verify Security Answers =====================================
-public function verifySecurityAnswers() {
-    header('Content-Type: application/json; charset=utf-8');
+    public function verifySecurityAnswers()
+    {
+        header('Content-Type: application/json; charset=utf-8');
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $id_number = trim($_POST['id_number'] ?? '');
-        
-        // Validate ID number is provided
-        if (empty($id_number)) {
-            echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
-            exit;
-        }
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $id_number = trim($_POST['id_number'] ?? '');
 
-        // Get the user's actual security questions and answers
-        $userQuestions = $this->userModel->getUserAuthAnswers($id_number);
-        
-        if (empty($userQuestions)) {
-            echo json_encode(['success' => false, 'message' => 'No security questions found for this user.']);
-            exit;
-        }
-
-        // Map the user's questions to their answers from the form
-        $answers = [
-            trim($_POST['security_answer_1'] ?? ''),
-            trim($_POST['security_answer_2'] ?? ''),
-            trim($_POST['security_answer_3'] ?? '')
-        ];
-
-        // Validate all answers are provided
-        $emptyAnswers = [];
-        foreach ($answers as $index => $ans) {
-            if (empty($ans)) {
-                $emptyAnswers[] = $index + 1;
+            // Validate ID number is provided
+            if (empty($id_number)) {
+                echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
+                exit;
             }
-        }
 
-        if (!empty($emptyAnswers)) {
-            echo json_encode(['success' => false, 'message' => 'Please answer all security questions.']);
-            exit;
-        }
+            // Get the user's actual security questions and answers
+            $userQuestions = $this->userModel->getUserAuthAnswers($id_number);
 
-        $correctCount = 0;
-
-        // Verify each answer against the corresponding user question
-        for ($i = 0; $i < min(count($userQuestions), count($answers)); $i++) {
-            $record = $userQuestions[$i];
-            $answer = $answers[$i];
-            
-            if (password_verify($answer, $record['answer_hash'])) {
-                $correctCount++;
+            if (empty($userQuestions)) {
+                echo json_encode(['success' => false, 'message' => 'No security questions found for this user.']);
+                exit;
             }
-        }
 
-        // User must answer at least 2 out of 3 questions correctly
-        if ($correctCount >= 2) {
-            echo json_encode(['success' => true, 'message' => 'Verification successful! You answered at least 2 questions correctly.']);
+            // Map the user's questions to their answers from the form
+            $answers = [
+                trim($_POST['security_answer_1'] ?? ''),
+                trim($_POST['security_answer_2'] ?? ''),
+                trim($_POST['security_answer_3'] ?? '')
+            ];
+
+            // Validate all answers are provided
+            $emptyAnswers = [];
+            foreach ($answers as $index => $ans) {
+                if (empty($ans)) {
+                    $emptyAnswers[] = $index + 1;
+                }
+            }
+
+            if (!empty($emptyAnswers)) {
+                echo json_encode(['success' => false, 'message' => 'Please answer all security questions.']);
+                exit;
+            }
+
+            $correctCount = 0;
+
+            // Verify each answer against the corresponding user question
+            for ($i = 0; $i < min(count($userQuestions), count($answers)); $i++) {
+                $record = $userQuestions[$i];
+                $answer = $answers[$i];
+
+                if (password_verify($answer, $record['answer_hash'])) {
+                    $correctCount++;
+                }
+            }
+
+            // User must answer at least 2 out of 3 questions correctly
+            if ($correctCount >= 2) {
+                echo json_encode(['success' => true, 'message' => 'Verification successful! You answered at least 2 questions correctly.']);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Verification failed. You must answer at least 2 out of 3 questions correctly.']);
+            }
         } else {
-            echo json_encode(['success' => false, 'message' => 'Verification failed. You must answer at least 2 out of 3 questions correctly.']);
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
         }
-    } else {
-        echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+        exit;
     }
-    exit;
-}
 
 
-//========================================== Validate Individual Security Answer =====================================
-public function validateSecurityAnswer() {
-    header('Content-Type: application/json; charset=utf-8');
+    //========================================== Validate Individual Security Answer =====================================
+    public function validateSecurityAnswer()
+    {
+        header('Content-Type: application/json; charset=utf-8');
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $id_number = trim($_POST['id_number'] ?? '');
-        $question_index = (int)($_POST['question_id'] ?? 0); // This is now the index (1, 2, 3) rather than question_id
-        $answer = trim($_POST['answer'] ?? '');
-        
-        // Validate required fields
-        if (empty($id_number)) {
-            echo json_encode(['valid' => false, 'message' => 'ID Number is required.']);
-            exit;
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $id_number = trim($_POST['id_number'] ?? '');
+            $question_index = (int)($_POST['question_id'] ?? 0); // This is now the index (1, 2, 3) rather than question_id
+            $answer = trim($_POST['answer'] ?? '');
+
+            // Validate required fields
+            if (empty($id_number)) {
+                echo json_encode(['valid' => false, 'message' => 'ID Number is required.']);
+                exit;
+            }
+
+            if (empty($question_index) || $question_index < 1 || $question_index > 3) {
+                echo json_encode(['valid' => false, 'message' => 'Invalid question index.']);
+                exit;
+            }
+
+            if (empty($answer)) {
+                echo json_encode(['valid' => false, 'message' => 'Answer is required.']);
+                exit;
+            }
+
+            // Get the user's actual security questions
+            $userQuestions = $this->userModel->getUserAuthAnswers($id_number);
+
+            if (empty($userQuestions) || !isset($userQuestions[$question_index - 1])) {
+                echo json_encode(['valid' => false, 'message' => 'No answer found for this question.']);
+                exit;
+            }
+
+            // Get the stored answer hash for the specific question
+            $record = $userQuestions[$question_index - 1];
+
+            // Verify the answer
+            $isValid = password_verify($answer, $record['answer_hash']);
+
+            echo json_encode(['valid' => $isValid]);
+        } else {
+            echo json_encode(['valid' => false, 'message' => 'Invalid request method.']);
         }
-        
-        if (empty($question_index) || $question_index < 1 || $question_index > 3) {
-            echo json_encode(['valid' => false, 'message' => 'Invalid question index.']);
-            exit;
-        }
-        
-        if (empty($answer)) {
-            echo json_encode(['valid' => false, 'message' => 'Answer is required.']);
-            exit;
-        }
-        
-        // Get the user's actual security questions
-        $userQuestions = $this->userModel->getUserAuthAnswers($id_number);
-        
-        if (empty($userQuestions) || !isset($userQuestions[$question_index - 1])) {
-            echo json_encode(['valid' => false, 'message' => 'No answer found for this question.']);
-            exit;
-        }
-        
-        // Get the stored answer hash for the specific question
-        $record = $userQuestions[$question_index - 1];
-        
-        // Verify the answer
-        $isValid = password_verify($answer, $record['answer_hash']);
-        
-        echo json_encode(['valid' => $isValid]);
-    } else {
-        echo json_encode(['valid' => false, 'message' => 'Invalid request method.']);
+        exit;
     }
-    exit;
-}
 
 
 
     //=========================================== Reset Password =======================================
-    public function resetPassword() {
+    public function resetPassword()
+    {
         $id_number = $_POST['id_number'] ?? '';
         $question_index = (int)($_POST['security_question'] ?? 0); // This is now the index (1, 2, 3) rather than question_id
         $answer = trim($_POST['answer'] ?? '');
         $new_password = $_POST['new_password'] ?? '';
         $confirm_password = $_POST['confirm_password'] ?? '';
 
-        if($new_password !== $confirm_password){
-            echo json_encode(['success'=>false, 'message'=>'Passwords do not match']);
+        if ($new_password !== $confirm_password) {
+            echo json_encode(['success' => false, 'message' => 'Passwords do not match']);
             return;
         }
 
@@ -645,14 +663,14 @@ public function validateSecurityAnswer() {
         $hasNumber = preg_match('/[0-9]/', $new_password);
         $hasSpecial = preg_match('/[^a-zA-Z0-9]/', $new_password);
         $hasLength = strlen($new_password) >= 8;
-        
+
         $missing = [];
         if (!$hasLower) $missing[] = "lowercase letter";
         if (!$hasUpper) $missing[] = "uppercase letter";
         if (!$hasNumber) $missing[] = "number";
         if (!$hasSpecial) $missing[] = "special character";
         if (!$hasLength) $missing[] = "8+ characters";
-        
+
         // Calculate strength (0-5)
         $strength = 0;
         if ($hasLower) $strength++;
@@ -660,43 +678,44 @@ public function validateSecurityAnswer() {
         if ($hasNumber) $strength++;
         if ($hasSpecial) $strength++;
         if ($hasLength) $strength++;
-        
+
         // Updated: Password must meet minimum requirements (at least 4 criteria) - medium strength (3/5) is not acceptable
         if ($strength < 4) {
             if (!empty($missing)) {
-                echo json_encode(['success'=>false, 'message'=>'Password is too weak. Missing: ' . implode(", ", $missing)]);
+                echo json_encode(['success' => false, 'message' => 'Password is too weak. Missing: ' . implode(", ", $missing)]);
             } else {
-                echo json_encode(['success'=>false, 'message'=>'Password is too weak. Must be 8+ characters with uppercase, lowercase, and number.']);
+                echo json_encode(['success' => false, 'message' => 'Password is too weak. Must be 8+ characters with uppercase, lowercase, and number.']);
             }
             return;
         }
 
         // Get the user's actual security questions
         $userQuestions = $this->userModel->getUserAuthAnswers($id_number);
-        
+
         if (empty($userQuestions) || !isset($userQuestions[$question_index - 1])) {
-            echo json_encode(['success'=>false, 'message'=>'No security question found']);
+            echo json_encode(['success' => false, 'message' => 'No security question found']);
             return;
         }
-        
+
         // Get the stored answer hash for the specific question
         $record = $userQuestions[$question_index - 1];
 
-        if(!password_verify($answer, $record['answer_hash'])){
-            echo json_encode(['success'=>false, 'message'=>'Incorrect security answer']);
+        if (!password_verify($answer, $record['answer_hash'])) {
+            echo json_encode(['success' => false, 'message' => 'Incorrect security answer']);
             return;
         }
 
         $hashed = password_hash($new_password, PASSWORD_BCRYPT);
-        if($this->userModel->updatePassword($id_number, $hashed)){
-            echo json_encode(['success'=>true, 'message'=>'Your password has been successfully changed!']);
+        if ($this->userModel->updatePassword($id_number, $hashed)) {
+            echo json_encode(['success' => true, 'message' => 'Your password has been successfully changed!']);
         } else {
-            echo json_encode(['success'=>false, 'message'=>'Failed to reset password']);
+            echo json_encode(['success' => false, 'message' => 'Failed to reset password']);
         }
     }
 
     //========================================== Check Username Availability =====================================
-    public function checkUsername() {
+    public function checkUsername()
+    {
         header('Content-Type: application/json; charset=utf-8');
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -719,7 +738,8 @@ public function validateSecurityAnswer() {
     }
 
     //========================================== Check Email Availability =====================================
-    public function checkEmail() {
+    public function checkEmail()
+    {
         header('Content-Type: application/json; charset=utf-8');
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -746,6 +766,4 @@ public function validateSecurityAnswer() {
         }
         exit;
     }
-
-
 }

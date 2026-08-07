@@ -2,14 +2,20 @@
 require_once __DIR__ . '/../config/db.php';
 
 
-class User {
+class User
+{
+    /**
+     * @var \PDO
+     */
     private $conn;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->conn = Database::getInstance()->getConnection();
     }
 
-    public function insertUser($data) {
+    public function insertUser(array $data)
+    {
         try {
             $this->conn->beginTransaction();
 
@@ -23,6 +29,7 @@ class User {
                         VALUES 
                         (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash)";
             $stmt = $this->conn->prepare($sqlUser);
+            $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
             $stmt->execute([
                 ':id_number'     => $id_number,
                 ':first_name'    => $data['first_name'],
@@ -34,7 +41,7 @@ class User {
                 ':age'           => $age,
                 ':username'      => $data['username'],
                 ':email'         => $data['email'] ?? null,
-                ':password_hash' => $data['password']
+                ':password_hash' => $passwordHash
             ]);
 
             // ✅ 2. Insert into addresses
@@ -83,13 +90,31 @@ class User {
     }
 
 
-    private function calculateAge($birthdate) {
-        $dob = new DateTime($birthdate);
+    private function calculateAge(string $birthdate): int
+    {
+        $birthdate = trim($birthdate);
+
+        if ($birthdate === '') {
+            throw new InvalidArgumentException('Birthdate is required.');
+        }
+
+        $dob = DateTime::createFromFormat('Y-m-d', $birthdate);
+        $errors = DateTime::getLastErrors();
+
+        if (!$dob || $errors['warning_count'] > 0 || $errors['error_count'] > 0) {
+            throw new InvalidArgumentException('Invalid birthdate format.');
+        }
+
         $today = new DateTime();
+        if ($dob > $today) {
+            throw new InvalidArgumentException('Birthdate cannot be in the future.');
+        }
+
         return $today->diff($dob)->y;
     }
 
-    public function generateIdNumber() {
+    public function generateIdNumber()
+    {
         $year = date("Y");
 
         // ✅ Get the last inserted ID for the current year only
@@ -106,7 +131,7 @@ class User {
         if ($row && preg_match('/^' . $year . '-(\d{4})$/', $row['id_number'], $matches)) {
             // ✅ Increment the last 4 digits
             $lastNum = (int)$matches[1];
-            $nextNum = str_pad($lastNum + 1, 4,'0', STR_PAD_LEFT);
+            $nextNum = str_pad($lastNum + 1, 4, '0', STR_PAD_LEFT);
         } else {
             // ✅ Start fresh if no ID exists for this year
             $nextNum = '0001';
@@ -115,36 +140,36 @@ class User {
         return $year . '-' . $nextNum;
     }
 
-    
-
-
-
-
-    
-
 
     /* ========================== ADD LOGIN MODEL ======================== */
-    public function findByUsername($username) {
-    
-        $sql = "SELECT * FROM users WHERE username = :username";
-    
-        $stmt = $this->conn->prepare($sql);
-    
-        $stmt->execute([':username' => $username]);
-    
-        return $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    }
-    
+    public function findByUsername(string $username)
+    {
+        $username = trim($username);
 
- /* ========================== ADD FORGOT PASSWORD MODEL ======================== */
-    public function findById($id_number){
-        $stmt = $this->conn->prepare("SELECT * FROM users WHERE id_number = :id_number");
-        $stmt->execute([':id_number'=>$id_number]);
+        if ($username === '') {
+            return false;
+        }
+
+        $sql = "SELECT * FROM users WHERE username = :username";
+
+        $stmt = $this->conn->prepare($sql);
+
+        $stmt->execute([':username' => $username]);
+
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
-    
-        public function getUserAuthAnswers($id_number) {
+
+
+    /* ========================== ADD FORGOT PASSWORD MODEL ======================== */
+    public function findById(int $id_number)
+    {
+        $stmt = $this->conn->prepare("SELECT * FROM users WHERE id_number = :id_number");
+        $stmt->execute([':id_number' => $id_number]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function getUserAuthAnswers(int $id_number)
+    {
         $stmt = $this->conn->prepare("
             SELECT ua.question_id, ua.answer_hash, aq.question_text 
             FROM user_auth_answers ua
@@ -156,25 +181,29 @@ class User {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getUserAuthAnswer($id_number, $question_id){
+    public function getUserAuthAnswer(int $id_number, int $question_id)
+    {
         $stmt = $this->conn->prepare("SELECT * FROM user_auth_answers WHERE id_number = :id_number AND question_id = :question_id");
-        $stmt->execute([':id_number'=>$id_number, ':question_id'=>$question_id]);
+        $stmt->execute([':id_number' => $id_number, ':question_id' => $question_id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function updatePassword($id_number, $password_hash){
+    public function updatePassword(int $id_number, string $password_hash)
+    {
         $stmt = $this->conn->prepare("UPDATE users SET password_hash=:password WHERE id_number=:id_number");
-        return $stmt->execute([':password'=>$password_hash, ':id_number'=>$id_number]);
+        return $stmt->execute([':password' => $password_hash, ':id_number' => $id_number]);
     }
 
     /* ========================== CHECK USERNAME AND EMAIL AVAILABILITY ======================== */
-    public function usernameExists($username) {
+    public function usernameExists(string $username)
+    {
         $stmt = $this->conn->prepare("SELECT COUNT(*) FROM users WHERE username = :username");
         $stmt->execute([':username' => $username]);
         return $stmt->fetchColumn() > 0;
     }
 
-    public function emailExists($email) {
+    public function emailExists(string $email)
+    {
         // Check if email column exists in users table
         // If email column doesn't exist, return false (email is available)
         try {
@@ -186,6 +215,4 @@ class User {
             return false;
         }
     }
-
-    
 }
