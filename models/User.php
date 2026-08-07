@@ -260,5 +260,351 @@ class User
 
         return $stats;
     }
+
+    /* ========================== MANAGE ADMINS METHODS ======================== */
+
+    public function getAdminsList(string $search = '', string $status = 'all', int $offset = 0, int $limit = 10): array
+    {
+        $sql = "SELECT id_number, first_name, middle_name, last_name, extension, username, email, role, status, created_at 
+                FROM users 
+                WHERE role = 'admin'";
+        $params = [];
+
+        if (!empty($status) && $status !== 'all') {
+            if ($status === 'active') {
+                $sql .= " AND status = 'active'";
+            } elseif ($status === 'blocked' || $status === 'block') {
+                $sql .= " AND status = 'block'";
+            }
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (id_number LIKE :search 
+                      OR username LIKE :search 
+                      OR email LIKE :search 
+                      OR CONCAT(first_name, ' ', last_name) LIKE :search
+                      OR CONCAT(first_name, ' ', middle_name, ' ', last_name) LIKE :search)";
+            $params[':search'] = '%' . $search . '%';
+        }
+
+        $sql .= " ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->conn->prepare($sql);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $nameParts = array_filter([$row['first_name'], $row['middle_name'], $row['last_name'], $row['extension']]);
+            $row['name'] = implode(' ', $nameParts);
+        }
+        return $rows;
+    }
+
+    public function getAdminsCount(string $search = '', string $status = 'all'): int
+    {
+        $sql = "SELECT COUNT(*) FROM users WHERE role = 'admin'";
+        $params = [];
+
+        if (!empty($status) && $status !== 'all') {
+            if ($status === 'active') {
+                $sql .= " AND status = 'active'";
+            } elseif ($status === 'blocked' || $status === 'block') {
+                $sql .= " AND status = 'block'";
+            }
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (id_number LIKE :search 
+                      OR username LIKE :search 
+                      OR email LIKE :search 
+                      OR CONCAT(first_name, ' ', last_name) LIKE :search
+                      OR CONCAT(first_name, ' ', middle_name, ' ', last_name) LIKE :search)";
+            $params[':search'] = '%' . $search . '%';
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function getAdminByIdNumber(string $id_number): ?array
+    {
+        $stmt = $this->conn->prepare("SELECT id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, role, status, created_at FROM users WHERE id_number = :id_number AND role = 'admin'");
+        $stmt->execute([':id_number' => $id_number]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($user) {
+            $nameParts = array_filter([$user['first_name'], $user['middle_name'], $user['last_name'], $user['extension']]);
+            $user['name'] = implode(' ', $nameParts);
+            return $user;
+        }
+        return null;
+    }
+
+    public function createAdmin(array $data): string
+    {
+        $id_number = !empty($data['id_number']) ? trim($data['id_number']) : $this->generateIdNumber();
+        $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
+        $birthdate = !empty($data['birthdate']) ? $data['birthdate'] : '2000-01-01';
+        $age = $this->calculateAge($birthdate);
+
+        $sql = "INSERT INTO users (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status)
+                VALUES (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, 'admin', :status)";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([
+            ':id_number'     => $id_number,
+            ':first_name'    => $data['first_name'],
+            ':middle_name'   => $data['middle_name'] ?? null,
+            ':last_name'     => $data['last_name'],
+            ':extension'     => $data['extension'] ?? null,
+            ':birthdate'     => $birthdate,
+            ':gender'        => $data['gender'] ?? 'male',
+            ':age'           => $age,
+            ':username'      => $data['username'],
+            ':email'         => $data['email'] ?? null,
+            ':password_hash' => $passwordHash,
+            ':status'        => $data['status'] ?? 'active'
+        ]);
+
+        return $id_number;
+    }
+
+    public function updateAdmin(string $id_number, array $data): bool
+    {
+        $fields = [
+            'first_name = :first_name',
+            'middle_name = :middle_name',
+            'last_name = :last_name',
+            'username = :username',
+            'email = :email',
+            'status = :status'
+        ];
+        $params = [
+            ':id_number'   => $id_number,
+            ':first_name'  => $data['first_name'],
+            ':middle_name' => $data['middle_name'] ?? null,
+            ':last_name'   => $data['last_name'],
+            ':username'    => $data['username'],
+            ':email'       => $data['email'] ?? null,
+            ':status'      => $data['status'] ?? 'active'
+        ];
+
+        if (!empty($data['password'])) {
+            $fields[] = 'password_hash = :password_hash';
+            $params[':password_hash'] = password_hash($data['password'], PASSWORD_BCRYPT);
+        }
+
+        $sql = "UPDATE users SET " . implode(', ', $fields) . " WHERE id_number = :id_number AND role = 'admin'";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute($params);
+    }
+
+    public function toggleAdminStatus(string $id_number, string $new_status): bool
+    {
+        $stmt = $this->conn->prepare("UPDATE users SET status = :status WHERE id_number = :id_number AND role = 'admin'");
+        return $stmt->execute([':status' => $new_status, ':id_number' => $id_number]);
+    }
+
+    public function deleteAdmin(string $id_number): bool
+    {
+        try {
+            $this->conn->beginTransaction();
+
+            $stmt = $this->conn->prepare("DELETE FROM addresses WHERE id_number = :id_number");
+            $stmt->execute([':id_number' => $id_number]);
+
+            $stmt = $this->conn->prepare("DELETE FROM user_auth_answers WHERE id_number = :id_number");
+            $stmt->execute([':id_number' => $id_number]);
+
+            $stmt = $this->conn->prepare("DELETE FROM users WHERE id_number = :id_number AND role = 'admin'");
+            $result = $stmt->execute([':id_number' => $id_number]);
+
+            $this->conn->commit();
+            return $result;
+        } catch (Exception $e) {
+            $this->conn->rollBack();
+            error_log("Failed to delete admin: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /* ========================== MANAGE USERS METHODS ======================== */
+
+    public function getUsersList(string $search = '', string $status = 'all', int $offset = 0, int $limit = 10): array
+    {
+        $sql = "SELECT id_number, first_name, middle_name, last_name, extension, username, email, role, status, created_at 
+                FROM users 
+                WHERE role = 'user'";
+        $params = [];
+
+        if (!empty($status) && $status !== 'all') {
+            if ($status === 'active') {
+                $sql .= " AND status = 'active'";
+            } elseif ($status === 'blocked' || $status === 'block') {
+                $sql .= " AND status = 'block'";
+            }
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (id_number LIKE :search 
+                      OR username LIKE :search 
+                      OR email LIKE :search 
+                      OR CONCAT(first_name, ' ', last_name) LIKE :search
+                      OR CONCAT(first_name, ' ', middle_name, ' ', last_name) LIKE :search)";
+            $params[':search'] = '%' . $search . '%';
+        }
+
+        $sql .= " ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->conn->prepare($sql);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $nameParts = array_filter([$row['first_name'], $row['middle_name'], $row['last_name'], $row['extension']]);
+            $row['name'] = implode(' ', $nameParts);
+        }
+        return $rows;
+    }
+
+    public function getUsersCount(string $search = '', string $status = 'all'): int
+    {
+        $sql = "SELECT COUNT(*) FROM users WHERE role = 'user'";
+        $params = [];
+
+        if (!empty($status) && $status !== 'all') {
+            if ($status === 'active') {
+                $sql .= " AND status = 'active'";
+            } elseif ($status === 'blocked' || $status === 'block') {
+                $sql .= " AND status = 'block'";
+            }
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (id_number LIKE :search 
+                      OR username LIKE :search 
+                      OR email LIKE :search 
+                      OR CONCAT(first_name, ' ', last_name) LIKE :search
+                      OR CONCAT(first_name, ' ', middle_name, ' ', last_name) LIKE :search)";
+            $params[':search'] = '%' . $search . '%';
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function getUserByIdNumber(string $id_number): ?array
+    {
+        $stmt = $this->conn->prepare("SELECT id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, role, status, created_at FROM users WHERE id_number = :id_number AND role = 'user'");
+        $stmt->execute([':id_number' => $id_number]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($user) {
+            $nameParts = array_filter([$user['first_name'], $user['middle_name'], $user['last_name'], $user['extension']]);
+            $user['name'] = implode(' ', $nameParts);
+            return $user;
+        }
+        return null;
+    }
+
+    public function createStandardUser(array $data): string
+    {
+        $id_number = !empty($data['id_number']) ? trim($data['id_number']) : $this->generateIdNumber();
+        $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
+        $birthdate = !empty($data['birthdate']) ? $data['birthdate'] : '2000-01-01';
+        $age = $this->calculateAge($birthdate);
+
+        $sql = "INSERT INTO users (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status)
+                VALUES (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, 'user', :status)";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([
+            ':id_number'     => $id_number,
+            ':first_name'    => $data['first_name'],
+            ':middle_name'   => $data['middle_name'] ?? null,
+            ':last_name'     => $data['last_name'],
+            ':extension'     => $data['extension'] ?? null,
+            ':birthdate'     => $birthdate,
+            ':gender'        => $data['gender'] ?? 'male',
+            ':age'           => $age,
+            ':username'      => $data['username'],
+            ':email'         => $data['email'] ?? null,
+            ':password_hash' => $passwordHash,
+            ':status'        => $data['status'] ?? 'active'
+        ]);
+
+        return $id_number;
+    }
+
+    public function updateStandardUser(string $id_number, array $data): bool
+    {
+        $fields = [
+            'first_name = :first_name',
+            'middle_name = :middle_name',
+            'last_name = :last_name',
+            'username = :username',
+            'email = :email',
+            'status = :status'
+        ];
+        $params = [
+            ':id_number'   => $id_number,
+            ':first_name'  => $data['first_name'],
+            ':middle_name' => $data['middle_name'] ?? null,
+            ':last_name'   => $data['last_name'],
+            ':username'    => $data['username'],
+            ':email'       => $data['email'] ?? null,
+            ':status'      => $data['status'] ?? 'active'
+        ];
+
+        if (!empty($data['password'])) {
+            $fields[] = 'password_hash = :password_hash';
+            $params[':password_hash'] = password_hash($data['password'], PASSWORD_BCRYPT);
+        }
+
+        $sql = "UPDATE users SET " . implode(', ', $fields) . " WHERE id_number = :id_number AND role = 'user'";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute($params);
+    }
+
+    public function toggleStandardUserStatus(string $id_number, string $new_status): bool
+    {
+        $stmt = $this->conn->prepare("UPDATE users SET status = :status WHERE id_number = :id_number AND role = 'user'");
+        return $stmt->execute([':status' => $new_status, ':id_number' => $id_number]);
+    }
+
+    public function deleteStandardUser(string $id_number): bool
+    {
+        try {
+            $this->conn->beginTransaction();
+
+            $stmt = $this->conn->prepare("DELETE FROM addresses WHERE id_number = :id_number");
+            $stmt->execute([':id_number' => $id_number]);
+
+            $stmt = $this->conn->prepare("DELETE FROM user_auth_answers WHERE id_number = :id_number");
+            $stmt->execute([':id_number' => $id_number]);
+
+            $stmt = $this->conn->prepare("DELETE FROM users WHERE id_number = :id_number AND role = 'user'");
+            $result = $stmt->execute([':id_number' => $id_number]);
+
+            $this->conn->commit();
+            return $result;
+        } catch (Exception $e) {
+            $this->conn->rollBack();
+            error_log("Failed to delete user: " . $e->getMessage());
+            return false;
+        }
+    }
 }
+
+
 

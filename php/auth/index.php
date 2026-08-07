@@ -73,6 +73,48 @@ switch ($action) {
         $userController->checkEmail();
         break;
 
+    /* ========================== MANAGE ADMINS ROUTES ======================== */
+    case 'getAdmins':
+        $userController->getAdmins();
+        break;
+    case 'getAdminDetail':
+        $userController->getAdminDetail();
+        break;
+    case 'addAdmin':
+        $userController->addAdmin();
+        break;
+    case 'updateAdmin':
+        $userController->updateAdmin();
+        break;
+    case 'toggleBlockAdmin':
+        $userController->toggleBlockAdmin();
+        break;
+    case 'deleteAdmin':
+        $userController->deleteAdmin();
+        break;
+
+    /* ========================== MANAGE USERS ROUTES ======================== */
+    case 'getUsers':
+        $userController->getUsers();
+        break;
+    case 'getUserDetail':
+        $userController->getUserDetail();
+        break;
+    case 'addStandardUser':
+        $userController->addStandardUser();
+        break;
+    case 'updateStandardUser':
+        $userController->updateStandardUser();
+        break;
+    case 'toggleBlockUser':
+        $userController->toggleBlockUser();
+        break;
+    case 'deleteStandardUser':
+        $userController->deleteStandardUser();
+        break;
+
+
+
     default:
         $userController->showLogin();
         break;

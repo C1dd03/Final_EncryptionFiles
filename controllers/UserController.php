@@ -776,4 +776,443 @@ class UserController
         }
         exit;
     }
+
+    /* ========================== SUPER ADMIN: MANAGE ADMINS ACTIONS ======================== */
+
+    private function requireSuperAdmin()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $role = strtolower($_SESSION['role'] ?? '');
+        if ($role !== 'superadmin') {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'message' => 'Unauthorized access. Super Admin role required.']);
+            exit;
+        }
+    }
+
+    public function getAdmins()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $search = trim($_GET['search'] ?? '');
+        $status = trim($_GET['status'] ?? 'all');
+        $page   = max(1, (int)($_GET['page'] ?? 1));
+        $limit  = in_array((int)($_GET['limit'] ?? 10), [10, 25, 50, 100], true) ? (int)$_GET['limit'] : 10;
+
+        $totalRecords = $this->userModel->getAdminsCount($search, $status);
+        $totalPages   = max(1, (int)ceil($totalRecords / $limit));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $limit;
+
+        $admins = $this->userModel->getAdminsList($search, $status, $offset, $limit);
+
+        echo json_encode([
+            'success'      => true,
+            'data'         => $admins,
+            'totalRecords' => $totalRecords,
+            'totalPages'   => $totalPages,
+            'currentPage'  => $page,
+            'limit'        => $limit
+        ]);
+        exit;
+    }
+
+    public function getAdminDetail()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $id_number = trim($_GET['id_number'] ?? $_POST['id_number'] ?? '');
+        if (empty($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
+            exit;
+        }
+
+        $admin = $this->userModel->getAdminByIdNumber($id_number);
+        if ($admin) {
+            echo json_encode(['success' => true, 'data' => $admin]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Admin account not found.']);
+        }
+        exit;
+    }
+
+    public function addAdmin()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        $id_number = trim($_POST['id_number'] ?? '');
+        $name      = trim($_POST['name'] ?? '');
+        $username  = trim($_POST['username'] ?? '');
+        $email     = trim($_POST['email'] ?? '');
+        $password  = $_POST['password'] ?? '';
+        $confirm   = $_POST['confirm_password'] ?? '';
+        $status    = trim($_POST['status'] ?? 'active');
+
+        if (empty($name) || empty($username) || empty($email) || empty($password)) {
+            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields.']);
+            exit;
+        }
+
+        if ($password !== $confirm) {
+            echo json_encode(['success' => false, 'message' => 'Passwords do not match.']);
+            exit;
+        }
+
+        if ($this->userModel->usernameExists($username)) {
+            echo json_encode(['success' => false, 'message' => 'Username is already in use.']);
+            exit;
+        }
+
+        if ($this->userModel->emailExists($email)) {
+            echo json_encode(['success' => false, 'message' => 'Email is already registered.']);
+            exit;
+        }
+
+        $nameParts = preg_split('/\s+/', $name);
+        $firstName = array_shift($nameParts) ?? 'Admin';
+        $lastName  = array_pop($nameParts) ?? 'User';
+        $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
+
+        try {
+            $newId = $this->userModel->createAdmin([
+                'id_number'   => $id_number,
+                'first_name'  => $firstName,
+                'middle_name' => $middleName,
+                'last_name'   => $lastName,
+                'username'    => $username,
+                'email'       => $email,
+                'password'    => $password,
+                'status'      => $status
+            ]);
+
+            echo json_encode(['success' => true, 'message' => 'Admin account created successfully.', 'id_number' => $newId]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Failed to create admin: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    public function updateAdmin()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        $id_number = trim($_POST['id_number'] ?? '');
+        $name      = trim($_POST['name'] ?? '');
+        $username  = trim($_POST['username'] ?? '');
+        $email     = trim($_POST['email'] ?? '');
+        $password  = $_POST['password'] ?? '';
+        $status    = trim($_POST['status'] ?? 'active');
+
+        if (empty($id_number) || empty($name) || empty($username) || empty($email)) {
+            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields.']);
+            exit;
+        }
+
+        $existing = $this->userModel->getAdminByIdNumber($id_number);
+        if (!$existing) {
+            echo json_encode(['success' => false, 'message' => 'Admin account not found.']);
+            exit;
+        }
+
+        $nameParts = preg_split('/\s+/', $name);
+        $firstName = array_shift($nameParts) ?? 'Admin';
+        $lastName  = array_pop($nameParts) ?? 'User';
+        $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
+
+        try {
+            $updated = $this->userModel->updateAdmin($id_number, [
+                'first_name'  => $firstName,
+                'middle_name' => $middleName,
+                'last_name'   => $lastName,
+                'username'    => $username,
+                'email'       => $email,
+                'password'    => $password,
+                'status'      => $status
+            ]);
+
+            if ($updated) {
+                echo json_encode(['success' => true, 'message' => 'Admin account updated successfully.']);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to update admin account.']);
+            }
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    public function toggleBlockAdmin()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $id_number  = trim($_POST['id_number'] ?? '');
+        $new_status = trim($_POST['status'] ?? '');
+
+        if (empty($id_number) || !in_array($new_status, ['active', 'block'], true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid parameters provided.']);
+            exit;
+        }
+
+        $updated = $this->userModel->toggleAdminStatus($id_number, $new_status);
+        if ($updated) {
+            $actionText = ($new_status === 'block') ? 'blocked' : 'unblocked';
+            echo json_encode(['success' => true, 'message' => "Admin account has been {$actionText}."]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update admin status.']);
+        }
+        exit;
+    }
+
+    public function deleteAdmin()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $id_number = trim($_POST['id_number'] ?? '');
+        if (empty($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
+            exit;
+        }
+
+        $deleted = $this->userModel->deleteAdmin($id_number);
+        if ($deleted) {
+            echo json_encode(['success' => true, 'message' => 'Admin account deleted successfully.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to delete admin account.']);
+        }
+        exit;
+    }
+
+    /* ========================== SUPER ADMIN: MANAGE USERS ACTIONS ======================== */
+
+    public function getUsers()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $search = trim($_GET['search'] ?? '');
+        $status = trim($_GET['status'] ?? 'all');
+        $page   = max(1, (int)($_GET['page'] ?? 1));
+        $limit  = in_array((int)($_GET['limit'] ?? 10), [10, 25, 50, 100], true) ? (int)$_GET['limit'] : 10;
+
+        $totalRecords = $this->userModel->getUsersCount($search, $status);
+        $totalPages   = max(1, (int)ceil($totalRecords / $limit));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $limit;
+
+        $users = $this->userModel->getUsersList($search, $status, $offset, $limit);
+
+        echo json_encode([
+            'success'      => true,
+            'data'         => $users,
+            'totalRecords' => $totalRecords,
+            'totalPages'   => $totalPages,
+            'currentPage'  => $page,
+            'limit'        => $limit
+        ]);
+        exit;
+    }
+
+    public function getUserDetail()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $id_number = trim($_GET['id_number'] ?? $_POST['id_number'] ?? '');
+        if (empty($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
+            exit;
+        }
+
+        $user = $this->userModel->getUserByIdNumber($id_number);
+        if ($user) {
+            echo json_encode(['success' => true, 'data' => $user]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'User account not found.']);
+        }
+        exit;
+    }
+
+    public function addStandardUser()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        $id_number = trim($_POST['id_number'] ?? '');
+        $name      = trim($_POST['name'] ?? '');
+        $username  = trim($_POST['username'] ?? '');
+        $email     = trim($_POST['email'] ?? '');
+        $password  = $_POST['password'] ?? '';
+        $confirm   = $_POST['confirm_password'] ?? '';
+        $status    = trim($_POST['status'] ?? 'active');
+
+        if (empty($name) || empty($username) || empty($email) || empty($password)) {
+            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields.']);
+            exit;
+        }
+
+        if ($password !== $confirm) {
+            echo json_encode(['success' => false, 'message' => 'Passwords do not match.']);
+            exit;
+        }
+
+        if ($this->userModel->usernameExists($username)) {
+            echo json_encode(['success' => false, 'message' => 'Username is already in use.']);
+            exit;
+        }
+
+        if ($this->userModel->emailExists($email)) {
+            echo json_encode(['success' => false, 'message' => 'Email is already registered.']);
+            exit;
+        }
+
+        $nameParts = preg_split('/\s+/', $name);
+        $firstName = array_shift($nameParts) ?? 'User';
+        $lastName  = array_pop($nameParts) ?? 'Account';
+        $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
+
+        try {
+            $newId = $this->userModel->createStandardUser([
+                'id_number'   => $id_number,
+                'first_name'  => $firstName,
+                'middle_name' => $middleName,
+                'last_name'   => $lastName,
+                'username'    => $username,
+                'email'       => $email,
+                'password'    => $password,
+                'status'      => $status
+            ]);
+
+            echo json_encode(['success' => true, 'message' => 'User account created successfully.', 'id_number' => $newId]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Failed to create user: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    public function updateStandardUser()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        $id_number = trim($_POST['id_number'] ?? '');
+        $name      = trim($_POST['name'] ?? '');
+        $username  = trim($_POST['username'] ?? '');
+        $email     = trim($_POST['email'] ?? '');
+        $password  = $_POST['password'] ?? '';
+        $status    = trim($_POST['status'] ?? 'active');
+
+        if (empty($id_number) || empty($name) || empty($username) || empty($email)) {
+            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields.']);
+            exit;
+        }
+
+        $existing = $this->userModel->getUserByIdNumber($id_number);
+        if (!$existing) {
+            echo json_encode(['success' => false, 'message' => 'User account not found.']);
+            exit;
+        }
+
+        $nameParts = preg_split('/\s+/', $name);
+        $firstName = array_shift($nameParts) ?? 'User';
+        $lastName  = array_pop($nameParts) ?? 'Account';
+        $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
+
+        try {
+            $updated = $this->userModel->updateStandardUser($id_number, [
+                'first_name'  => $firstName,
+                'middle_name' => $middleName,
+                'last_name'   => $lastName,
+                'username'    => $username,
+                'email'       => $email,
+                'password'    => $password,
+                'status'      => $status
+            ]);
+
+            if ($updated) {
+                echo json_encode(['success' => true, 'message' => 'User account updated successfully.']);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to update user account.']);
+            }
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    public function toggleBlockUser()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $id_number  = trim($_POST['id_number'] ?? '');
+        $new_status = trim($_POST['status'] ?? '');
+
+        if (empty($id_number) || !in_array($new_status, ['active', 'block'], true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid parameters provided.']);
+            exit;
+        }
+
+        $updated = $this->userModel->toggleStandardUserStatus($id_number, $new_status);
+        if ($updated) {
+            $actionText = ($new_status === 'block') ? 'blocked' : 'unblocked';
+            echo json_encode(['success' => true, 'message' => "User account has been {$actionText}."]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update user status.']);
+        }
+        exit;
+    }
+
+    public function deleteStandardUser()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $id_number = trim($_POST['id_number'] ?? '');
+        if (empty($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
+            exit;
+        }
+
+        $deleted = $this->userModel->deleteStandardUser($id_number);
+        if ($deleted) {
+            echo json_encode(['success' => true, 'message' => 'User account deleted successfully.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to delete user account.']);
+        }
+        exit;
+    }
 }
+
+
