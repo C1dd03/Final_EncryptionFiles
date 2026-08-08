@@ -297,7 +297,18 @@ document.addEventListener("DOMContentLoaded", function () {
       const parts = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
       if (!parts) return dateTimeStr;
       const [, yyyy, mm, dd, hh, min, ss] = parts;
-      return `${mm}/${dd}/${yyyy} ${hh}:${min}:${ss}`;
+
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+      const monthName = monthNames[parseInt(mm, 10) - 1];
+      const day = parseInt(dd, 10);
+      const hour24 = parseInt(hh, 10);
+      const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+      const ampm = hour24 < 12 ? "AM" : "PM";
+
+      return `${monthName} ${day}, ${yyyy} ${hour12}:${min}:${ss} ${ampm}`;
     } catch (e) {
       return dateTimeStr;
     }
