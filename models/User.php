@@ -262,6 +262,31 @@ class User
         return $stats;
     }
 
+    public function getAdminDashboardStats(): array
+    {
+        $stats = [
+            'total_users'   => 0,
+            'active_users'  => 0,
+            'blocked_users' => 0
+        ];
+
+        try {
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role = 'user'");
+            $stats['total_users'] = (int) $stmt->fetchColumn();
+
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role = 'user' AND status = 'active'");
+            $stats['active_users'] = (int) $stmt->fetchColumn();
+
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role = 'user' AND status = 'block'");
+            $stats['blocked_users'] = (int) $stmt->fetchColumn();
+
+        } catch (PDOException $e) {
+            error_log("Failed to fetch admin dashboard stats: " . $e->getMessage());
+        }
+
+        return $stats;
+    }
+
     /* ========================== MANAGE ADMINS METHODS ======================== */
 
     public function getAdminsList(string $search = '', string $status = 'all', int $offset = 0, int $limit = 10): array

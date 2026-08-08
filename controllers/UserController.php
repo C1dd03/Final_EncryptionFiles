@@ -513,8 +513,10 @@ class UserController
             $_SESSION['audit_log_id'] = $auditId;
 
             $redirectUrl = 'index.php?action=dashboard';
-            if ($_SESSION['role'] === 'superadmin' || $_SESSION['role'] === 'admin') {
+            if ($_SESSION['role'] === 'superadmin') {
                 $redirectUrl = '../super_admin/dashboard.php';
+            } elseif ($_SESSION['role'] === 'admin') {
+                $redirectUrl = '../admin/dashboard.php';
             }
 
             echo json_encode([

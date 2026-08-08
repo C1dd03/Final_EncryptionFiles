@@ -30,8 +30,11 @@ switch ($action) {
             session_start();
         }
         $role = strtolower($_SESSION['role'] ?? 'user');
-        if ($role === 'superadmin' || $role === 'admin') {
+        if ($role === 'superadmin') {
             header("Location: ../super_admin/dashboard.php");
+            exit();
+        } elseif ($role === 'admin') {
+            header("Location: ../admin/dashboard.php");
             exit();
         } else {
             require_once __DIR__ . '/../../php/home/homepage.php';
@@ -40,6 +43,10 @@ switch ($action) {
 
     case 'superadmin_dashboard':
         header("Location: ../super_admin/dashboard.php");
+        exit();
+
+    case 'admin_dashboard':
+        header("Location: ../admin/dashboard.php");
         exit();
 
 
