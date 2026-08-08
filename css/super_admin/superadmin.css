@@ -24,7 +24,10 @@
   --farm-box-shadow: 2px 2px 7px 1px rgba(88, 129, 87, 0.12);
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   font-family: "Poppins", sans-serif;
@@ -32,8 +35,14 @@ body {
   color: var(--farm-text);
 }
 
-a { text-decoration: none; color: inherit; }
-button { font: inherit; }
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  font: inherit;
+}
 
 .superadmin-app {
   min-height: 100vh;
@@ -47,7 +56,7 @@ button { font: inherit; }
   top: 0;
   bottom: 0;
   width: 260px;
- background: linear-gradient(180deg, rgba(88, 129, 87, 0.95), rgba(32, 41, 30, 1));
+  background: linear-gradient(180deg, rgba(88, 129, 87, 0.95), rgba(32, 41, 30, 1));
   color: var(--farm-white);
   padding: 24px 16px;
   display: flex;
@@ -65,8 +74,8 @@ button { font: inherit; }
 .superadmin-sidebar.collapsed .nav-label,
 .superadmin-sidebar.collapsed .sidebar-brand p,
 .superadmin-sidebar.collapsed .sidebar-brand h3,
-.superadmin-sidebar.collapsed .sidebar-logout .nav-label{
-  display: none; 
+.superadmin-sidebar.collapsed .sidebar-logout .nav-label {
+  display: none;
 
 }
 
@@ -121,17 +130,17 @@ button { font: inherit; }
 
 .nav-link:hover,
 .sidebar-logout:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
   border-left: 6px solid var(--farm-border);
 }
 
 .nav-link.active {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--primary);
   font-weight: 600;
   border-left: 6px solid var(--farm-border);
-  
+
 }
 
 .nav-icon {
@@ -217,7 +226,7 @@ button { font: inherit; }
   cursor: pointer;
 }
 
-.sidebar-toggle i{
+.sidebar-toggle i {
   color: var(--farm-white);
 }
 
@@ -273,8 +282,8 @@ button { font: inherit; }
 
 .profile-menu-btn {
   border: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--farm-card-5);
+  border: 1px solid var(--farm-border);
   width: 38px;
   height: 38px;
   border-radius: 50%;
@@ -286,13 +295,22 @@ button { font: inherit; }
   top: calc(100% + 8px);
   right: 0;
   min-width: 140px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background: linear-gradient(135deg, var(--farm-card-1), var(--farm-card-3));
+  border: 1px solid var(--farm-border);
+  border-radius: 5px;
   box-shadow: var(--shadow);
   display: none;
   flex-direction: column;
   overflow: hidden;
+}
+
+.profile-menu-item {
+  padding: 10px 12px;
+  color: var(--farm-text);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  font-size: 0.9rem;
+  background-color: black;
 }
 
 .profile-menu.show {
@@ -301,11 +319,15 @@ button { font: inherit; }
 
 .profile-menu a {
   padding: 10px 12px;
-  color: var(--text);
+  color: var(--farm-bg);
+  transition: all 0.2s ease;
+
 }
 
 .profile-menu a:hover {
-  background: var(--surface-muted);
+  background: var(--farm-card-5);
+  color: var(--farm-text);
+  font-weight: bold;
 }
 
 .superadmin-content {
@@ -328,7 +350,7 @@ button { font: inherit; }
   align-items: flex-start;
   gap: 14px;
   min-height: 140px;
-  
+
 }
 
 .stat-icon {
