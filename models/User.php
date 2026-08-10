@@ -102,7 +102,7 @@ class User
         $dob = DateTime::createFromFormat('Y-m-d', $birthdate);
         $errors = DateTime::getLastErrors();
 
-        if (!$dob || $errors['warning_count'] > 0 || $errors['error_count'] > 0) {
+        if (!$dob || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
             throw new InvalidArgumentException('Invalid birthdate format.');
         }
 
@@ -245,16 +245,17 @@ class User
             try {
                 $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE status = 'block'");
                 $userBlockedCount = (int) $stmt->fetchColumn();
-            } catch (PDOException $e) {}
+            } catch (PDOException $e) {
+            }
 
             $blockListCount = 0;
             try {
                 $stmt = $this->conn->query("SELECT COUNT(*) FROM block_list WHERE status = 'blocked'");
                 $blockListCount = (int) $stmt->fetchColumn();
-            } catch (PDOException $e) {}
+            } catch (PDOException $e) {
+            }
 
             $stats['blocked_accounts'] = max($userBlockedCount, $blockListCount);
-
         } catch (PDOException $e) {
             error_log("Failed to fetch dashboard stats: " . $e->getMessage());
         }
@@ -279,7 +280,6 @@ class User
 
             $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role = 'user' AND status = 'block'");
             $stats['blocked_users'] = (int) $stmt->fetchColumn();
-
         } catch (PDOException $e) {
             error_log("Failed to fetch admin dashboard stats: " . $e->getMessage());
         }
@@ -380,7 +380,7 @@ class User
 
         $sql = "INSERT INTO users (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status)
                 VALUES (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, 'admin', :status)";
-        
+
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([
             ':id_number'     => $id_number,
@@ -570,7 +570,7 @@ class User
 
         $sql = "INSERT INTO users (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status)
                 VALUES (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, 'user', :status)";
-        
+
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([
             ':id_number'     => $id_number,
@@ -1070,6 +1070,3 @@ class User
         return (int)$stmt->fetchColumn();
     }
 }
-
-
-
