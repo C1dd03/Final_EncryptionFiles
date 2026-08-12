@@ -449,6 +449,16 @@ class User
             if (!empty($data['security_answers'])) {
                 $this->saveSecurityAnswers($id_number, $data['security_answers']);
             }
+            // Sync block_list when status changes via edit form
+            $newStatus = $data['status'] ?? 'active';
+            if ($newStatus === 'block') {
+                $this->syncBlockListOnBlock($id_number, 'superadmin');
+            } else {
+                $targetUser = $this->getAdminByIdNumber($id_number);
+                $uName = $targetUser['username'] ?? $id_number;
+                $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number OR username = :username")
+                    ->execute([':id_number' => $id_number, ':username' => $uName]);
+            }
         }
         return $res;
     }
@@ -662,6 +672,16 @@ class User
             if (!empty($data['security_answers'])) {
                 $this->saveSecurityAnswers($id_number, $data['security_answers']);
             }
+            // Sync block_list when status changes via edit form
+            $newStatus = $data['status'] ?? 'active';
+            if ($newStatus === 'block') {
+                $this->syncBlockListOnBlock($id_number, 'superadmin');
+            } else {
+                $targetUser = $this->getUserByIdNumber($id_number);
+                $uName = $targetUser['username'] ?? $id_number;
+                $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number OR username = :username")
+                    ->execute([':id_number' => $id_number, ':username' => $uName]);
+            }
         }
         return $res;
     }
@@ -679,7 +699,7 @@ class User
             return;
         }
 
-        $stmtCheck = $this->conn->prepare("SELECT id FROM addresses WHERE id_number = :id_number");
+        $stmtCheck = $this->conn->prepare("SELECT id_number FROM addresses WHERE id_number = :id_number");
         $stmtCheck->execute([':id_number' => $id_number]);
         if ($stmtCheck->fetch()) {
             $sql = "UPDATE addresses SET purok_street = :street, barangay = :barangay, city_municipality = :city, province = :province, country = :country, zip_code = :zip WHERE id_number = :id_number";
