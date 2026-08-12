@@ -882,15 +882,59 @@ class UserController
         }
 
         $id_number = trim($_POST['id_number'] ?? '');
-        $name      = trim($_POST['name'] ?? '');
+        $firstName = trim($_POST['first_name'] ?? '');
+        $middleName = trim($_POST['middle_name'] ?? '');
+        $lastName  = trim($_POST['last_name'] ?? '');
+        $extension = trim($_POST['extension'] ?? '');
+        $birthdate = trim($_POST['birthdate'] ?? '');
+        $gender    = trim($_POST['gender'] ?? '');
+
+        // Address
+        $street   = trim($_POST['street'] ?? '');
+        $barangay = trim($_POST['barangay'] ?? '');
+        $city     = trim($_POST['city'] ?? '');
+        $province = trim($_POST['province'] ?? '');
+        $country  = trim($_POST['country'] ?? '');
+        $zip      = trim($_POST['zip'] ?? '');
+
+        // Security questions
+        $securityAnswers = [];
+        if (!empty($_POST['security_question_1']) && isset($_POST['security_q1'])) {
+            $securityAnswers[] = [
+                'question_id' => (int)$_POST['security_question_1'],
+                'answer' => trim($_POST['security_q1'])
+            ];
+        }
+        if (!empty($_POST['security_question_2']) && isset($_POST['security_q2'])) {
+            $securityAnswers[] = [
+                'question_id' => (int)$_POST['security_question_2'],
+                'answer' => trim($_POST['security_q2'])
+            ];
+        }
+        if (!empty($_POST['security_question_3']) && isset($_POST['security_q3'])) {
+            $securityAnswers[] = [
+                'question_id' => (int)$_POST['security_question_3'],
+                'answer' => trim($_POST['security_q3'])
+            ];
+        }
+
+        // Account
         $username  = trim($_POST['username'] ?? '');
         $email     = trim($_POST['email'] ?? '');
         $password  = $_POST['password'] ?? '';
         $confirm   = $_POST['confirm_password'] ?? '';
         $status    = trim($_POST['status'] ?? 'active');
 
-        if (empty($name) || empty($username) || empty($email) || empty($password)) {
-            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields.']);
+        // Fallback for single 'name' input
+        if (empty($firstName) && empty($lastName) && !empty($_POST['name'])) {
+            $nameParts = preg_split('/\s+/', trim($_POST['name']));
+            $firstName = array_shift($nameParts) ?? 'Admin';
+            $lastName  = array_pop($nameParts) ?? 'User';
+            $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
+        }
+
+        if (empty($firstName) || empty($lastName) || empty($username) || empty($email) || empty($password)) {
+            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields (First Name, Last Name, Username, Email, Password).']);
             exit;
         }
 
@@ -909,17 +953,22 @@ class UserController
             exit;
         }
 
-        $nameParts = preg_split('/\s+/', $name);
-        $firstName = array_shift($nameParts) ?? 'Admin';
-        $lastName  = array_pop($nameParts) ?? 'User';
-        $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
-
         try {
             $newId = $this->userModel->createAdmin([
                 'id_number'   => $id_number,
                 'first_name'  => $firstName,
                 'middle_name' => $middleName,
                 'last_name'   => $lastName,
+                'extension'   => $extension,
+                'birthdate'   => $birthdate,
+                'gender'      => $gender,
+                'street'      => $street,
+                'barangay'    => $barangay,
+                'city'        => $city,
+                'province'    => $province,
+                'country'     => $country,
+                'zip'         => $zip,
+                'security_answers' => $securityAnswers,
                 'username'    => $username,
                 'email'       => $email,
                 'password'    => $password,
@@ -944,13 +993,57 @@ class UserController
         }
 
         $id_number = trim($_POST['id_number'] ?? '');
-        $name      = trim($_POST['name'] ?? '');
+        $firstName = trim($_POST['first_name'] ?? '');
+        $middleName = trim($_POST['middle_name'] ?? '');
+        $lastName  = trim($_POST['last_name'] ?? '');
+        $extension = trim($_POST['extension'] ?? '');
+        $birthdate = trim($_POST['birthdate'] ?? '');
+        $gender    = trim($_POST['gender'] ?? '');
+
+        // Address
+        $street   = trim($_POST['street'] ?? '');
+        $barangay = trim($_POST['barangay'] ?? '');
+        $city     = trim($_POST['city'] ?? '');
+        $province = trim($_POST['province'] ?? '');
+        $country  = trim($_POST['country'] ?? '');
+        $zip      = trim($_POST['zip'] ?? '');
+
+        // Security questions
+        $securityAnswers = [];
+        if (!empty($_POST['security_question_1']) && isset($_POST['security_q1'])) {
+            $securityAnswers[] = [
+                'question_id' => (int)$_POST['security_question_1'],
+                'answer' => trim($_POST['security_q1'])
+            ];
+        }
+        if (!empty($_POST['security_question_2']) && isset($_POST['security_q2'])) {
+            $securityAnswers[] = [
+                'question_id' => (int)$_POST['security_question_2'],
+                'answer' => trim($_POST['security_q2'])
+            ];
+        }
+        if (!empty($_POST['security_question_3']) && isset($_POST['security_q3'])) {
+            $securityAnswers[] = [
+                'question_id' => (int)$_POST['security_question_3'],
+                'answer' => trim($_POST['security_q3'])
+            ];
+        }
+
+        // Account
         $username  = trim($_POST['username'] ?? '');
         $email     = trim($_POST['email'] ?? '');
         $password  = $_POST['password'] ?? '';
         $status    = trim($_POST['status'] ?? 'active');
 
-        if (empty($id_number) || empty($name) || empty($username) || empty($email)) {
+        // Fallback for single 'name' input
+        if (empty($firstName) && empty($lastName) && !empty($_POST['name'])) {
+            $nameParts = preg_split('/\s+/', trim($_POST['name']));
+            $firstName = array_shift($nameParts) ?? 'Admin';
+            $lastName  = array_pop($nameParts) ?? 'User';
+            $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
+        }
+
+        if (empty($id_number) || empty($firstName) || empty($lastName) || empty($username) || empty($email)) {
             echo json_encode(['success' => false, 'message' => 'Please fill in all required fields.']);
             exit;
         }
@@ -961,16 +1054,21 @@ class UserController
             exit;
         }
 
-        $nameParts = preg_split('/\s+/', $name);
-        $firstName = array_shift($nameParts) ?? 'Admin';
-        $lastName  = array_pop($nameParts) ?? 'User';
-        $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
-
         try {
             $updated = $this->userModel->updateAdmin($id_number, [
                 'first_name'  => $firstName,
                 'middle_name' => $middleName,
                 'last_name'   => $lastName,
+                'extension'   => $extension,
+                'birthdate'   => $birthdate,
+                'gender'      => $gender,
+                'street'      => $street,
+                'barangay'    => $barangay,
+                'city'        => $city,
+                'province'    => $province,
+                'country'     => $country,
+                'zip'         => $zip,
+                'security_answers' => $securityAnswers,
                 'username'    => $username,
                 'email'       => $email,
                 'password'    => $password,
@@ -1094,15 +1192,59 @@ class UserController
         }
 
         $id_number = trim($_POST['id_number'] ?? '');
-        $name      = trim($_POST['name'] ?? '');
+        $firstName = trim($_POST['first_name'] ?? '');
+        $middleName = trim($_POST['middle_name'] ?? '');
+        $lastName  = trim($_POST['last_name'] ?? '');
+        $extension = trim($_POST['extension'] ?? '');
+        $birthdate = trim($_POST['birthdate'] ?? '');
+        $gender    = trim($_POST['gender'] ?? '');
+
+        // Address
+        $street   = trim($_POST['street'] ?? '');
+        $barangay = trim($_POST['barangay'] ?? '');
+        $city     = trim($_POST['city'] ?? '');
+        $province = trim($_POST['province'] ?? '');
+        $country  = trim($_POST['country'] ?? '');
+        $zip      = trim($_POST['zip'] ?? '');
+
+        // Security questions
+        $securityAnswers = [];
+        if (!empty($_POST['security_question_1']) && isset($_POST['security_q1'])) {
+            $securityAnswers[] = [
+                'question_id' => (int)$_POST['security_question_1'],
+                'answer' => trim($_POST['security_q1'])
+            ];
+        }
+        if (!empty($_POST['security_question_2']) && isset($_POST['security_q2'])) {
+            $securityAnswers[] = [
+                'question_id' => (int)$_POST['security_question_2'],
+                'answer' => trim($_POST['security_q2'])
+            ];
+        }
+        if (!empty($_POST['security_question_3']) && isset($_POST['security_q3'])) {
+            $securityAnswers[] = [
+                'question_id' => (int)$_POST['security_question_3'],
+                'answer' => trim($_POST['security_q3'])
+            ];
+        }
+
+        // Account
         $username  = trim($_POST['username'] ?? '');
         $email     = trim($_POST['email'] ?? '');
         $password  = $_POST['password'] ?? '';
         $confirm   = $_POST['confirm_password'] ?? '';
         $status    = trim($_POST['status'] ?? 'active');
 
-        if (empty($name) || empty($username) || empty($email) || empty($password)) {
-            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields.']);
+        // Fallback for single 'name' input
+        if (empty($firstName) && empty($lastName) && !empty($_POST['name'])) {
+            $nameParts = preg_split('/\s+/', trim($_POST['name']));
+            $firstName = array_shift($nameParts) ?? 'User';
+            $lastName  = array_pop($nameParts) ?? 'Account';
+            $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
+        }
+
+        if (empty($firstName) || empty($lastName) || empty($username) || empty($email) || empty($password)) {
+            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields (First Name, Last Name, Username, Email, Password).']);
             exit;
         }
 
@@ -1121,17 +1263,22 @@ class UserController
             exit;
         }
 
-        $nameParts = preg_split('/\s+/', $name);
-        $firstName = array_shift($nameParts) ?? 'User';
-        $lastName  = array_pop($nameParts) ?? 'Account';
-        $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
-
         try {
             $newId = $this->userModel->createStandardUser([
                 'id_number'   => $id_number,
                 'first_name'  => $firstName,
                 'middle_name' => $middleName,
                 'last_name'   => $lastName,
+                'extension'   => $extension,
+                'birthdate'   => $birthdate,
+                'gender'      => $gender,
+                'street'      => $street,
+                'barangay'    => $barangay,
+                'city'        => $city,
+                'province'    => $province,
+                'country'     => $country,
+                'zip'         => $zip,
+                'security_answers' => $securityAnswers,
                 'username'    => $username,
                 'email'       => $email,
                 'password'    => $password,
@@ -1156,13 +1303,57 @@ class UserController
         }
 
         $id_number = trim($_POST['id_number'] ?? '');
-        $name      = trim($_POST['name'] ?? '');
+        $firstName = trim($_POST['first_name'] ?? '');
+        $middleName = trim($_POST['middle_name'] ?? '');
+        $lastName  = trim($_POST['last_name'] ?? '');
+        $extension = trim($_POST['extension'] ?? '');
+        $birthdate = trim($_POST['birthdate'] ?? '');
+        $gender    = trim($_POST['gender'] ?? '');
+
+        // Address
+        $street   = trim($_POST['street'] ?? '');
+        $barangay = trim($_POST['barangay'] ?? '');
+        $city     = trim($_POST['city'] ?? '');
+        $province = trim($_POST['province'] ?? '');
+        $country  = trim($_POST['country'] ?? '');
+        $zip      = trim($_POST['zip'] ?? '');
+
+        // Security questions
+        $securityAnswers = [];
+        if (!empty($_POST['security_question_1']) && isset($_POST['security_q1'])) {
+            $securityAnswers[] = [
+                'question_id' => (int)$_POST['security_question_1'],
+                'answer' => trim($_POST['security_q1'])
+            ];
+        }
+        if (!empty($_POST['security_question_2']) && isset($_POST['security_q2'])) {
+            $securityAnswers[] = [
+                'question_id' => (int)$_POST['security_question_2'],
+                'answer' => trim($_POST['security_q2'])
+            ];
+        }
+        if (!empty($_POST['security_question_3']) && isset($_POST['security_q3'])) {
+            $securityAnswers[] = [
+                'question_id' => (int)$_POST['security_question_3'],
+                'answer' => trim($_POST['security_q3'])
+            ];
+        }
+
+        // Account
         $username  = trim($_POST['username'] ?? '');
         $email     = trim($_POST['email'] ?? '');
         $password  = $_POST['password'] ?? '';
         $status    = trim($_POST['status'] ?? 'active');
 
-        if (empty($id_number) || empty($name) || empty($username) || empty($email)) {
+        // Fallback for single 'name' input
+        if (empty($firstName) && empty($lastName) && !empty($_POST['name'])) {
+            $nameParts = preg_split('/\s+/', trim($_POST['name']));
+            $firstName = array_shift($nameParts) ?? 'User';
+            $lastName  = array_pop($nameParts) ?? 'Account';
+            $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
+        }
+
+        if (empty($id_number) || empty($firstName) || empty($lastName) || empty($username) || empty($email)) {
             echo json_encode(['success' => false, 'message' => 'Please fill in all required fields.']);
             exit;
         }
@@ -1173,16 +1364,21 @@ class UserController
             exit;
         }
 
-        $nameParts = preg_split('/\s+/', $name);
-        $firstName = array_shift($nameParts) ?? 'User';
-        $lastName  = array_pop($nameParts) ?? 'Account';
-        $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
-
         try {
             $updated = $this->userModel->updateStandardUser($id_number, [
                 'first_name'  => $firstName,
                 'middle_name' => $middleName,
                 'last_name'   => $lastName,
+                'extension'   => $extension,
+                'birthdate'   => $birthdate,
+                'gender'      => $gender,
+                'street'      => $street,
+                'barangay'    => $barangay,
+                'city'        => $city,
+                'province'    => $province,
+                'country'     => $country,
+                'zip'         => $zip,
+                'security_answers' => $securityAnswers,
                 'username'    => $username,
                 'email'       => $email,
                 'password'    => $password,

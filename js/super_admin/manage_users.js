@@ -223,18 +223,63 @@ document.addEventListener("DOMContentLoaded", function () {
     loadUsers();
   };
 
+  // Helper function to safely set input values without throwing null errors
+  function setVal(id, val) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.value = (val !== null && val !== undefined) ? val : "";
+    }
+  }
+
+  // Age calculation listener
+  const birthdateInput = document.getElementById("formBirthdate");
+  if (birthdateInput) {
+    birthdateInput.addEventListener("change", function () {
+      if (!this.value) return;
+      const dob = new Date(this.value);
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const m = today.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+        age--;
+      }
+      setVal("formAge", age >= 0 ? age : 0);
+    });
+  }
+
   // Add / Edit Modal
   function openAddModal() {
-    userForm.reset();
-    document.getElementById("formMode").value = "add";
-    document.getElementById("formIdNumber").value = "";
-    document.getElementById("formIdNumber").removeAttribute("readonly");
-    document.getElementById("passwordGroup").style.display = "block";
-    document.getElementById("confirmPasswordGroup").style.display = "block";
-    document.getElementById("formPassword").required = true;
-    document.getElementById("formConfirmPassword").required = true;
-    userModalTitle.textContent = "Add New User";
-    userModal.classList.add("show");
+    if (userForm) userForm.reset();
+    setVal("formMode", "add");
+
+    const idEl = document.getElementById("formIdNumber");
+    if (idEl) {
+      idEl.value = "";
+      idEl.removeAttribute("readonly");
+    }
+
+    // Security Questions visible & required on add
+    const secTitle = document.getElementById("securitySectionTitle");
+    const secGrid = document.getElementById("securitySectionGrid");
+    if (secTitle) secTitle.style.display = "flex";
+    if (secGrid) secGrid.style.display = "grid";
+    ["formSecQ1", "formSecA1", "formSecQ2", "formSecA2", "formSecQ3", "formSecA3"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.required = true;
+    });
+
+    const passGrp = document.getElementById("passwordGroup");
+    const confGrp = document.getElementById("confirmPasswordGroup");
+    const passInp = document.getElementById("formPassword");
+    const confInp = document.getElementById("formConfirmPassword");
+
+    if (passGrp) passGrp.style.display = "block";
+    if (confGrp) confGrp.style.display = "block";
+    if (passInp) passInp.required = true;
+    if (confInp) confInp.required = true;
+
+    if (userModalTitle) userModalTitle.textContent = "Add New User";
+    if (userModal) userModal.classList.add("show");
   }
 
   window.editUser = function (idNumber) {
@@ -247,22 +292,66 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         const user = res.data;
-        userForm.reset();
-        document.getElementById("formMode").value = "edit";
-        document.getElementById("formIdNumber").value = user.id_number;
-        document.getElementById("formIdNumber").setAttribute("readonly", true);
-        document.getElementById("formName").value = user.name;
-        document.getElementById("formUsername").value = user.username;
-        document.getElementById("formEmail").value = user.email || "";
-        document.getElementById("formStatus").value = user.status === "block" ? "block" : "active";
+        if (userForm) userForm.reset();
+        setVal("formMode", "edit");
 
-        document.getElementById("passwordGroup").style.display = "block";
-        document.getElementById("confirmPasswordGroup").style.display = "none";
-        document.getElementById("formPassword").required = false;
-        document.getElementById("formConfirmPassword").required = false;
+        const idEl = document.getElementById("formIdNumber");
+        if (idEl) {
+          idEl.value = user.id_number || "";
+          idEl.setAttribute("readonly", true);
+        }
 
-        userModalTitle.textContent = "Edit User Account";
-        userModal.classList.add("show");
+        // Fallback for single full name element if present
+        setVal("formName", user.name || ((user.first_name || "") + " " + (user.last_name || "")).trim());
+
+        // Personal Info
+        setVal("formFirstName", user.first_name);
+        setVal("formMiddleName", user.middle_name);
+        setVal("formLastName", user.last_name);
+        setVal("formExtension", user.extension);
+        setVal("formBirthdate", user.birthdate);
+        setVal("formAge", user.age);
+        setVal("formGender", user.gender);
+
+        // Address Info
+        setVal("formStreet", user.street);
+        setVal("formBarangay", user.barangay);
+        setVal("formCity", user.city);
+        setVal("formProvince", user.province);
+        setVal("formCountry", user.country);
+        setVal("formZip", user.zip);
+
+        // Security Questions hidden on edit
+        const secTitle = document.getElementById("securitySectionTitle");
+        const secGrid = document.getElementById("securitySectionGrid");
+        if (secTitle) secTitle.style.display = "none";
+        if (secGrid) secGrid.style.display = "none";
+        ["formSecQ1", "formSecA1", "formSecQ2", "formSecA2", "formSecQ3", "formSecA3"].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.required = false;
+        });
+
+        // Account Info
+        setVal("formUsername", user.username);
+        setVal("formEmail", user.email);
+        setVal("formStatus", user.status === "block" ? "block" : "active");
+
+        const passGrp = document.getElementById("passwordGroup");
+        const confGrp = document.getElementById("confirmPasswordGroup");
+        const passInp = document.getElementById("formPassword");
+        const confInp = document.getElementById("formConfirmPassword");
+
+        if (passGrp) passGrp.style.display = "block";
+        if (confGrp) confGrp.style.display = "none";
+        if (passInp) passInp.required = false;
+        if (confInp) confInp.required = false;
+
+        if (userModalTitle) userModalTitle.textContent = "Edit User Account";
+        if (userModal) userModal.classList.add("show");
+      })
+      .catch((err) => {
+        console.error(err);
+        alert("An error occurred while opening the edit form.");
       });
   };
 

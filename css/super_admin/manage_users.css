@@ -1,4 +1,4 @@
-﻿/* =====================================================
+/* =====================================================
    Manage Users — Custom Styles
    Mirrors manage_admins.css with user-specific tweaks
    ===================================================== */
@@ -368,6 +368,27 @@
   overflow: hidden;
   transform: translateY(20px);
   transition: transform 0.3s ease;
+}
+
+.modal-card.modal-card-lg {
+  max-width: 720px;
+}
+
+.form-section-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--farm-card-1);
+  border-bottom: 1px solid rgba(154, 166, 142, 0.3);
+  padding-bottom: 6px;
+  margin-top: 16px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-section-title:first-child {
+  margin-top: 0;
 }
 
 .modal-overlay.show .modal-card {

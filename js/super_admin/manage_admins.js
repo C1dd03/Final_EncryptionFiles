@@ -225,18 +225,63 @@ document.addEventListener("DOMContentLoaded", function () {
     loadAdmins();
   };
 
+  // Helper function to safely set input values without throwing null errors
+  function setVal(id, val) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.value = (val !== null && val !== undefined) ? val : "";
+    }
+  }
+
+  // Age calculation listener
+  const birthdateInput = document.getElementById("formBirthdate");
+  if (birthdateInput) {
+    birthdateInput.addEventListener("change", function () {
+      if (!this.value) return;
+      const dob = new Date(this.value);
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const m = today.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+        age--;
+      }
+      setVal("formAge", age >= 0 ? age : 0);
+    });
+  }
+
   // Add / Edit Modal Logic
   function openAddModal() {
-    adminForm.reset();
-    document.getElementById("formMode").value = "add";
-    document.getElementById("formIdNumber").value = "";
-    document.getElementById("formIdNumber").removeAttribute("readonly");
-    document.getElementById("passwordGroup").style.display = "block";
-    document.getElementById("confirmPasswordGroup").style.display = "block";
-    document.getElementById("formPassword").required = true;
-    document.getElementById("formConfirmPassword").required = true;
-    adminModalTitle.textContent = "Add New Admin";
-    adminModal.classList.add("show");
+    if (adminForm) adminForm.reset();
+    setVal("formMode", "add");
+    
+    const idEl = document.getElementById("formIdNumber");
+    if (idEl) {
+      idEl.value = "";
+      idEl.removeAttribute("readonly");
+    }
+    
+    // Security Questions visible & required on add
+    const secTitle = document.getElementById("securitySectionTitle");
+    const secGrid = document.getElementById("securitySectionGrid");
+    if (secTitle) secTitle.style.display = "flex";
+    if (secGrid) secGrid.style.display = "grid";
+    ["formSecQ1", "formSecA1", "formSecQ2", "formSecA2", "formSecQ3", "formSecA3"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.required = true;
+    });
+
+    const passGrp = document.getElementById("passwordGroup");
+    const confGrp = document.getElementById("confirmPasswordGroup");
+    const passInp = document.getElementById("formPassword");
+    const confInp = document.getElementById("formConfirmPassword");
+
+    if (passGrp) passGrp.style.display = "block";
+    if (confGrp) confGrp.style.display = "block";
+    if (passInp) passInp.required = true;
+    if (confInp) confInp.required = true;
+
+    if (adminModalTitle) adminModalTitle.textContent = "Add New Admin";
+    if (adminModal) adminModal.classList.add("show");
   }
 
   window.editAdmin = function (idNumber) {
@@ -249,22 +294,66 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         const admin = res.data;
-        adminForm.reset();
-        document.getElementById("formMode").value = "edit";
-        document.getElementById("formIdNumber").value = admin.id_number;
-        document.getElementById("formIdNumber").setAttribute("readonly", true);
-        document.getElementById("formName").value = admin.name;
-        document.getElementById("formUsername").value = admin.username;
-        document.getElementById("formEmail").value = admin.email || "";
-        document.getElementById("formStatus").value = admin.status === "block" ? "block" : "active";
+        if (adminForm) adminForm.reset();
+        setVal("formMode", "edit");
 
-        document.getElementById("passwordGroup").style.display = "block";
-        document.getElementById("confirmPasswordGroup").style.display = "none";
-        document.getElementById("formPassword").required = false;
-        document.getElementById("formConfirmPassword").required = false;
+        const idEl = document.getElementById("formIdNumber");
+        if (idEl) {
+          idEl.value = admin.id_number || "";
+          idEl.setAttribute("readonly", true);
+        }
 
-        adminModalTitle.textContent = "Edit Admin Account";
-        adminModal.classList.add("show");
+        // Fallback for single full name element if present
+        setVal("formName", admin.name || ((admin.first_name || "") + " " + (admin.last_name || "")).trim());
+
+        // Personal Info
+        setVal("formFirstName", admin.first_name);
+        setVal("formMiddleName", admin.middle_name);
+        setVal("formLastName", admin.last_name);
+        setVal("formExtension", admin.extension);
+        setVal("formBirthdate", admin.birthdate);
+        setVal("formAge", admin.age);
+        setVal("formGender", admin.gender);
+
+        // Address Info
+        setVal("formStreet", admin.street);
+        setVal("formBarangay", admin.barangay);
+        setVal("formCity", admin.city);
+        setVal("formProvince", admin.province);
+        setVal("formCountry", admin.country);
+        setVal("formZip", admin.zip);
+
+        // Security Questions hidden on edit
+        const secTitle = document.getElementById("securitySectionTitle");
+        const secGrid = document.getElementById("securitySectionGrid");
+        if (secTitle) secTitle.style.display = "none";
+        if (secGrid) secGrid.style.display = "none";
+        ["formSecQ1", "formSecA1", "formSecQ2", "formSecA2", "formSecQ3", "formSecA3"].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.required = false;
+        });
+
+        // Account Info
+        setVal("formUsername", admin.username);
+        setVal("formEmail", admin.email);
+        setVal("formStatus", admin.status === "block" ? "block" : "active");
+
+        const passGrp = document.getElementById("passwordGroup");
+        const confGrp = document.getElementById("confirmPasswordGroup");
+        const passInp = document.getElementById("formPassword");
+        const confInp = document.getElementById("formConfirmPassword");
+
+        if (passGrp) passGrp.style.display = "block";
+        if (confGrp) confGrp.style.display = "none";
+        if (passInp) passInp.required = false;
+        if (confInp) confInp.required = false;
+
+        if (adminModalTitle) adminModalTitle.textContent = "Edit Admin Account";
+        if (adminModal) adminModal.classList.add("show");
+      })
+      .catch((err) => {
+        console.error(err);
+        alert("An error occurred while opening the edit form.");
       });
   };
 

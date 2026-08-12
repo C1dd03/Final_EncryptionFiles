@@ -360,7 +360,7 @@ class User
 
     public function getAdminByIdNumber(string $id_number): ?array
     {
-        $stmt = $this->conn->prepare("SELECT id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, role, status, created_at FROM users WHERE id_number = :id_number AND role = 'admin'");
+        $stmt = $this->conn->prepare("SELECT u.id_number, u.first_name, u.middle_name, u.last_name, u.extension, u.birthdate, u.gender, u.age, u.username, u.email, u.role, u.status, u.created_at, a.purok_street AS street, a.barangay, a.city_municipality AS city, a.province, a.country, a.zip_code AS zip FROM users u LEFT JOIN addresses a ON u.id_number = a.id_number WHERE u.id_number = :id_number AND u.role = 'admin'");
         $stmt->execute([':id_number' => $id_number]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($user) {
@@ -376,7 +376,7 @@ class User
         $id_number = !empty($data['id_number']) ? trim($data['id_number']) : $this->generateIdNumber();
         $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
         $birthdate = !empty($data['birthdate']) ? $data['birthdate'] : '2000-01-01';
-        $age = $this->calculateAge($birthdate);
+        $age = !empty($data['birthdate']) ? $this->calculateAge($data['birthdate']) : 0;
 
         $sql = "INSERT INTO users (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status)
                 VALUES (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, 'admin', :status)";
@@ -397,6 +397,11 @@ class User
             ':status'        => $data['status'] ?? 'active'
         ]);
 
+        $this->saveOrUpdateAddress($id_number, $data);
+        if (!empty($data['security_answers'])) {
+            $this->saveSecurityAnswers($id_number, $data['security_answers']);
+        }
+
         return $id_number;
     }
 
@@ -406,6 +411,8 @@ class User
             'first_name = :first_name',
             'middle_name = :middle_name',
             'last_name = :last_name',
+            'extension = :extension',
+            'gender = :gender',
             'username = :username',
             'email = :email',
             'status = :status'
@@ -415,10 +422,19 @@ class User
             ':first_name'  => $data['first_name'],
             ':middle_name' => $data['middle_name'] ?? null,
             ':last_name'   => $data['last_name'],
+            ':extension'   => $data['extension'] ?? null,
+            ':gender'      => $data['gender'] ?? 'male',
             ':username'    => $data['username'],
             ':email'       => $data['email'] ?? null,
             ':status'      => $data['status'] ?? 'active'
         ];
+
+        if (!empty($data['birthdate'])) {
+            $fields[] = 'birthdate = :birthdate';
+            $fields[] = 'age = :age';
+            $params[':birthdate'] = $data['birthdate'];
+            $params[':age'] = $this->calculateAge($data['birthdate']);
+        }
 
         if (!empty($data['password'])) {
             $fields[] = 'password_hash = :password_hash';
@@ -427,7 +443,14 @@ class User
 
         $sql = "UPDATE users SET " . implode(', ', $fields) . " WHERE id_number = :id_number AND role = 'admin'";
         $stmt = $this->conn->prepare($sql);
-        return $stmt->execute($params);
+        $res = $stmt->execute($params);
+        if ($res) {
+            $this->saveOrUpdateAddress($id_number, $data);
+            if (!empty($data['security_answers'])) {
+                $this->saveSecurityAnswers($id_number, $data['security_answers']);
+            }
+        }
+        return $res;
     }
 
     public function toggleAdminStatus(string $id_number, string $new_status, string $operator = 'superadmin'): bool
@@ -550,7 +573,7 @@ class User
 
     public function getUserByIdNumber(string $id_number): ?array
     {
-        $stmt = $this->conn->prepare("SELECT id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, role, status, created_at FROM users WHERE id_number = :id_number AND role = 'user'");
+        $stmt = $this->conn->prepare("SELECT u.id_number, u.first_name, u.middle_name, u.last_name, u.extension, u.birthdate, u.gender, u.age, u.username, u.email, u.role, u.status, u.created_at, a.purok_street AS street, a.barangay, a.city_municipality AS city, a.province, a.country, a.zip_code AS zip FROM users u LEFT JOIN addresses a ON u.id_number = a.id_number WHERE u.id_number = :id_number AND u.role = 'user'");
         $stmt->execute([':id_number' => $id_number]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($user) {
@@ -566,7 +589,7 @@ class User
         $id_number = !empty($data['id_number']) ? trim($data['id_number']) : $this->generateIdNumber();
         $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
         $birthdate = !empty($data['birthdate']) ? $data['birthdate'] : '2000-01-01';
-        $age = $this->calculateAge($birthdate);
+        $age = !empty($data['birthdate']) ? $this->calculateAge($data['birthdate']) : 0;
 
         $sql = "INSERT INTO users (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status)
                 VALUES (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, 'user', :status)";
@@ -587,6 +610,11 @@ class User
             ':status'        => $data['status'] ?? 'active'
         ]);
 
+        $this->saveOrUpdateAddress($id_number, $data);
+        if (!empty($data['security_answers'])) {
+            $this->saveSecurityAnswers($id_number, $data['security_answers']);
+        }
+
         return $id_number;
     }
 
@@ -596,6 +624,8 @@ class User
             'first_name = :first_name',
             'middle_name = :middle_name',
             'last_name = :last_name',
+            'extension = :extension',
+            'gender = :gender',
             'username = :username',
             'email = :email',
             'status = :status'
@@ -605,10 +635,19 @@ class User
             ':first_name'  => $data['first_name'],
             ':middle_name' => $data['middle_name'] ?? null,
             ':last_name'   => $data['last_name'],
+            ':extension'   => $data['extension'] ?? null,
+            ':gender'      => $data['gender'] ?? 'male',
             ':username'    => $data['username'],
             ':email'       => $data['email'] ?? null,
             ':status'      => $data['status'] ?? 'active'
         ];
+
+        if (!empty($data['birthdate'])) {
+            $fields[] = 'birthdate = :birthdate';
+            $fields[] = 'age = :age';
+            $params[':birthdate'] = $data['birthdate'];
+            $params[':age'] = $this->calculateAge($data['birthdate']);
+        }
 
         if (!empty($data['password'])) {
             $fields[] = 'password_hash = :password_hash';
@@ -617,7 +656,69 @@ class User
 
         $sql = "UPDATE users SET " . implode(', ', $fields) . " WHERE id_number = :id_number AND role = 'user'";
         $stmt = $this->conn->prepare($sql);
-        return $stmt->execute($params);
+        $res = $stmt->execute($params);
+        if ($res) {
+            $this->saveOrUpdateAddress($id_number, $data);
+            if (!empty($data['security_answers'])) {
+                $this->saveSecurityAnswers($id_number, $data['security_answers']);
+            }
+        }
+        return $res;
+    }
+
+    private function saveOrUpdateAddress(string $id_number, array $data): void
+    {
+        $street   = trim($data['street'] ?? '');
+        $barangay = trim($data['barangay'] ?? '');
+        $city     = trim($data['city'] ?? '');
+        $province = trim($data['province'] ?? '');
+        $country  = trim($data['country'] ?? '');
+        $zip      = trim($data['zip'] ?? '');
+
+        if ($street === '' && $barangay === '' && $city === '') {
+            return;
+        }
+
+        $stmtCheck = $this->conn->prepare("SELECT id FROM addresses WHERE id_number = :id_number");
+        $stmtCheck->execute([':id_number' => $id_number]);
+        if ($stmtCheck->fetch()) {
+            $sql = "UPDATE addresses SET purok_street = :street, barangay = :barangay, city_municipality = :city, province = :province, country = :country, zip_code = :zip WHERE id_number = :id_number";
+        } else {
+            $sql = "INSERT INTO addresses (id_number, purok_street, barangay, city_municipality, province, country, zip_code) VALUES (:id_number, :street, :barangay, :city, :province, :country, :zip)";
+        }
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([
+            ':id_number' => $id_number,
+            ':street'    => $street,
+            ':barangay'  => $barangay,
+            ':city'      => $city,
+            ':province'  => $province,
+            ':country'   => $country,
+            ':zip'       => $zip
+        ]);
+    }
+
+    private function saveSecurityAnswers(string $id_number, array $securityAnswers): void
+    {
+        if (empty($securityAnswers)) return;
+
+        $stmtDel = $this->conn->prepare("DELETE FROM user_auth_answers WHERE id_number = :id_number");
+        $stmtDel->execute([':id_number' => $id_number]);
+
+        $sqlAuth = "INSERT INTO user_auth_answers (id_number, question_id, answer_hash) VALUES (:id_number, :question_id, :answer_hash)";
+        $stmt = $this->conn->prepare($sqlAuth);
+
+        foreach ($securityAnswers as $entry) {
+            $questionId = (int)($entry['question_id'] ?? 0);
+            $answer = trim($entry['answer'] ?? '');
+            if ($questionId > 0 && $answer !== '') {
+                $stmt->execute([
+                    ':id_number'   => $id_number,
+                    ':question_id' => $questionId,
+                    ':answer_hash' => password_hash($answer, PASSWORD_BCRYPT)
+                ]);
+            }
+        }
     }
 
     public function toggleStandardUserStatus(string $id_number, string $new_status, string $operator = 'superadmin'): bool
