@@ -1,11 +1,11 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../auth/session_protect.php';
 
 // Only Super Admin can access this page
 $role = strtolower($_SESSION['role'] ?? '');
 if ($role !== 'superadmin') {
-    header("Location: ../auth/index.php?action=login");
-    exit();
+  header("Location: ../auth/index.php?action=login");
+  exit();
 }
 
 $pageTitle = 'Manage Users';
@@ -126,45 +126,53 @@ $activePage = 'manage_users';
             <div class="form-group full-width">
               <label for="formIdNumber">ID No (Optional - Auto-generated if blank)</label>
               <input type="text" id="formIdNumber" name="id_number" class="form-control" placeholder="e.g. 2026-0010" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formFirstName">First Name *</label>
-              <input type="text" id="formFirstName" name="first_name" class="form-control" required placeholder="First Name" />
+              <input type="text" id="formFirstName" name="first_name" class="form-control" placeholder="First Name" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formMiddleName">Middle Name</label>
               <input type="text" id="formMiddleName" name="middle_name" class="form-control" placeholder="Middle Name (Optional)" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formLastName">Last Name *</label>
-              <input type="text" id="formLastName" name="last_name" class="form-control" required placeholder="Last Name" />
+              <input type="text" id="formLastName" name="last_name" class="form-control" placeholder="Last Name" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formExtension">Name Extension</label>
               <input type="text" id="formExtension" name="extension" class="form-control" placeholder="Jr., Sr., I, II, etc." pattern="^(Jr\.?|Sr\.?|I|II|III|IV|V|VI|VII|VIII|IX|X)$" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formBirthdate">Birthdate *</label>
-              <input type="date" id="formBirthdate" name="birthdate" class="form-control" required max="<?= date('Y-m-d', strtotime('-18 years')) ?>" />
+              <input type="date" id="formBirthdate" name="birthdate" class="form-control" max="<?= date('Y-m-d', strtotime('-18 years')) ?>" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formAge">Age</label>
               <input type="text" id="formAge" name="age" class="form-control" readonly placeholder="Auto-calculated" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group full-width">
               <label for="formGender">Gender *</label>
-              <select id="formGender" name="gender" class="form-control" required>
+              <select id="formGender" name="gender" class="form-control">
                 <option value="" disabled selected hidden>Select Gender</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
               </select>
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
           </div>
 
@@ -175,32 +183,38 @@ $activePage = 'manage_users';
           <div class="form-grid">
             <div class="form-group">
               <label for="formStreet">Purok / Street *</label>
-              <input type="text" id="formStreet" name="street" class="form-control" required placeholder="Purok / Street" />
+              <input type="text" id="formStreet" name="street" class="form-control" placeholder="Purok / Street" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formBarangay">Barangay *</label>
-              <input type="text" id="formBarangay" name="barangay" class="form-control" required placeholder="Barangay" />
+              <input type="text" id="formBarangay" name="barangay" class="form-control" placeholder="Barangay" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formCity">Municipal / City *</label>
-              <input type="text" id="formCity" name="city" class="form-control" required placeholder="Municipal / City" />
+              <input type="text" id="formCity" name="city" class="form-control" placeholder="Municipal / City" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formProvince">Province *</label>
-              <input type="text" id="formProvince" name="province" class="form-control" required placeholder="Province" />
+              <input type="text" id="formProvince" name="province" class="form-control" placeholder="Province" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formCountry">Country *</label>
-              <input type="text" id="formCountry" name="country" class="form-control" required placeholder="Country" />
+              <input type="text" id="formCountry" name="country" class="form-control" placeholder="Country" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formZip">Zip Code *</label>
-              <input type="number" id="formZip" name="zip" class="form-control" required placeholder="Zip Code" />
+              <input type="number" id="formZip" name="zip" class="form-control" placeholder="Zip Code" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
           </div>
 
@@ -217,24 +231,28 @@ $activePage = 'manage_users';
                 <option value="2">What is the name of your favorite pet?</option>
                 <option value="3">Who is your favorite teacher in high school?</option>
               </select>
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
             <div class="form-group">
               <label for="formSecA1">Answer 1 *</label>
               <input type="password" id="formSecA1" name="security_q1" class="form-control" placeholder="Answer 1" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formSecQ2">Question 2 *</label>
               <select id="formSecQ2" name="security_question_2" class="form-control">
                 <option value="" disabled selected hidden>Select Question 2</option>
-                <option value="4">What is your mother’s maiden name?</option>
+                <option value="4">What is your mother's maiden name?</option>
                 <option value="5">What city were you born in?</option>
                 <option value="6">What is your favorite color?</option>
               </select>
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
             <div class="form-group">
               <label for="formSecA2">Answer 2 *</label>
               <input type="password" id="formSecA2" name="security_q2" class="form-control" placeholder="Answer 2" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
@@ -243,12 +261,14 @@ $activePage = 'manage_users';
                 <option value="" disabled selected hidden>Select Question 3</option>
                 <option value="7">What is your favorite food?</option>
                 <option value="8">What was the name of your first school?</option>
-                <option value="9">What is your father’s middle name?</option>
+                <option value="9">What is your father's middle name?</option>
               </select>
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
             <div class="form-group">
               <label for="formSecA3">Answer 3 *</label>
               <input type="password" id="formSecA3" name="security_q3" class="form-control" placeholder="Answer 3" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
           </div>
 
@@ -259,17 +279,20 @@ $activePage = 'manage_users';
           <div class="form-grid">
             <div class="form-group">
               <label for="formUsername">Username *</label>
-              <input type="text" id="formUsername" name="username" class="form-control" required placeholder="user.username" />
+              <input type="text" id="formUsername" name="username" class="form-control" placeholder="user.username" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formEmail">Email Address *</label>
-              <input type="email" id="formEmail" name="email" class="form-control" required placeholder="user@example.com" />
+              <input type="email" id="formEmail" name="email" class="form-control" placeholder="user@example.com" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
               <label for="formRole">Role</label>
               <input type="text" id="formRole" name="role" class="form-control" value="user" readonly />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
@@ -278,16 +301,19 @@ $activePage = 'manage_users';
                 <option value="active" selected>Active</option>
                 <option value="block">Blocked</option>
               </select>
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group full-width" id="passwordGroup">
               <label for="formPassword">Password *</label>
               <input type="password" id="formPassword" name="password" class="form-control" placeholder="Enter password" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
 
             <div class="form-group full-width" id="confirmPasswordGroup">
               <label for="formConfirmPassword">Confirm Password *</label>
               <input type="password" id="formConfirmPassword" name="confirm_password" class="form-control" placeholder="Confirm password" />
+              <div class="input-error-container" aria-live="polite"></div>
             </div>
           </div>
         </div>

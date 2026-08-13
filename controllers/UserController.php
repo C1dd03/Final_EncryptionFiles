@@ -881,13 +881,13 @@ class UserController
             exit;
         }
 
-        $id_number = trim($_POST['id_number'] ?? '');
-        $firstName = trim($_POST['first_name'] ?? '');
+        $id_number  = trim($_POST['id_number'] ?? '');
+        $firstName  = trim($_POST['first_name'] ?? '');
         $middleName = trim($_POST['middle_name'] ?? '');
-        $lastName  = trim($_POST['last_name'] ?? '');
-        $extension = trim($_POST['extension'] ?? '');
-        $birthdate = trim($_POST['birthdate'] ?? '');
-        $gender    = trim($_POST['gender'] ?? '');
+        $lastName   = trim($_POST['last_name'] ?? '');
+        $extension  = trim($_POST['extension'] ?? '');
+        $birthdate  = trim($_POST['birthdate'] ?? '');
+        $gender     = strtolower(trim($_POST['gender'] ?? ''));
 
         // Address
         $street   = trim($_POST['street'] ?? '');
@@ -896,27 +896,6 @@ class UserController
         $province = trim($_POST['province'] ?? '');
         $country  = trim($_POST['country'] ?? '');
         $zip      = trim($_POST['zip'] ?? '');
-
-        // Security questions
-        $securityAnswers = [];
-        if (!empty($_POST['security_question_1']) && isset($_POST['security_q1'])) {
-            $securityAnswers[] = [
-                'question_id' => (int)$_POST['security_question_1'],
-                'answer' => trim($_POST['security_q1'])
-            ];
-        }
-        if (!empty($_POST['security_question_2']) && isset($_POST['security_q2'])) {
-            $securityAnswers[] = [
-                'question_id' => (int)$_POST['security_question_2'],
-                'answer' => trim($_POST['security_q2'])
-            ];
-        }
-        if (!empty($_POST['security_question_3']) && isset($_POST['security_q3'])) {
-            $securityAnswers[] = [
-                'question_id' => (int)$_POST['security_question_3'],
-                'answer' => trim($_POST['security_q3'])
-            ];
-        }
 
         // Account
         $username  = trim($_POST['username'] ?? '');
@@ -930,26 +909,170 @@ class UserController
             $nameParts = preg_split('/\s+/', trim($_POST['name']));
             $firstName = array_shift($nameParts) ?? 'Admin';
             $lastName  = array_pop($nameParts) ?? 'User';
-            $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
+            $middleName = !empty($nameParts) ? implode(' ', $nameParts) : '';
         }
 
-        if (empty($firstName) || empty($lastName) || empty($username) || empty($email) || empty($password)) {
-            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields (First Name, Last Name, Username, Email, Password).']);
-            exit;
+        $fieldErrors = [];
+
+        // Validate Names
+        $nameValidations = [
+            'first_name'  => ['val' => $firstName, 'label' => 'First Name', 'req' => true],
+            'middle_name' => ['val' => $middleName, 'label' => 'Middle Name', 'req' => false],
+            'last_name'   => ['val' => $lastName, 'label' => 'Last Name', 'req' => true]
+        ];
+        foreach ($nameValidations as $key => $info) {
+            if ($info['req'] && $info['val'] === '') {
+                $fieldErrors[$key] = "{$info['label']} is required.";
+            } elseif ($info['val'] !== '') {
+                $errs = $this->validateName($info['val'], $info['label']);
+                if (!empty($errs)) {
+                    $fieldErrors[$key] = $errs[0];
+                }
+            }
         }
 
-        if ($password !== $confirm) {
-            echo json_encode(['success' => false, 'message' => 'Passwords do not match.']);
-            exit;
+        // Validate Extension
+        $cleanExtension = null;
+        if ($extension !== '') {
+            $normalizedExtension = strtoupper($extension);
+            if (in_array($normalizedExtension, ['JR', 'JR.'], true)) {
+                $cleanExtension = 'Jr.';
+            } elseif (in_array($normalizedExtension, ['SR', 'SR.'], true)) {
+                $cleanExtension = 'Sr.';
+            } else {
+                $cleanExtension = strtoupper(str_replace('.', '', $extension));
+            }
+            $validExtensions = ['Jr.', 'Sr.', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+            if (!in_array($cleanExtension, $validExtensions, true)) {
+                $fieldErrors['extension'] = "Extension must be Jr., Sr., or Roman numerals I to X.";
+            }
         }
 
-        if ($this->userModel->usernameExists($username)) {
-            echo json_encode(['success' => false, 'message' => 'Username is already in use.']);
-            exit;
+        // Validate Birthdate & Age
+        if (empty($birthdate)) {
+            $fieldErrors['birthdate'] = "Birthdate is required.";
+        } else {
+            $dob = new DateTime($birthdate);
+            $today = new DateTime();
+            $age = $today->diff($dob)->y;
+            if ($age < 18) {
+                $fieldErrors['birthdate'] = "Admin must be 18 or older.";
+            }
         }
 
-        if ($this->userModel->emailExists($email)) {
-            echo json_encode(['success' => false, 'message' => 'Email is already registered.']);
+        // Gender
+        if (empty($gender) || !in_array($gender, ['male', 'female'], true)) {
+            $fieldErrors['gender'] = "Please select a valid gender.";
+        }
+
+        // Address Fields
+        $addrValidations = [
+            'street'   => ['val' => $street, 'label' => 'Purok/Street'],
+            'barangay' => ['val' => $barangay, 'label' => 'Barangay'],
+            'city'     => ['val' => $city, 'label' => 'Municipal/City'],
+            'province' => ['val' => $province, 'label' => 'Province'],
+            'country'  => ['val' => $country, 'label' => 'Country']
+        ];
+        foreach ($addrValidations as $key => $info) {
+            $errs = $this->validateAddressField($info['val'], $info['label']);
+            if (!empty($errs)) {
+                $fieldErrors[$key] = $errs[0];
+            }
+        }
+
+        // Zip Code
+        if (empty($zip)) {
+            $fieldErrors['zip'] = "Zip Code is required.";
+        } elseif (!preg_match('/^\d{4,6}$/', $zip)) {
+            $fieldErrors['zip'] = "Zip Code must be between 4 and 6 digits.";
+        }
+
+        // Security Questions
+        $securityAnswers = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $qVal = $_POST["security_question_$i"] ?? '';
+            $aVal = trim($_POST["security_q$i"] ?? '');
+
+            if ($qVal === '' || !ctype_digit((string)$qVal)) {
+                $fieldErrors["security_question_$i"] = "Please select Question $i.";
+            }
+            if ($aVal === '') {
+                $fieldErrors["security_q$i"] = "Answer $i is required.";
+            } elseif (preg_match('/^\s+$/', $aVal)) {
+                $fieldErrors["security_q$i"] = "Answer $i cannot contain only spaces.";
+            } elseif (preg_match('/\s/', $aVal)) {
+                $fieldErrors["security_q$i"] = "Answer $i cannot contain spaces.";
+            }
+
+            if ($qVal !== '' && $aVal !== '') {
+                $securityAnswers[] = [
+                    'question_id' => (int)$qVal,
+                    'answer'      => $aVal
+                ];
+            }
+        }
+
+        // Username
+        if ($username === '') {
+            $fieldErrors['username'] = "Username is required.";
+        } else {
+            if (preg_match('/\s/', $username)) {
+                $fieldErrors['username'] = "Username cannot contain spaces.";
+            } elseif (preg_match('/([a-zA-Z])\1\1/i', $username)) {
+                $fieldErrors['username'] = "Username cannot contain 3 identical letters in a row.";
+            } elseif ($this->userModel->usernameExists($username)) {
+                $fieldErrors['username'] = "Username is already taken.";
+            }
+        }
+
+        // Email
+        if ($email === '') {
+            $fieldErrors['email'] = "Email is required.";
+        } else {
+            if (preg_match('/\s/', $email)) {
+                $fieldErrors['email'] = "Email cannot contain spaces.";
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $fieldErrors['email'] = "Invalid email format.";
+            } elseif ($this->userModel->emailExists($email)) {
+                $fieldErrors['email'] = "Email is already registered.";
+            }
+        }
+
+        // Password & Confirm
+        if ($password === '') {
+            $fieldErrors['password'] = "Password is required.";
+        } else {
+            if ($password !== $confirm) {
+                $fieldErrors['confirm_password'] = "Passwords do not match.";
+            }
+
+            $hasLower = preg_match('/[a-z]/', $password);
+            $hasUpper = preg_match('/[A-Z]/', $password);
+            $hasNumber = preg_match('/[0-9]/', $password);
+            $hasSpecial = preg_match('/[^a-zA-Z0-9]/', $password);
+            $hasLength = strlen($password) >= 8;
+
+            if (!$hasLower || !$hasUpper || !$hasNumber || !$hasSpecial || !$hasLength) {
+                $missing = [];
+                if (!$hasLower) $missing[] = "lowercase letter";
+                if (!$hasUpper) $missing[] = "uppercase letter";
+                if (!$hasNumber) $missing[] = "number";
+                if (!$hasSpecial) $missing[] = "special character";
+                if (!$hasLength) $missing[] = "8+ characters";
+                $fieldErrors['password'] = "Password too weak. Missing: " . implode(", ", $missing);
+            }
+
+            if (preg_match('/([a-zA-Z])\1\1/i', $password)) {
+                $fieldErrors['password'] = "Password cannot contain 3 identical letters in a row.";
+            }
+        }
+
+        if (!empty($fieldErrors)) {
+            echo json_encode([
+                'success'     => false,
+                'message'     => 'Please fix the errors highlighted below.',
+                'fieldErrors' => $fieldErrors
+            ]);
             exit;
         }
 
@@ -957,9 +1080,9 @@ class UserController
             $newId = $this->userModel->createAdmin([
                 'id_number'   => $id_number,
                 'first_name'  => $firstName,
-                'middle_name' => $middleName,
+                'middle_name' => $middleName ?: null,
                 'last_name'   => $lastName,
-                'extension'   => $extension,
+                'extension'   => $cleanExtension,
                 'birthdate'   => $birthdate,
                 'gender'      => $gender,
                 'street'      => $street,
@@ -992,13 +1115,13 @@ class UserController
             exit;
         }
 
-        $id_number = trim($_POST['id_number'] ?? '');
-        $firstName = trim($_POST['first_name'] ?? '');
+        $id_number  = trim($_POST['id_number'] ?? '');
+        $firstName  = trim($_POST['first_name'] ?? '');
         $middleName = trim($_POST['middle_name'] ?? '');
-        $lastName  = trim($_POST['last_name'] ?? '');
-        $extension = trim($_POST['extension'] ?? '');
-        $birthdate = trim($_POST['birthdate'] ?? '');
-        $gender    = trim($_POST['gender'] ?? '');
+        $lastName   = trim($_POST['last_name'] ?? '');
+        $extension  = trim($_POST['extension'] ?? '');
+        $birthdate  = trim($_POST['birthdate'] ?? '');
+        $gender     = strtolower(trim($_POST['gender'] ?? ''));
 
         // Address
         $street   = trim($_POST['street'] ?? '');
@@ -1008,43 +1131,24 @@ class UserController
         $country  = trim($_POST['country'] ?? '');
         $zip      = trim($_POST['zip'] ?? '');
 
-        // Security questions
-        $securityAnswers = [];
-        if (!empty($_POST['security_question_1']) && isset($_POST['security_q1'])) {
-            $securityAnswers[] = [
-                'question_id' => (int)$_POST['security_question_1'],
-                'answer' => trim($_POST['security_q1'])
-            ];
-        }
-        if (!empty($_POST['security_question_2']) && isset($_POST['security_q2'])) {
-            $securityAnswers[] = [
-                'question_id' => (int)$_POST['security_question_2'],
-                'answer' => trim($_POST['security_q2'])
-            ];
-        }
-        if (!empty($_POST['security_question_3']) && isset($_POST['security_q3'])) {
-            $securityAnswers[] = [
-                'question_id' => (int)$_POST['security_question_3'],
-                'answer' => trim($_POST['security_q3'])
-            ];
-        }
-
         // Account
-        $username  = trim($_POST['username'] ?? '');
-        $email     = trim($_POST['email'] ?? '');
-        $password  = $_POST['password'] ?? '';
-        $status    = trim($_POST['status'] ?? 'active');
+        $username = trim($_POST['username'] ?? '');
+        $email    = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $status   = trim($_POST['status'] ?? 'active');
 
         // Fallback for single 'name' input
         if (empty($firstName) && empty($lastName) && !empty($_POST['name'])) {
             $nameParts = preg_split('/\s+/', trim($_POST['name']));
             $firstName = array_shift($nameParts) ?? 'Admin';
             $lastName  = array_pop($nameParts) ?? 'User';
-            $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
+            $middleName = !empty($nameParts) ? implode(' ', $nameParts) : '';
         }
 
-        if (empty($id_number) || empty($firstName) || empty($lastName) || empty($username) || empty($email)) {
-            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields.']);
+        $fieldErrors = [];
+
+        if (empty($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'Admin ID Number is required.']);
             exit;
         }
 
@@ -1054,12 +1158,141 @@ class UserController
             exit;
         }
 
+        // Validate Names
+        $nameValidations = [
+            'first_name'  => ['val' => $firstName, 'label' => 'First Name', 'req' => true],
+            'middle_name' => ['val' => $middleName, 'label' => 'Middle Name', 'req' => false],
+            'last_name'   => ['val' => $lastName, 'label' => 'Last Name', 'req' => true]
+        ];
+        foreach ($nameValidations as $key => $info) {
+            if ($info['req'] && $info['val'] === '') {
+                $fieldErrors[$key] = "{$info['label']} is required.";
+            } elseif ($info['val'] !== '') {
+                $errs = $this->validateName($info['val'], $info['label']);
+                if (!empty($errs)) {
+                    $fieldErrors[$key] = $errs[0];
+                }
+            }
+        }
+
+        // Validate Extension
+        $cleanExtension = null;
+        if ($extension !== '') {
+            $normalizedExtension = strtoupper($extension);
+            if (in_array($normalizedExtension, ['JR', 'JR.'], true)) {
+                $cleanExtension = 'Jr.';
+            } elseif (in_array($normalizedExtension, ['SR', 'SR.'], true)) {
+                $cleanExtension = 'Sr.';
+            } else {
+                $cleanExtension = strtoupper(str_replace('.', '', $extension));
+            }
+            $validExtensions = ['Jr.', 'Sr.', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+            if (!in_array($cleanExtension, $validExtensions, true)) {
+                $fieldErrors['extension'] = "Extension must be Jr., Sr., or Roman numerals I to X.";
+            }
+        }
+
+        // Birthdate & Age
+        if (!empty($birthdate)) {
+            $dob = new DateTime($birthdate);
+            $today = new DateTime();
+            $age = $today->diff($dob)->y;
+            if ($age < 18) {
+                $fieldErrors['birthdate'] = "Admin must be 18 or older.";
+            }
+        }
+
+        // Gender
+        if (empty($gender) || !in_array($gender, ['male', 'female'], true)) {
+            $fieldErrors['gender'] = "Please select a valid gender.";
+        }
+
+        // Address Fields
+        $addrValidations = [
+            'street'   => ['val' => $street, 'label' => 'Purok/Street'],
+            'barangay' => ['val' => $barangay, 'label' => 'Barangay'],
+            'city'     => ['val' => $city, 'label' => 'Municipal/City'],
+            'province' => ['val' => $province, 'label' => 'Province'],
+            'country'  => ['val' => $country, 'label' => 'Country']
+        ];
+        foreach ($addrValidations as $key => $info) {
+            $errs = $this->validateAddressField($info['val'], $info['label']);
+            if (!empty($errs)) {
+                $fieldErrors[$key] = $errs[0];
+            }
+        }
+
+        // Zip Code
+        if (empty($zip)) {
+            $fieldErrors['zip'] = "Zip Code is required.";
+        } elseif (!preg_match('/^\d{4,6}$/', $zip)) {
+            $fieldErrors['zip'] = "Zip Code must be between 4 and 6 digits.";
+        }
+
+        // Username
+        if ($username === '') {
+            $fieldErrors['username'] = "Username is required.";
+        } else {
+            if (preg_match('/\s/', $username)) {
+                $fieldErrors['username'] = "Username cannot contain spaces.";
+            } elseif (preg_match('/([a-zA-Z])\1\1/i', $username)) {
+                $fieldErrors['username'] = "Username cannot contain 3 identical letters in a row.";
+            } elseif ($username !== $existing['username'] && $this->userModel->usernameExists($username)) {
+                $fieldErrors['username'] = "Username is already in use by another user.";
+            }
+        }
+
+        // Email
+        if ($email === '') {
+            $fieldErrors['email'] = "Email is required.";
+        } else {
+            if (preg_match('/\s/', $email)) {
+                $fieldErrors['email'] = "Email cannot contain spaces.";
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $fieldErrors['email'] = "Invalid email format.";
+            } elseif ($email !== $existing['email'] && $this->userModel->emailExists($email)) {
+                $fieldErrors['email'] = "Email is already registered to another user.";
+            }
+        }
+
+        // Password (optional on update)
+        if ($password !== '') {
+            $hasLower = preg_match('/[a-z]/', $password);
+            $hasUpper = preg_match('/[A-Z]/', $password);
+            $hasNumber = preg_match('/[0-9]/', $password);
+            $hasSpecial = preg_match('/[^a-zA-Z0-9]/', $password);
+            $hasLength = strlen($password) >= 8;
+
+            if (!$hasLower || !$hasUpper || !$hasNumber || !$hasSpecial || !$hasLength) {
+                $missing = [];
+                if (!$hasLower) $missing[] = "lowercase letter";
+                if (!$hasUpper) $missing[] = "uppercase letter";
+                if (!$hasNumber) $missing[] = "number";
+                if (!$hasSpecial) $missing[] = "special character";
+                if (!$hasLength) $missing[] = "8+ characters";
+                $fieldErrors['password'] = "Password too weak. Missing: " . implode(", ", $missing);
+            }
+
+            if (preg_match('/([a-zA-Z])\1\1/i', $password)) {
+                $fieldErrors['password'] = "Password cannot contain 3 identical letters in a row.";
+            }
+        }
+
+        if (!empty($fieldErrors)) {
+            echo json_encode([
+                'success'     => false,
+                'message'     => 'Please fix the errors highlighted below.',
+                'fieldErrors' => $fieldErrors
+            ]);
+            exit;
+        }
+
         try {
             $updated = $this->userModel->updateAdmin($id_number, [
                 'first_name'  => $firstName,
-                'middle_name' => $middleName,
+                'middle_name' => $middleName ?: null,
                 'last_name'   => $lastName,
-                'extension'   => $extension,
+                'extension'   => $cleanExtension,
                 'birthdate'   => $birthdate,
                 'gender'      => $gender,
                 'street'      => $street,
@@ -1068,7 +1301,6 @@ class UserController
                 'province'    => $province,
                 'country'     => $country,
                 'zip'         => $zip,
-                'security_answers' => $securityAnswers,
                 'username'    => $username,
                 'email'       => $email,
                 'password'    => $password,
@@ -1243,23 +1475,132 @@ class UserController
             $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
         }
 
-        if (empty($firstName) || empty($lastName) || empty($username) || empty($email) || empty($password)) {
-            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields (First Name, Last Name, Username, Email, Password).']);
-            exit;
+        // --- FIELD VALIDATION ---
+        $fieldErrors = [];
+        $cleanExtension = $extension;
+
+        // Name fields
+        $nameRegex = '/^[A-Z][a-zA-Z\s\'\-]*$/';
+        foreach (['first_name' => ['First Name', $firstName, true], 'last_name' => ['Last Name', $lastName, true], 'middle_name' => ['Middle Name', $middleName, false]] as $key => [$label, $val, $required]) {
+            if ($required && empty($val)) {
+                $fieldErrors[$key] = "$label is required.";
+            } elseif (!empty($val) && !preg_match($nameRegex, $val)) {
+                $fieldErrors[$key] = "$label must start with a capital letter and contain only valid characters.";
+            }
         }
 
+        // Extension
+        if (!empty($extension)) {
+            $normalizedExt = strtoupper($extension);
+            if (in_array($normalizedExt, ['JR', 'JR.'], true)) {
+                $cleanExtension = 'Jr.';
+            } elseif (in_array($normalizedExt, ['SR', 'SR.'], true)) {
+                $cleanExtension = 'Sr.';
+            } else {
+                $cleanExtension = strtoupper(str_replace('.', '', $extension));
+            }
+            $validExtensions = ['Jr.', 'Sr.', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+            if (!in_array($cleanExtension, $validExtensions, true)) {
+                $fieldErrors['extension'] = "Extension must be Jr., Sr., or Roman numerals I to X.";
+            }
+        }
+
+        // Birthdate
+        if (empty($birthdate)) {
+            $fieldErrors['birthdate'] = "Birthdate is required.";
+        } else {
+            $dob   = new DateTime($birthdate);
+            $today = new DateTime();
+            $age   = $today->diff($dob)->y;
+            if ($age < 18) {
+                $fieldErrors['birthdate'] = "User must be at least 18 years old.";
+            }
+        }
+
+        // Gender
+        if (empty($gender) || !in_array($gender, ['male', 'female'], true)) {
+            $fieldErrors['gender'] = "Please select a valid gender.";
+        }
+
+        // Address
+        $addrRegex = '/^[A-Za-z0-9][A-Za-z0-9\s\'.,#\-\/&()]*$/';
+        $addrValidations = [
+            'street'   => ['Purok/Street',    $street],
+            'barangay' => ['Barangay',         $barangay],
+            'city'     => ['Municipal/City',   $city],
+            'province' => ['Province',         $province],
+            'country'  => ['Country',          $country],
+        ];
+        foreach ($addrValidations as $key => [$label, $val]) {
+            if (empty($val)) {
+                $fieldErrors[$key] = "$label is required.";
+            } elseif (!preg_match($addrRegex, $val)) {
+                $fieldErrors[$key] = "$label contains invalid characters.";
+            }
+        }
+
+        // Zip
+        if (empty($zip)) {
+            $fieldErrors['zip'] = "Zip Code is required.";
+        } elseif (!preg_match('/^\d{4,6}$/', $zip)) {
+            $fieldErrors['zip'] = "Zip Code must be between 4 and 6 digits.";
+        }
+
+        // Username
+        if (empty($username)) {
+            $fieldErrors['username'] = "Username is required.";
+        } elseif (preg_match('/\s/', $username)) {
+            $fieldErrors['username'] = "Username cannot contain spaces.";
+        } elseif (preg_match('/([a-zA-Z])\1\1/i', $username)) {
+            $fieldErrors['username'] = "Username cannot contain 3 identical letters in a row.";
+        } elseif ($this->userModel->usernameExists($username)) {
+            $fieldErrors['username'] = "Username is already in use.";
+        }
+
+        // Email
+        if (empty($email)) {
+            $fieldErrors['email'] = "Email is required.";
+        } elseif (preg_match('/\s/', $email)) {
+            $fieldErrors['email'] = "Email cannot contain spaces.";
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $fieldErrors['email'] = "Invalid email format.";
+        } elseif ($this->userModel->emailExists($email)) {
+            $fieldErrors['email'] = "Email is already registered.";
+        }
+
+        // Password
+        if (empty($password)) {
+            $fieldErrors['password'] = "Password is required.";
+        } else {
+            $hasLower   = preg_match('/[a-z]/', $password);
+            $hasUpper   = preg_match('/[A-Z]/', $password);
+            $hasNumber  = preg_match('/[0-9]/', $password);
+            $hasSpecial = preg_match('/[^a-zA-Z0-9]/', $password);
+            $hasLength  = strlen($password) >= 8;
+            if (!$hasLower || !$hasUpper || !$hasNumber || !$hasSpecial || !$hasLength) {
+                $missing = [];
+                if (!$hasLower)   $missing[] = "lowercase letter";
+                if (!$hasUpper)   $missing[] = "uppercase letter";
+                if (!$hasNumber)  $missing[] = "number";
+                if (!$hasSpecial) $missing[] = "special character";
+                if (!$hasLength)  $missing[] = "8+ characters";
+                $fieldErrors['password'] = "Password too weak. Missing: " . implode(", ", $missing);
+            } elseif (preg_match('/([a-zA-Z])\1\1/i', $password)) {
+                $fieldErrors['password'] = "Password cannot contain 3 identical letters in a row.";
+            }
+        }
+
+        // Confirm password
         if ($password !== $confirm) {
-            echo json_encode(['success' => false, 'message' => 'Passwords do not match.']);
-            exit;
+            $fieldErrors['confirm_password'] = "Passwords do not match.";
         }
 
-        if ($this->userModel->usernameExists($username)) {
-            echo json_encode(['success' => false, 'message' => 'Username is already in use.']);
-            exit;
-        }
-
-        if ($this->userModel->emailExists($email)) {
-            echo json_encode(['success' => false, 'message' => 'Email is already registered.']);
+        if (!empty($fieldErrors)) {
+            echo json_encode([
+                'success'     => false,
+                'message'     => 'Please fix the errors highlighted below.',
+                'fieldErrors' => $fieldErrors
+            ]);
             exit;
         }
 
@@ -1269,7 +1610,7 @@ class UserController
                 'first_name'  => $firstName,
                 'middle_name' => $middleName,
                 'last_name'   => $lastName,
-                'extension'   => $extension,
+                'extension'   => $cleanExtension,
                 'birthdate'   => $birthdate,
                 'gender'      => $gender,
                 'street'      => $street,
@@ -1353,14 +1694,136 @@ class UserController
             $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
         }
 
-        if (empty($id_number) || empty($firstName) || empty($lastName) || empty($username) || empty($email)) {
-            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields.']);
+        if (empty($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
             exit;
         }
 
         $existing = $this->userModel->getUserByIdNumber($id_number);
         if (!$existing) {
             echo json_encode(['success' => false, 'message' => 'User account not found.']);
+            exit;
+        }
+
+        // --- FIELD VALIDATION ---
+        $fieldErrors = [];
+        $cleanExtension = $extension;
+
+        // Name fields
+        $nameRegex = '/^[A-Z][a-zA-Z\s\'\-]*$/';
+        foreach (['first_name' => ['First Name', $firstName, true], 'last_name' => ['Last Name', $lastName, true], 'middle_name' => ['Middle Name', $middleName, false]] as $key => [$label, $val, $required]) {
+            if ($required && empty($val)) {
+                $fieldErrors[$key] = "$label is required.";
+            } elseif (!empty($val) && !preg_match($nameRegex, $val)) {
+                $fieldErrors[$key] = "$label must start with a capital letter and contain only valid characters.";
+            }
+        }
+
+        // Extension
+        if (!empty($extension)) {
+            $normalizedExt = strtoupper($extension);
+            if (in_array($normalizedExt, ['JR', 'JR.'], true)) {
+                $cleanExtension = 'Jr.';
+            } elseif (in_array($normalizedExt, ['SR', 'SR.'], true)) {
+                $cleanExtension = 'Sr.';
+            } else {
+                $cleanExtension = strtoupper(str_replace('.', '', $extension));
+            }
+            $validExtensions = ['Jr.', 'Sr.', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+            if (!in_array($cleanExtension, $validExtensions, true)) {
+                $fieldErrors['extension'] = "Extension must be Jr., Sr., or Roman numerals I to X.";
+            }
+        }
+
+        // Birthdate
+        if (empty($birthdate)) {
+            $fieldErrors['birthdate'] = "Birthdate is required.";
+        } else {
+            $dob   = new DateTime($birthdate);
+            $today = new DateTime();
+            $age   = $today->diff($dob)->y;
+            if ($age < 18) {
+                $fieldErrors['birthdate'] = "User must be at least 18 years old.";
+            }
+        }
+
+        // Gender
+        if (empty($gender) || !in_array($gender, ['male', 'female'], true)) {
+            $fieldErrors['gender'] = "Please select a valid gender.";
+        }
+
+        // Address
+        $addrRegex = '/^[A-Za-z0-9][A-Za-z0-9\s\'.,#\-\/&()]*$/';
+        $addrValidations = [
+            'street'   => ['Purok/Street',  $street],
+            'barangay' => ['Barangay',       $barangay],
+            'city'     => ['Municipal/City', $city],
+            'province' => ['Province',       $province],
+            'country'  => ['Country',        $country],
+        ];
+        foreach ($addrValidations as $key => [$label, $val]) {
+            if (empty($val)) {
+                $fieldErrors[$key] = "$label is required.";
+            } elseif (!preg_match($addrRegex, $val)) {
+                $fieldErrors[$key] = "$label contains invalid characters.";
+            }
+        }
+
+        // Zip
+        if (empty($zip)) {
+            $fieldErrors['zip'] = "Zip Code is required.";
+        } elseif (!preg_match('/^\d{4,6}$/', $zip)) {
+            $fieldErrors['zip'] = "Zip Code must be between 4 and 6 digits.";
+        }
+
+        // Username
+        if (empty($username)) {
+            $fieldErrors['username'] = "Username is required.";
+        } elseif (preg_match('/\s/', $username)) {
+            $fieldErrors['username'] = "Username cannot contain spaces.";
+        } elseif (preg_match('/([a-zA-Z])\1\1/i', $username)) {
+            $fieldErrors['username'] = "Username cannot contain 3 identical letters in a row.";
+        } elseif ($username !== $existing['username'] && $this->userModel->usernameExists($username)) {
+            $fieldErrors['username'] = "Username is already in use by another user.";
+        }
+
+        // Email
+        if (empty($email)) {
+            $fieldErrors['email'] = "Email is required.";
+        } elseif (preg_match('/\s/', $email)) {
+            $fieldErrors['email'] = "Email cannot contain spaces.";
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $fieldErrors['email'] = "Invalid email format.";
+        } elseif ($email !== $existing['email'] && $this->userModel->emailExists($email)) {
+            $fieldErrors['email'] = "Email is already registered to another user.";
+        }
+
+        // Password (optional on update)
+        if (!empty($password)) {
+            $hasLower   = preg_match('/[a-z]/', $password);
+            $hasUpper   = preg_match('/[A-Z]/', $password);
+            $hasNumber  = preg_match('/[0-9]/', $password);
+            $hasSpecial = preg_match('/[^a-zA-Z0-9]/', $password);
+            $hasLength  = strlen($password) >= 8;
+            if (!$hasLower || !$hasUpper || !$hasNumber || !$hasSpecial || !$hasLength) {
+                $missing = [];
+                if (!$hasLower)   $missing[] = "lowercase letter";
+                if (!$hasUpper)   $missing[] = "uppercase letter";
+                if (!$hasNumber)  $missing[] = "number";
+                if (!$hasSpecial) $missing[] = "special character";
+                if (!$hasLength)  $missing[] = "8+ characters";
+                $fieldErrors['password'] = "Password too weak. Missing: " . implode(", ", $missing);
+            } elseif (preg_match('/([a-zA-Z])\1\1/i', $password)) {
+                $fieldErrors['password'] = "Password cannot contain 3 identical letters in a row.";
+            }
+        }
+
+        if (!empty($fieldErrors)) {
+            echo json_encode([
+                'success'     => false,
+                'message'     => 'Please fix the errors highlighted below.',
+                'fieldErrors' => $fieldErrors
+            ]);
             exit;
         }
 

@@ -189,15 +189,21 @@
   background: #e6f4ea;
   color: #137333;
 }
-.badge-active::before { background: #137333; }
+
+.badge-active::before {
+  background: #137333;
+}
 
 .badge-blocked,
 .badge-block {
   background: #fce8e6;
   color: #c5221f;
 }
+
 .badge-blocked::before,
-.badge-block::before { background: #c5221f; }
+.badge-block::before {
+  background: #c5221f;
+}
 
 /* User role badge — teal/cyan to distinguish from admin blue */
 .badge-role-user {
@@ -420,7 +426,9 @@
   transition: opacity 0.2s ease;
 }
 
-.modal-close:hover { opacity: 1; }
+.modal-close:hover {
+  opacity: 1;
+}
 
 .modal-body {
   padding: 24px;
@@ -478,6 +486,24 @@
   cursor: not-allowed;
 }
 
+/* ── Real-time field error display ── */
+.input-error-container {
+  min-height: 18px;
+  font-size: 0.72rem;
+  color: #dc2626;
+  line-height: 1.4;
+  visibility: hidden;
+  margin-top: 3px;
+}
+
+.form-control.invalid {
+  border-color: #dc2626 !important;
+}
+
+.form-control.invalid:focus {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
 .btn-secondary {
   background: #e2e8f0;
   color: #334155;
@@ -490,7 +516,9 @@
   transition: background 0.2s ease;
 }
 
-.btn-secondary:hover { background: #cbd5e1; }
+.btn-secondary:hover {
+  background: #cbd5e1;
+}
 
 .btn-danger {
   background: #dc2626;
@@ -504,7 +532,9 @@
   transition: background 0.2s ease;
 }
 
-.btn-danger:hover { background: #b91c1c; }
+.btn-danger:hover {
+  background: #b91c1c;
+}
 
 /* Detail View */
 .detail-list {
@@ -615,12 +645,34 @@
   background: rgba(88, 129, 87, 0.08);
 }
 
-.action-menu-item.view:hover  { color: #1a73e8; background: #e8f0fe; }
-.action-menu-item.edit:hover  { color: #e37400; background: #feefe3; }
-.action-menu-item.unblock:hover { color: #137333; background: #e6f4ea; }
-.action-menu-item.block:hover { color: #c5221f; background: #fce8e6; }
-.action-menu-item.delete      { color: #c5221f; }
-.action-menu-item.delete:hover { color: #ffffff; background: #dc2626; }
+.action-menu-item.view:hover {
+  color: #1a73e8;
+  background: #e8f0fe;
+}
+
+.action-menu-item.edit:hover {
+  color: #e37400;
+  background: #feefe3;
+}
+
+.action-menu-item.unblock:hover {
+  color: #137333;
+  background: #e6f4ea;
+}
+
+.action-menu-item.block:hover {
+  color: #c5221f;
+  background: #fce8e6;
+}
+
+.action-menu-item.delete {
+  color: #c5221f;
+}
+
+.action-menu-item.delete:hover {
+  color: #ffffff;
+  background: #dc2626;
+}
 
 .action-menu-divider {
   height: 1px;

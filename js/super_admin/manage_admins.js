@@ -249,17 +249,304 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // --- REAL-TIME ERROR HANDLING HELPER FUNCTIONS ---
+  function setFieldError(input, message) {
+    if (!input) return;
+    const formGroup = input.closest(".form-group");
+    if (!formGroup) return;
+
+    let errorContainer = formGroup.querySelector(".input-error-container");
+    if (!errorContainer) {
+      errorContainer = document.createElement("div");
+      errorContainer.className = "input-error-container";
+      formGroup.appendChild(errorContainer);
+    }
+
+    if (message) {
+      errorContainer.textContent = message;
+      errorContainer.style.visibility = "visible";
+      input.classList.add("invalid");
+    } else {
+      errorContainer.textContent = "";
+      errorContainer.style.visibility = "hidden";
+      input.classList.remove("invalid");
+    }
+  }
+
+  function clearFieldError(input) {
+    setFieldError(input, "");
+  }
+
+  function clearAllModalErrors() {
+    if (!adminForm) return;
+    adminForm.querySelectorAll("input, select").forEach((input) => {
+      clearFieldError(input);
+    });
+  }
+
+  const normalizeExtension = (rawValue) => {
+    const value = rawValue.trim();
+    if (value === "") return "";
+    const upperValue = value.toUpperCase();
+    if (["JR", "JR."].includes(upperValue)) return "Jr.";
+    if (["SR", "SR."].includes(upperValue)) return "Sr.";
+    const romanValue = upperValue.replace(/\./g, "");
+    const validRomans = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+    if (validRomans.includes(romanValue)) return romanValue;
+    return value;
+  };
+
+  // Real-time Field Validator
+  function validateField(input) {
+    if (!input || input.disabled || input.readOnly || input.offsetParent === null) {
+      return null;
+    }
+
+    const name = input.name;
+    const rawValue = input.value;
+    const value = rawValue.trim();
+    const mode = document.getElementById("formMode")?.value || "add";
+
+    // Required check
+    if (input.required && value === "") {
+      const labels = {
+        first_name: "First Name",
+        last_name: "Last Name",
+        birthdate: "Birthdate",
+        gender: "Gender",
+        street: "Purok / Street",
+        barangay: "Barangay",
+        city: "Municipal / City",
+        province: "Province",
+        country: "Country",
+        zip: "Zip Code",
+        username: "Username",
+        email: "Email Address",
+        password: "Password",
+        confirm_password: "Confirm Password",
+        security_question_1: "Question 1",
+        security_question_2: "Question 2",
+        security_question_3: "Question 3",
+        security_q1: "Answer 1",
+        security_q2: "Answer 2",
+        security_q3: "Answer 3"
+      };
+      const label = labels[name] || name.replace(/_/g, " ");
+      return `${label} is required.`;
+    }
+
+    // Name Fields (First, Middle, Last)
+    if (["first_name", "middle_name", "last_name"].includes(name)) {
+      if (value === "") return null; // Middle name optional
+
+      const labels = { first_name: "First Name", middle_name: "Middle Name", last_name: "Last Name" };
+      const label = labels[name];
+
+      if (rawValue.length > 0 && rawValue.charAt(0) === " ") {
+        return `${label} cannot start with a space.`;
+      }
+      if (rawValue.length > 0 && !/^[A-Za-z]/.test(rawValue.charAt(0))) {
+        return `${label} must start with a letter only.`;
+      }
+      if (/\s{2,}/.test(rawValue)) {
+        return `${label} cannot contain double spaces.`;
+      }
+      if (/([a-zA-Z])\1\1/i.test(value)) {
+        return `${label}: No 3 same letters in a row.`;
+      }
+      if (value.length > 1 && value === value.toUpperCase()) {
+        return `${label} should avoid all caps.`;
+      }
+
+      // Capitalization check per word
+      const words = value.split(/\s+/);
+      for (const w of words) {
+        if (w.length > 0 && w[0] !== w[0].toUpperCase()) {
+          return `${label} requires each word to start with a capital letter.`;
+        }
+        for (let i = 1; i < w.length; i++) {
+          if (/[A-Za-z]/.test(w[i]) && w[i] === w[i].toUpperCase()) {
+            return `${label} cannot contain capital letters after the first letter of each name.`;
+          }
+        }
+      }
+
+      if (!/^[A-Za-z\s]+$/.test(value)) {
+        return `${label} can only contain letters and spaces.`;
+      }
+    }
+
+    // Extension Field
+    if (name === "extension" && value !== "") {
+      const normalized = normalizeExtension(value);
+      const validExts = ["Jr.", "Sr.", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+      if (!validExts.includes(normalized)) {
+        return "Extension must be Jr., Sr., or Roman numerals I–X.";
+      }
+    }
+
+    // Birthdate
+    if (name === "birthdate" && value !== "") {
+      const dob = new Date(value);
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const m = today.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+      if (age < 18) {
+        return "Admin must be at least 18 years old.";
+      }
+    }
+
+    // Gender
+    if (name === "gender" && value !== "") {
+      if (!["male", "female"].includes(value.toLowerCase())) {
+        return "Please select a valid gender.";
+      }
+    }
+
+    // Address Fields
+    const addressLabels = {
+      street: "Purok / Street",
+      barangay: "Barangay",
+      city: "Municipal / City",
+      province: "Province",
+      country: "Country"
+    };
+
+    if (addressLabels[name]) {
+      const label = addressLabels[name];
+      if (rawValue.length > 0 && rawValue.charAt(0) === " ") {
+        return `${label} cannot start with a space.`;
+      }
+      if (name !== "street" && rawValue.length > 0 && !/^[A-Za-z]/.test(rawValue.charAt(0))) {
+        return `${label} must start with a letter only.`;
+      }
+      if (/\s{2,}/.test(rawValue)) {
+        return `${label} cannot contain double spaces.`;
+      }
+
+      if (name === "street") {
+        if (value.length < 3) return `${label} must be at least 3 characters long.`;
+        if (/^[\d\s]+$/.test(value)) return `${label} must contain letters.`;
+      } else {
+        if (/\d/.test(value)) return `${label} cannot include numbers.`;
+        if (/[^A-Za-z\s.-]/.test(value)) return `${label} cannot contain special characters.`;
+        if (value.length > 1 && value === value.toUpperCase()) {
+          return `${label} should avoid all caps.`;
+        }
+      }
+
+      if (/([a-zA-Z])\1\1/i.test(value)) {
+        return `${label}: No 3 same letters in a row.`;
+      }
+    }
+
+    // Zip Code
+    if (name === "zip" && value !== "") {
+      if (!/^\d+$/.test(value)) return "Zip Code must contain numbers only.";
+      if (value.length < 4 || value.length > 6) return "Zip Code must be 4 to 6 digits.";
+    }
+
+    // Security Answers
+    if (name.startsWith("security_q") && value !== "") {
+      if (/^\s+$/.test(rawValue)) return "Answer cannot contain only spaces.";
+      if (/\s/.test(rawValue)) return "Answer cannot contain spaces.";
+    }
+
+    // Username
+    if (name === "username" && value !== "") {
+      if (/\s/.test(rawValue)) return "Username cannot contain spaces.";
+      if (/\s{2,}/.test(rawValue)) return "Username cannot contain double spaces.";
+      if (/([a-zA-Z])\1\1/i.test(value)) return "Username cannot contain 3 identical letters in a row.";
+    }
+
+    // Email
+    if (name === "email" && value !== "") {
+      if (/\s/.test(rawValue)) return "Email cannot contain spaces.";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Invalid email address format.";
+    }
+
+    // Password
+    if (name === "password") {
+      if (mode === "edit" && value === "") return null;
+
+      if (value !== "") {
+        const hasLower = /[a-z]/.test(value);
+        const hasUpper = /[A-Z]/.test(value);
+        const hasNumber = /[0-9]/.test(value);
+        const hasSpecial = /[^a-zA-Z0-9]/.test(value);
+        const hasLength = value.length >= 8;
+
+        if (!hasLower || !hasUpper || !hasNumber || !hasSpecial || !hasLength) {
+          const missing = [];
+          if (!hasLower) missing.push("lowercase letter");
+          if (!hasUpper) missing.push("uppercase letter");
+          if (!hasNumber) missing.push("number");
+          if (!hasSpecial) missing.push("special character");
+          if (!hasLength) missing.push("8+ characters");
+          return `Password is too weak. Missing: ${missing.join(", ")}.`;
+        }
+
+        if (/([a-zA-Z])\1\1/i.test(value)) {
+          return "Password cannot contain 3 identical letters in a row.";
+        }
+      }
+    }
+
+    // Confirm Password
+    if (name === "confirm_password") {
+      const passwordVal = document.getElementById("formPassword")?.value || "";
+      if (mode === "add" || passwordVal !== "") {
+        if (value !== passwordVal) {
+          return "Passwords do not match.";
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // Attach Realtime Event Listeners to Admin Form Fields
+  if (adminForm) {
+    adminForm.querySelectorAll("input, select").forEach((input) => {
+      ["input", "blur", "change"].forEach((evtType) => {
+        input.addEventListener(evtType, function () {
+          const err = validateField(this);
+          setFieldError(this, err);
+
+          // Re-validate confirm password if password changes
+          if (this.name === "password") {
+            const confInp = document.getElementById("formConfirmPassword");
+            if (confInp && (confInp.value || mode === "add")) {
+              setFieldError(confInp, validateField(confInp));
+            }
+          }
+        });
+      });
+    });
+
+    const extInput = document.getElementById("formExtension");
+    if (extInput) {
+      extInput.addEventListener("blur", function () {
+        this.value = normalizeExtension(this.value);
+        const err = validateField(this);
+        setFieldError(this, err);
+      });
+    }
+  }
+
   // Add / Edit Modal Logic
   function openAddModal() {
     if (adminForm) adminForm.reset();
+    clearAllModalErrors();
     setVal("formMode", "add");
-    
+
     const idEl = document.getElementById("formIdNumber");
     if (idEl) {
       idEl.value = "";
       idEl.removeAttribute("readonly");
     }
-    
+
     // Security Questions visible & required on add
     const secTitle = document.getElementById("securitySectionTitle");
     const secGrid = document.getElementById("securitySectionGrid");
@@ -295,6 +582,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const admin = res.data;
         if (adminForm) adminForm.reset();
+        clearAllModalErrors();
         setVal("formMode", "edit");
 
         const idEl = document.getElementById("formIdNumber");
@@ -358,24 +646,38 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   function closeAdminModal() {
+    clearAllModalErrors();
     adminModal.classList.remove("show");
   }
 
   function handleAdminFormSubmit(e) {
     e.preventDefault();
 
-    const mode = document.getElementById("formMode").value;
-    const formData = new FormData(adminForm);
+    let firstInvalidInput = null;
+    let hasError = false;
 
-    if (mode === "add") {
-      const password = formData.get("password");
-      const confirm = formData.get("confirm_password");
-      if (password !== confirm) {
-        alert("Passwords do not match!");
-        return;
+    clearAllModalErrors();
+
+    // Validate all visible form inputs
+    adminForm.querySelectorAll("input, select").forEach((input) => {
+      const err = validateField(input);
+      if (err) {
+        setFieldError(input, err);
+        if (!firstInvalidInput) firstInvalidInput = input;
+        hasError = true;
       }
+    });
+
+    if (hasError) {
+      if (firstInvalidInput) {
+        firstInvalidInput.scrollIntoView({ behavior: "smooth", block: "center" });
+        firstInvalidInput.focus();
+      }
+      return;
     }
 
+    const mode = document.getElementById("formMode").value;
+    const formData = new FormData(adminForm);
     const action = mode === "add" ? "addAdmin" : "updateAdmin";
 
     fetch(`../../php/auth/index.php?action=${action}`, {
@@ -389,7 +691,22 @@ document.addEventListener("DOMContentLoaded", function () {
           closeAdminModal();
           loadAdmins();
         } else {
-          alert(res.message || "Operation failed.");
+          if (res.fieldErrors && typeof res.fieldErrors === "object") {
+            let serverFirstInvalid = null;
+            Object.keys(res.fieldErrors).forEach((fieldName) => {
+              const inp = adminForm.querySelector(`[name="${fieldName}"]`);
+              if (inp) {
+                setFieldError(inp, res.fieldErrors[fieldName]);
+                if (!serverFirstInvalid) serverFirstInvalid = inp;
+              }
+            });
+            if (serverFirstInvalid) {
+              serverFirstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+              serverFirstInvalid.focus();
+            }
+          } else {
+            alert(res.message || "Operation failed.");
+          }
         }
       })
       .catch((err) => {

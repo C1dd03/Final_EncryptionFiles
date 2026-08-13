@@ -90,6 +90,175 @@ document.addEventListener("DOMContentLoaded", function () {
     userForm.addEventListener("submit", handleUserFormSubmit);
   }
 
+  /* ── Real-time error helpers ── */
+  function setFieldError(input, message) {
+    if (!input) return;
+    const group = input.closest(".form-group");
+    if (!group) return;
+    const container = group.querySelector(".input-error-container");
+    if (container) {
+      container.textContent = message;
+      container.style.visibility = "visible";
+    }
+    input.classList.add("invalid");
+  }
+
+  function clearFieldError(input) {
+    if (!input) return;
+    const group = input.closest(".form-group");
+    if (!group) return;
+    const container = group.querySelector(".input-error-container");
+    if (container) {
+      container.textContent = "";
+      container.style.visibility = "hidden";
+    }
+    input.classList.remove("invalid");
+  }
+
+  function clearAllModalErrors() {
+    if (!userForm) return;
+    userForm.querySelectorAll(".input-error-container").forEach((c) => {
+      c.textContent = "";
+      c.style.visibility = "hidden";
+    });
+    userForm.querySelectorAll(".form-control.invalid").forEach((el) => {
+      el.classList.remove("invalid");
+    });
+  }
+
+  /* ── Per-field front-end validation ── */
+  function validateField(input) {
+    const name = input.name;
+    const value = input.value.trim();
+    const nameRegex = /^[A-Z][a-zA-Z\s'-]*$/;
+    const addrRegex = /^[A-Za-z0-9][A-Za-z0-9\s'.,#\-/&()]*$/;
+
+    if (name === "first_name" || name === "last_name") {
+      if (!value) {
+        const label = name === "first_name" ? "First Name" : "Last Name";
+        setFieldError(input, `${label} is required.`);
+      } else if (!nameRegex.test(value)) {
+        const label = name === "first_name" ? "First Name" : "Last Name";
+        setFieldError(input, `${label} must start with a capital letter and contain only valid characters.`);
+      } else {
+        clearFieldError(input);
+      }
+      return;
+    }
+
+    if (name === "middle_name" && value) {
+      if (!nameRegex.test(value)) {
+        setFieldError(input, "Middle Name must start with a capital letter.");
+      } else {
+        clearFieldError(input);
+      }
+      return;
+    }
+
+    if (name === "extension" && value) {
+      const validExts = ["Jr.", "Jr", "Sr.", "Sr", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+      if (!validExts.includes(value)) {
+        setFieldError(input, "Extension must be Jr., Sr., or Roman numerals I to X.");
+      } else {
+        clearFieldError(input);
+      }
+      return;
+    }
+
+    if (name === "birthdate") {
+      if (!value) { setFieldError(input, "Birthdate is required."); return; }
+      const dob = new Date(value);
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const m = today.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+      if (age < 18) { setFieldError(input, "User must be at least 18 years old."); }
+      else { clearFieldError(input); }
+      return;
+    }
+
+    if (name === "gender") {
+      if (!value) { setFieldError(input, "Please select a gender."); }
+      else { clearFieldError(input); }
+      return;
+    }
+
+    const addrFields = ["street", "barangay", "city", "province", "country"];
+    if (addrFields.includes(name)) {
+      const labels = { street: "Purok/Street", barangay: "Barangay", city: "Municipal/City", province: "Province", country: "Country" };
+      if (!value) {
+        setFieldError(input, `${labels[name]} is required.`);
+      } else if (!addrRegex.test(value)) {
+        setFieldError(input, `${labels[name]} contains invalid characters.`);
+      } else {
+        clearFieldError(input);
+      }
+      return;
+    }
+
+    if (name === "zip") {
+      if (!value) { setFieldError(input, "Zip Code is required."); }
+      else if (!/^\d{4,6}$/.test(value)) { setFieldError(input, "Zip Code must be 4–6 digits."); }
+      else { clearFieldError(input); }
+      return;
+    }
+
+    if (name === "username") {
+      if (!value) { setFieldError(input, "Username is required."); }
+      else if (/\s/.test(value)) { setFieldError(input, "Username cannot contain spaces."); }
+      else if (/([a-zA-Z])\1\1/i.test(value)) { setFieldError(input, "Username cannot contain 3 identical letters in a row."); }
+      else { clearFieldError(input); }
+      return;
+    }
+
+    if (name === "email") {
+      if (!value) { setFieldError(input, "Email is required."); }
+      else if (/\s/.test(value)) { setFieldError(input, "Email cannot contain spaces."); }
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) { setFieldError(input, "Invalid email format."); }
+      else { clearFieldError(input); }
+      return;
+    }
+
+    if (name === "password" && value) {
+      const missing = [];
+      if (!/[a-z]/.test(value)) missing.push("lowercase letter");
+      if (!/[A-Z]/.test(value)) missing.push("uppercase letter");
+      if (!/[0-9]/.test(value)) missing.push("number");
+      if (!/[^a-zA-Z0-9]/.test(value)) missing.push("special character");
+      if (value.length < 8) missing.push("8+ characters");
+      if (missing.length > 0) {
+        setFieldError(input, "Password too weak. Missing: " + missing.join(", "));
+      } else if (/([a-zA-Z])\1\1/i.test(value)) {
+        setFieldError(input, "Password cannot contain 3 identical letters in a row.");
+      } else {
+        clearFieldError(input);
+      }
+      return;
+    }
+
+    if (name === "confirm_password") {
+      const passVal = (document.getElementById("formPassword") || {}).value || "";
+      if (value && value !== passVal) { setFieldError(input, "Passwords do not match."); }
+      else { clearFieldError(input); }
+      return;
+    }
+
+    clearFieldError(input);
+  }
+
+  /* ── Attach real-time listeners to all form controls ── */
+  if (userForm) {
+    userForm.querySelectorAll(".form-control").forEach((input) => {
+      const tag = input.tagName.toLowerCase();
+      if (tag === "select") {
+        input.addEventListener("change", () => validateField(input));
+      } else {
+        input.addEventListener("input", () => validateField(input));
+        input.addEventListener("blur", () => validateField(input));
+      }
+    });
+  }
+
   // Core Load Function
   function loadUsers() {
     if (!userTableBody) return;
@@ -250,6 +419,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Add / Edit Modal
   function openAddModal() {
     if (userForm) userForm.reset();
+    clearAllModalErrors();
     setVal("formMode", "add");
 
     const idEl = document.getElementById("formIdNumber");
@@ -293,6 +463,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const user = res.data;
         if (userForm) userForm.reset();
+        clearAllModalErrors();
         setVal("formMode", "edit");
 
         const idEl = document.getElementById("formIdNumber");
@@ -357,6 +528,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function closeUserModal() {
     userModal.classList.remove("show");
+    clearAllModalErrors();
   }
 
   function handleUserFormSubmit(e) {
@@ -369,7 +541,8 @@ document.addEventListener("DOMContentLoaded", function () {
       const password = formData.get("password");
       const confirm = formData.get("confirm_password");
       if (password !== confirm) {
-        alert("Passwords do not match!");
+        const confInput = document.getElementById("formConfirmPassword");
+        setFieldError(confInput, "Passwords do not match!");
         return;
       }
     }
@@ -383,9 +556,32 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((res) => res.json())
       .then((res) => {
         if (res.success) {
-          alert(res.message);
           closeUserModal();
           loadUsers();
+        } else if (res.fieldErrors) {
+          // Map server-side fieldErrors to inline field messages
+          const fieldMap = {
+            first_name:         "formFirstName",
+            middle_name:        "formMiddleName",
+            last_name:          "formLastName",
+            extension:          "formExtension",
+            birthdate:          "formBirthdate",
+            gender:             "formGender",
+            street:             "formStreet",
+            barangay:           "formBarangay",
+            city:               "formCity",
+            province:           "formProvince",
+            country:            "formCountry",
+            zip:                "formZip",
+            username:           "formUsername",
+            email:              "formEmail",
+            password:           "formPassword",
+            confirm_password:   "formConfirmPassword",
+          };
+          Object.entries(res.fieldErrors).forEach(([field, msg]) => {
+            const elId = fieldMap[field];
+            if (elId) setFieldError(document.getElementById(elId), msg);
+          });
         } else {
           alert(res.message || "Operation failed.");
         }
