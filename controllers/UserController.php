@@ -524,7 +524,6 @@ class UserController
                 'redirect' => $redirectUrl
             ]);
             return;
-
         }
 
         echo json_encode(['success' => false, 'message' => 'Invalid request method.', 'errorType' => 'invalidMethod']);
@@ -933,10 +932,10 @@ class UserController
             $middleName = !empty($nameParts) ? implode(' ', $nameParts) : null;
         }
 
-        if (empty($firstName) || empty($lastName) || empty($username) || empty($email) || empty($password)) {
-            echo json_encode(['success' => false, 'message' => 'Please fill in all required fields (First Name, Last Name, Username, Email, Password).']);
-            exit;
-        }
+        // if (empty($firstName) || empty($lastName) || empty($username) || empty($email) || empty($password)) {
+        //     echo json_encode(['success' => false, 'message' => 'Please fill in all required fields (First Name, Last Name, Username, Email, Password).']);
+        //     exit;
+        // }
 
         if ($password !== $confirm) {
             echo json_encode(['success' => false, 'message' => 'Passwords do not match.']);
@@ -1549,5 +1548,3 @@ class UserController
         exit;
     }
 }
-
-

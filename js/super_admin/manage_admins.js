@@ -1,3 +1,5 @@
+
+
 document.addEventListener("DOMContentLoaded", function () {
   let currentPage = 1;
   let currentLimit = 10;
@@ -30,8 +32,60 @@ document.addEventListener("DOMContentLoaded", function () {
   const confirmModalBtn = document.getElementById("confirmModalBtn");
   const cancelConfirmModalBtn = document.getElementById("cancelConfirmModalBtn");
   const closeConfirmModalBtn = document.getElementById("closeConfirmModalBtn");
-
   let activeConfirmCallback = null;
+
+const fName = document.getElementById("formFirstName");
+const lName = document.getElementById("formLastName");
+const message = document.getElementById("message");
+const btn = document.getElementById("saveAdminBtn");
+
+// // Validation function
+// function validateFirstName() {
+//     if (fName.value.trim() === '') {
+//         message.innerHTML = "Please fill out the required fields.";
+//         message.style.color = "red";
+//         fName.style.borderColor = "red";
+//         return false;
+//     } else {
+//         message.innerHTML = "✓ Looks good!";
+//         message.style.color = "green";
+//         fName.style.borderColor = "green";
+//         return true;
+//     }
+// }
+
+// // Add event listener for real-time validation
+// fName.addEventListener('input', function() {
+//     if (this.value.trim() === '') {
+//         message.innerHTML = "Please fill out the required fields.";
+//         message.style.color = "red";
+//         fName.style.borderColor = "red";
+//     } else {
+//         message.innerHTML = "✓ Looks good!";
+//         message.style.color = "green";
+//         fName.style.borderColor = "green";
+//     }
+// });
+
+// // Validate on blur (when user leaves the field)
+// fName.addEventListener('blur', function() {
+//     if (this.value.trim() === '') {
+//         message.innerHTML = "Please fill out the required fields.";
+//         message.style.color = "red";
+//         fName.style.borderColor = "red";
+//     }
+// });
+
+// // Button click handler
+// btn.addEventListener('click', function() {
+//     if (validateFirstName()) {
+//         alert("✅ Form submitted successfully!");
+//         // Your form submission logic here
+//     } else {
+//         fName.focus(); // Focus on the field with error
+//     }
+// });
+
 
   // Initialize
   loadAdmins();
