@@ -686,3 +686,18 @@
   background: rgba(154, 166, 142, 0.3);
   margin: 4px 0;
 }
+
+/* Role dropdown inside the Manage Admins table */
+.role-select {
+  padding: 6px 8px;
+  border: 1px solid #9aa68e;
+  border-radius: 6px;
+  background: #f6f3e8;
+  color: #2f3f33;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.role-select:focus {
+  outline: 2px solid rgba(88, 129, 87, 0.35);
+}

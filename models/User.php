@@ -13,6 +13,7 @@ class User
     {
         $this->conn = Database::getInstance()->getConnection();
         $this->ensureBlockListSchema();
+        $this->ensurePrivilegeSchema();
     }
 
     public function insertUser(array $data)
@@ -463,25 +464,28 @@ class User
         return $res;
     }
 
-    public function toggleAdminStatus(string $id_number, string $new_status, string $operator = 'superadmin'): bool
+    public function toggleAdminStatus(string $id_number, string $new_status, string $operator = 'superadmin', ?string $reason = null, ?string $ip = null): bool
     {
-        $stmt = $this->conn->prepare("UPDATE users SET status = :status WHERE id_number = :id_number AND role = 'admin'");
+        $stmt = $this->conn->prepare("UPDATE users SET status = :status, session_version = session_version + 1 WHERE id_number = :id_number AND role = 'admin'");
         $res = $stmt->execute([':status' => $new_status, ':id_number' => $id_number]);
         if ($res) {
             $targetUser = $this->getUserOrAdminByIdNumber($id_number);
             $targetName = $targetUser['name'] ?? $id_number;
             $opUser = $this->getUserOrAdminByIdNumber($operator);
             $opId = $opUser['id_number'] ?? $operator;
+            $opRole = strtolower($opUser['role'] ?? 'superadmin');
 
             if ($new_status === 'block') {
-                $this->syncBlockListOnBlock($id_number, $operator);
-                $details = "Blocked admin {$targetName}. Reason: Restricted by Super Admin";
-                $this->logAuditAction($opId, $operator, 'superadmin', 'Block User', $details);
+                $this->syncBlockListOnBlock($id_number, $operator, $reason, $ip);
+                $reasonText = !empty($reason) ? $reason : 'Restricted by Super Admin';
+                $details = "Blocked Admin: {$targetName} | Blocked By: {$operator} | Reason: {$reasonText}";
+                if (!empty($ip)) $details .= " | IP Address: {$ip}";
+                $this->logAuditAction($opId, $operator, $opRole, 'Block Admin', $details);
             } else {
                 $uName = $targetUser['username'] ?? $id_number;
                 $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number OR username = :username")->execute([':id_number' => $id_number, ':username' => $uName]);
                 $details = "Unblocked admin {$targetName}.";
-                $this->logAuditAction($opId, $operator, 'superadmin', 'Unblock User', $details);
+                $this->logAuditAction($opId, $operator, $opRole, 'Unblock Admin', $details);
             }
         }
         return $res;
@@ -741,25 +745,28 @@ class User
         }
     }
 
-    public function toggleStandardUserStatus(string $id_number, string $new_status, string $operator = 'superadmin'): bool
+    public function toggleStandardUserStatus(string $id_number, string $new_status, string $operator = 'superadmin', ?string $reason = null, ?string $ip = null): bool
     {
-        $stmt = $this->conn->prepare("UPDATE users SET status = :status WHERE id_number = :id_number AND role = 'user'");
+        $stmt = $this->conn->prepare("UPDATE users SET status = :status, session_version = session_version + 1 WHERE id_number = :id_number AND role = 'user'");
         $res = $stmt->execute([':status' => $new_status, ':id_number' => $id_number]);
         if ($res) {
             $targetUser = $this->getUserOrAdminByIdNumber($id_number);
             $targetName = $targetUser['name'] ?? $id_number;
             $opUser = $this->getUserOrAdminByIdNumber($operator);
             $opId = $opUser['id_number'] ?? $operator;
+            $opRole = strtolower($opUser['role'] ?? 'superadmin');
 
             if ($new_status === 'block') {
-                $this->syncBlockListOnBlock($id_number, $operator);
-                $details = "Blocked user {$targetName}. Reason: Restricted by Super Admin";
-                $this->logAuditAction($opId, $operator, 'superadmin', 'Block User', $details);
+                $this->syncBlockListOnBlock($id_number, $operator, $reason, $ip);
+                $reasonText = !empty($reason) ? $reason : 'Restricted by Super Admin';
+                $details = "Blocked User: {$targetName} | Blocked By: {$operator} | Reason: {$reasonText}";
+                if (!empty($ip)) $details .= " | IP Address: {$ip}";
+                $this->logAuditAction($opId, $operator, $opRole, 'Block User', $details);
             } else {
                 $uName = $targetUser['username'] ?? $id_number;
                 $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number OR username = :username")->execute([':id_number' => $id_number, ':username' => $uName]);
                 $details = "Unblocked user {$targetName}.";
-                $this->logAuditAction($opId, $operator, 'superadmin', 'Unblock User', $details);
+                $this->logAuditAction($opId, $operator, $opRole, 'Unblock User', $details);
             }
         }
         return $res;
@@ -805,6 +812,18 @@ class User
                 $this->conn->exec("ALTER TABLE block_list ADD COLUMN blocked_by VARCHAR(100) DEFAULT NULL AFTER role");
             }
 
+            // Check if reason column exists in block_list
+            $stmt = $this->conn->query("SHOW COLUMNS FROM block_list LIKE 'reason'");
+            if (!$stmt->fetch()) {
+                $this->conn->exec("ALTER TABLE block_list ADD COLUMN reason VARCHAR(255) DEFAULT NULL AFTER blocked_by");
+            }
+
+            // Check if ip_address column exists in block_list
+            $stmt = $this->conn->query("SHOW COLUMNS FROM block_list LIKE 'ip_address'");
+            if (!$stmt->fetch()) {
+                $this->conn->exec("ALTER TABLE block_list ADD COLUMN ip_address VARCHAR(45) DEFAULT NULL AFTER reason");
+            }
+
             // Ensure audit_logs id_number is VARCHAR(50)
             $stmt = $this->conn->query("SHOW COLUMNS FROM audit_logs LIKE 'id_number'");
             $col = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -813,6 +832,172 @@ class User
             }
         } catch (Exception $e) {
             error_log("Schema sync warning: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Creates the admin_privileges table and the users.session_version
+     * column used for role-change / block session invalidation.
+     */
+    public function ensurePrivilegeSchema(): void
+    {
+        try {
+            $stmt = $this->conn->query("SHOW TABLES LIKE 'admin_privileges'");
+            if (!$stmt->fetch()) {
+                $this->conn->exec(
+                    "CREATE TABLE admin_privileges (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        id_number VARCHAR(20) NOT NULL,
+                        privilege_key VARCHAR(50) NOT NULL,
+                        granted_at DATETIME DEFAULT NULL,
+                        UNIQUE KEY uq_admin_priv (id_number, privilege_key)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+                );
+            }
+
+            $stmt = $this->conn->query("SHOW COLUMNS FROM users LIKE 'session_version'");
+            if (!$stmt->fetch()) {
+                $this->conn->exec("ALTER TABLE users ADD COLUMN session_version INT NOT NULL DEFAULT 0 AFTER status");
+            }
+        } catch (Exception $e) {
+            error_log("Privilege schema sync warning: " . $e->getMessage());
+        }
+    }
+
+    /* ========================== ADMIN PRIVILEGES & ROLE MANAGEMENT ======================== */
+
+    public const PRIVILEGES = [
+        'view_user_logs' => 'View User Activity Logs',
+        'view_admin_logs' => 'View Admin Activity Logs',
+        'view_users' => 'View All User Accounts',
+        'block_users' => 'Block/Unblock Users',
+        'delete_users' => 'Delete User Accounts',
+        'edit_users' => 'Edit User Information'
+    ];
+
+    public function getAdminPrivileges(string $id_number): array
+    {
+        $stmt = $this->conn->prepare("SELECT privilege_key FROM admin_privileges WHERE id_number = :id_number");
+        $stmt->execute([':id_number' => $id_number]);
+        return array_map(function ($row) {
+            return $row['privilege_key'];
+        }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    public function saveAdminPrivileges(string $id_number, array $privileges): bool
+    {
+        try {
+            $this->conn->beginTransaction();
+
+            $stmt = $this->conn->prepare("DELETE FROM admin_privileges WHERE id_number = :id_number");
+            $stmt->execute([':id_number' => $id_number]);
+
+            $insert = $this->conn->prepare("INSERT INTO admin_privileges (id_number, privilege_key, granted_at) VALUES (:id_number, :privilege_key, :granted_at)");
+            foreach ($privileges as $key) {
+                if (array_key_exists($key, self::PRIVILEGES)) {
+                    $insert->execute([
+                        ':id_number' => $id_number,
+                        ':privilege_key' => $key,
+                        ':granted_at' => date('Y-m-d H:i:s')
+                    ]);
+                }
+            }
+
+            $this->conn->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->conn->rollBack();
+            error_log("Failed to save admin privileges: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function hasAdminPrivilege(string $id_number, string $key): bool
+    {
+        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM admin_privileges WHERE id_number = :id_number AND privilege_key = :key");
+        $stmt->execute([':id_number' => $id_number, ':key' => $key]);
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
+    public function removeAllPrivileges(string $id_number): bool
+    {
+        $stmt = $this->conn->prepare("DELETE FROM admin_privileges WHERE id_number = :id_number");
+        return $stmt->execute([':id_number' => $id_number]);
+    }
+
+    /**
+     * Returns the live authentication state of an account:
+     * id_number, username, role, status, session_version.
+     * Used by session_protect.php and endpoints to validate active sessions.
+     */
+    public function getAccountAuthState(string $id_number): ?array
+    {
+        $stmt = $this->conn->prepare("SELECT id_number, username, role, status, session_version FROM users WHERE id_number = :id_number");
+        $stmt->execute([':id_number' => $id_number]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function bumpSessionVersion(string $id_number): bool
+    {
+        $stmt = $this->conn->prepare("UPDATE users SET session_version = session_version + 1 WHERE id_number = :id_number");
+        return $stmt->execute([':id_number' => $id_number]);
+    }
+
+    /**
+     * Changes the role of an account while keeping role, privileges,
+     * session invalidation and audit logs synchronized.
+     *
+     * @param string $targetId            id_number of the account to change
+     * @param string $newRole             user | admin | superadmin
+     * @param string $performedById       id_number of the super admin performing the change
+     * @param string $performedByUsername username of the performing super admin
+     * @return array ['success' => bool, 'message' => string]
+     */
+    public function changeRole(string $targetId, string $newRole, string $performedById, string $performedByUsername): array
+    {
+        $allowedRoles = ['user', 'admin', 'superadmin'];
+        if (!in_array($newRole, $allowedRoles, true)) {
+            return ['success' => false, 'message' => 'Invalid role.'];
+        }
+
+        $target = $this->getUserOrAdminByIdNumber($targetId);
+        if (!$target) {
+            return ['success' => false, 'message' => 'Account not found.'];
+        }
+
+        $oldRole = $target['role'];
+        if ($oldRole === $newRole) {
+            return ['success' => false, 'message' => 'Role is already set to ' . $newRole . '.'];
+        }
+
+        try {
+            $this->conn->beginTransaction();
+
+            // 1. Update the role and bump session version (invalidates existing sessions)
+            $stmt = $this->conn->prepare("UPDATE users SET role = :role, session_version = session_version + 1 WHERE id_number = :id_number");
+            $stmt->execute([':role' => $newRole, ':id_number' => $targetId]);
+
+            // 2. Keep block_list role in sync (if a record exists)
+            $this->conn->prepare("UPDATE block_list SET role = :role WHERE id_number = :id_number")
+                ->execute([':role' => $newRole, ':id_number' => $targetId]);
+
+            // 3. Non-admin roles must never retain admin privileges
+            if ($newRole !== 'admin') {
+                $this->conn->prepare("DELETE FROM admin_privileges WHERE id_number = :id_number")
+                    ->execute([':id_number' => $targetId]);
+            }
+
+            // 4. Audit log the role change
+            $details = "Changed By: {$performedByUsername} | Target User: {$target['username']} | Old Role: {$oldRole} | New Role: {$newRole}";
+            $this->logAuditAction($performedById, $performedByUsername, 'superadmin', 'Change Role', $details);
+
+            $this->conn->commit();
+            return ['success' => true, 'message' => 'Role updated to ' . $newRole . '.'];
+        } catch (Exception $e) {
+            $this->conn->rollBack();
+            error_log("Failed to change role: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Failed to update role.'];
         }
     }
 
@@ -909,7 +1094,7 @@ class User
         return null;
     }
 
-    public function syncBlockListOnBlock(string $id_number, string $blockedBy = 'Super Admin'): bool
+    public function syncBlockListOnBlock(string $id_number, string $blockedBy = 'Super Admin', ?string $reason = null, ?string $ip = null): bool
     {
         try {
             $user = $this->getUserOrAdminByIdNumber($id_number);
@@ -920,7 +1105,7 @@ class User
             $existing = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($existing) {
-                $updateStmt = $this->conn->prepare("UPDATE block_list SET id_number = :id_number, name = :name, username = :username, email = :email, role = :role, status = 'blocked', blocked_by = :blocked_by, blocked_at = NOW() WHERE id = :id");
+                $updateStmt = $this->conn->prepare("UPDATE block_list SET id_number = :id_number, name = :name, username = :username, email = :email, role = :role, status = 'blocked', blocked_by = :blocked_by, reason = :reason, ip_address = :ip, blocked_at = NOW() WHERE id = :id");
                 return $updateStmt->execute([
                     ':id_number'  => $id_number,
                     ':name'       => $user['name'],
@@ -928,17 +1113,21 @@ class User
                     ':email'      => $user['email'] ?? '',
                     ':role'       => $user['role'],
                     ':blocked_by' => $blockedBy,
+                    ':reason'     => $reason,
+                    ':ip'         => $ip,
                     ':id'         => $existing['id']
                 ]);
             } else {
-                $insertStmt = $this->conn->prepare("INSERT INTO block_list (user_id, id_number, name, username, email, role, status, blocked_by, blocked_at) VALUES (0, :id_number, :name, :username, :email, :role, 'blocked', :blocked_by, NOW())");
+                $insertStmt = $this->conn->prepare("INSERT INTO block_list (user_id, id_number, name, username, email, role, status, blocked_by, reason, ip_address, blocked_at) VALUES (0, :id_number, :name, :username, :email, :role, 'blocked', :blocked_by, :reason, :ip, NOW())");
                 return $insertStmt->execute([
                     ':id_number'  => $id_number,
                     ':name'       => $user['name'],
                     ':username'   => $user['username'],
                     ':email'      => $user['email'] ?? '',
                     ':role'       => $user['role'],
-                    ':blocked_by' => $blockedBy
+                    ':blocked_by' => $blockedBy,
+                    ':reason'     => $reason,
+                    ':ip'         => $ip
                 ]);
             }
         } catch (Exception $e) {
@@ -947,7 +1136,7 @@ class User
         }
     }
 
-    public function getBlockList(string $search = '', string $status = 'blocked', int $offset = 0, int $limit = 10): array
+    public function getBlockList(string $search = '', string $status = 'blocked', string $roleFilter = 'all', int $offset = 0, int $limit = 10): array
     {
         // First sync users with status='block' into block_list if not present
         $syncStmt = $this->conn->query("SELECT id_number FROM users WHERE status = 'block'");
@@ -964,7 +1153,7 @@ class User
             }
         }
 
-        $sql = "SELECT b.id, b.id_number, b.name, b.username, b.email, b.role, b.status, b.blocked_by, b.blocked_at 
+        $sql = "SELECT b.id, b.id_number, b.name, b.username, b.email, b.role, b.status, b.blocked_by, b.reason, b.ip_address, b.blocked_at 
                 FROM block_list b 
                 WHERE 1=1";
         $params = [];
@@ -972,6 +1161,15 @@ class User
         if (!empty($status) && $status !== 'all') {
             $sql .= " AND b.status = :status";
             $params[':status'] = $status;
+        }
+
+        // Super Admin accounts should never appear in the regular block lists
+        if ($roleFilter === 'admin') {
+            $sql .= " AND b.role = 'admin'";
+        } elseif ($roleFilter === 'user') {
+            $sql .= " AND b.role = 'user'";
+        } else {
+            $sql .= " AND b.role IN ('admin', 'user')";
         }
 
         if (!empty($search)) {
@@ -1010,7 +1208,7 @@ class User
         return $rows;
     }
 
-    public function getBlockListCount(string $search = '', string $status = 'blocked'): int
+    public function getBlockListCount(string $search = '', string $status = 'blocked', string $roleFilter = 'all'): int
     {
         $sql = "SELECT COUNT(*) FROM block_list b WHERE 1=1";
         $params = [];
@@ -1018,6 +1216,14 @@ class User
         if (!empty($status) && $status !== 'all') {
             $sql .= " AND b.status = :status";
             $params[':status'] = $status;
+        }
+
+        if ($roleFilter === 'admin') {
+            $sql .= " AND b.role = 'admin'";
+        } elseif ($roleFilter === 'user') {
+            $sql .= " AND b.role = 'user'";
+        } else {
+            $sql .= " AND b.role IN ('admin', 'user')";
         }
 
         if (!empty($search)) {
@@ -1095,8 +1301,11 @@ class User
             $targetName = $targetUser['name'] ?? ($username ?: $id_number);
             $opUser = $this->getUserOrAdminByIdNumber($unblockedByUsername);
             $opId = $opUser['id_number'] ?? $unblockedByUsername;
-            $details = "Unblocked user {$targetName}.";
-            $this->logAuditAction($opId, $unblockedByUsername, $unblockedByRole, 'Unblock User', $details);
+            $targetRole = $blockRecord['role'] ?? ($targetUser['role'] ?? 'user');
+            $action = ($targetRole === 'admin') ? 'Unblock Admin' : 'Unblock User';
+            $kind = ($targetRole === 'admin') ? 'admin' : 'user';
+            $details = "Unblocked {$kind} {$targetName}.";
+            $this->logAuditAction($opId, $unblockedByUsername, $unblockedByRole, $action, $details);
 
             $this->conn->commit();
             return true;
@@ -1107,7 +1316,7 @@ class User
         }
     }
 
-    public function getAuditLogs(string $search = '', string $action = 'all', string $role = 'all', string $startDate = '', string $endDate = '', int $offset = 0, int $limit = 10): array
+    public function getAuditLogs(string $search = '', string $action = 'all', string $role = 'all', string $startDate = '', string $endDate = '', int $offset = 0, int $limit = 10, array $rolesIn = []): array
     {
         $sql = "SELECT id, id_number, username, role, action, details, time_in, time_out FROM audit_logs WHERE 1=1";
         $params = [];
@@ -1117,7 +1326,14 @@ class User
             $params[':action'] = $action;
         }
 
-        if (!empty($role) && $role !== 'all') {
+        if (!empty($rolesIn)) {
+            $placeholders = [];
+            foreach ($rolesIn as $i => $r) {
+                $placeholders[] = ':role_in_' . $i;
+                $params[':role_in_' . $i] = strtolower($r);
+            }
+            $sql .= " AND LOWER(role) IN (" . implode(', ', $placeholders) . ")";
+        } elseif (!empty($role) && $role !== 'all') {
             $sql .= " AND LOWER(role) = :role";
             $params[':role'] = strtolower($role);
         }
@@ -1156,7 +1372,7 @@ class User
         return $rows;
     }
 
-    public function getAuditLogsCount(string $search = '', string $action = 'all', string $role = 'all', string $startDate = '', string $endDate = ''): int
+    public function getAuditLogsCount(string $search = '', string $action = 'all', string $role = 'all', string $startDate = '', string $endDate = '', array $rolesIn = []): int
     {
         $sql = "SELECT COUNT(*) FROM audit_logs WHERE 1=1";
         $params = [];
@@ -1166,7 +1382,14 @@ class User
             $params[':action'] = $action;
         }
 
-        if (!empty($role) && $role !== 'all') {
+        if (!empty($rolesIn)) {
+            $placeholders = [];
+            foreach ($rolesIn as $i => $r) {
+                $placeholders[] = ':role_in_' . $i;
+                $params[':role_in_' . $i] = strtolower($r);
+            }
+            $sql .= " AND LOWER(role) IN (" . implode(', ', $placeholders) . ")";
+        } elseif (!empty($role) && $role !== 'all') {
             $sql .= " AND LOWER(role) = :role";
             $params[':role'] = strtolower($role);
         }

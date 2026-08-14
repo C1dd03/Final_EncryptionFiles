@@ -1048,3 +1048,74 @@ button {
     width: 100%;
   }
 }
+
+/* Privilege banners & restricted states (Manage Users / Audit Logs) */
+.privileges-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--farm-white);
+  border-left: 4px solid var(--farm-card-1);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  box-shadow: var(--farm-box-shadow);
+}
+
+.privileges-banner > i {
+  font-size: 1.3rem;
+  color: var(--farm-card-1);
+  margin-top: 3px;
+}
+
+.privileges-banner h4 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  color: var(--farm-text);
+}
+
+.privilege-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+
+.privilege-list li {
+  font-size: 0.85rem;
+  color: var(--farm-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.privilege-list li i {
+  color: var(--farm-card-1);
+}
+
+.restricted-state {
+  text-align: center;
+  padding: 52px 20px;
+  color: var(--farm-muted);
+}
+
+.restricted-state i {
+  font-size: 2.6rem;
+  color: var(--farm-card-4);
+  margin-bottom: 12px;
+}
+
+.restricted-state h3 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  color: var(--farm-text);
+}
+
+.restricted-state p {
+  margin: 0;
+  font-size: 0.9rem;
+  max-width: 480px;
+  margin-inline: auto;
+}

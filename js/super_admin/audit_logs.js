@@ -120,6 +120,20 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((res) => res.json())
       .then((res) => {
         if (res.success) {
+          if (res.restricted) {
+            // Admin without audit log privileges
+            auditTableBody.innerHTML = `
+              <tr>
+                <td colspan="8" class="empty-state">
+                  <i class="fa-solid fa-file-shield"></i>
+                  <p>${escapeHtml(res.message || "Access Restricted")}</p>
+                </td>
+              </tr>
+            `;
+            if (paginationInfo) paginationInfo.textContent = "Showing 0 to 0 of 0 entries";
+            if (paginationControls) paginationControls.innerHTML = "";
+            return;
+          }
           renderTable(res.data || []);
           renderPagination(res.totalRecords, res.totalPages, res.currentPage, res.limit);
         } else {

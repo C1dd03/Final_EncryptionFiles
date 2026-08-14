@@ -15,7 +15,13 @@ $currentUsername = $_SESSION['username'] ?? 'Admin';
 $currentIdNumber = $_SESSION['user_id'] ?? '';
 
 $userModel = new User();
+$canViewUsers = $userModel->hasAdminPrivilege($currentIdNumber, 'view_users');
 $stats = $userModel->getAdminDashboardStats();
+
+// Without the View Users privilege, statistics are not exposed (N/A)
+$totalDisplay   = $canViewUsers ? number_format($stats['total_users']) : 'N/A';
+$activeDisplay  = $canViewUsers ? number_format($stats['active_users']) : 'N/A';
+$blockedDisplay = $canViewUsers ? number_format($stats['blocked_users']) : 'N/A';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -52,7 +58,7 @@ $stats = $userModel->getAdminDashboardStats();
             </div>
             <div>
               <h3>Total Users</h3>
-              <div class="stat-value" id="stat-total"><?= number_format($stats['total_users']) ?></div>
+              <div class="stat-value" id="stat-total"><?= $totalDisplay ?></div>
               <p>Registered Users</p>
             </div>
           </div>
@@ -63,7 +69,7 @@ $stats = $userModel->getAdminDashboardStats();
             </div>
             <div>
               <h3>Active Users</h3>
-              <div class="stat-value" id="stat-active"><?= number_format($stats['active_users']) ?></div>
+              <div class="stat-value" id="stat-active"><?= $activeDisplay ?></div>
               <p>Currently active</p>
             </div>
           </div>
@@ -74,7 +80,7 @@ $stats = $userModel->getAdminDashboardStats();
             </div>
             <div>
               <h3>Blocked Users</h3>
-              <div class="stat-value" id="stat-blocked"><?= number_format($stats['blocked_users']) ?></div>
+              <div class="stat-value" id="stat-blocked"><?= $blockedDisplay ?></div>
               <p>Restricted access</p>
             </div>
           </div>

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../auth/session_protect.php';
 require_once __DIR__ . '/../../models/User.php';
+require_once __DIR__ . '/../../controllers/AdminController.php';
 
 $role = strtolower($_SESSION['role'] ?? '');
 if ($role !== 'admin') {
@@ -8,11 +9,50 @@ if ($role !== 'admin') {
     exit();
 }
 
+$currentUsername = $_SESSION['username'] ?? 'Admin';
+$currentIdNumber = $_SESSION['user_id'] ?? '';
+
+// Server-side privilege resolution — every action on this page is gated by these
+$userModel = new User();
+$granted = $userModel->getAdminPrivileges($currentIdNumber);
+$canViewUsers   = in_array('view_users', $granted, true);
+$canEditUsers   = in_array('edit_users', $granted, true);
+$canBlockUsers  = in_array('block_users', $granted, true);
+$canDeleteUsers = in_array('delete_users', $granted, true);
+
+$adminController = new AdminController();
+
+$search = trim($_GET['search'] ?? '');
+$status = trim($_GET['status'] ?? 'all');
+$pageRaw = $_GET['page'] ?? 1;
+$page = max(1, (int)$pageRaw);
+$limitRaw = $_GET['limit'] ?? 10;
+$limit = in_array((int)$limitRaw, [10, 25, 50, 100], true) ? (int)$limitRaw : 10;
+
+// Restricted admins must not load any user information
+if ($canViewUsers) {
+    $viewData = $adminController->getUsersForView($search, $status, $page, $limit);
+    $users = $viewData['records'];
+    $totalRecords = $viewData['totalRecords'];
+    $totalPages = $viewData['totalPages'];
+    $page = $viewData['currentPage'];
+    $limit = $viewData['limit'];
+} else {
+    $users = [];
+    $totalRecords = 0;
+    $totalPages = 1;
+}
+
+$startIdx = $totalRecords > 0 ? ($page - 1) * $limit + 1 : 0;
+$endIdx = min($page * $limit, $totalRecords);
+
 $pageTitle = 'Manage Users';
 $activePage = 'manage_users';
 
-$currentUsername = $_SESSION['username'] ?? 'Admin';
-$currentIdNumber = $_SESSION['user_id'] ?? '';
+function e($text)
+{
+    return htmlspecialchars((string)$text, ENT_QUOTES, 'UTF-8');
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -33,27 +73,45 @@ $currentIdNumber = $_SESSION['user_id'] ?? '';
             <?php include 'includes/admin_header.php'; ?>
             <main class="admin-content">
 
+                <?php if ($canViewUsers): ?>
+                <div class="privileges-banner">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <div>
+                        <h4>Your Admin Privileges:</h4>
+                        <ul class="privilege-list">
+                            <li><i class="fa-solid fa-check"></i> View Users</li>
+                            <?php if ($canBlockUsers): ?><li><i class="fa-solid fa-check"></i> Block/Unblock Users</li><?php endif; ?>
+                            <?php if ($canEditUsers): ?><li><i class="fa-solid fa-check"></i> Edit User Info</li><?php endif; ?>
+                            <?php if ($canDeleteUsers): ?><li><i class="fa-solid fa-check"></i> Delete Users</li><?php endif; ?>
+                        </ul>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <div class="manage-users-header">
                     <div>
                         <h2>Manage Users</h2>
                         <p>Review, create, edit, block/unblock, and manage standard user accounts.</p>
                     </div>
+                    <?php if ($canEditUsers): ?>
                     <button type="button" class="btn-primary" id="openAddUserBtn">
                         <i class="fa-solid fa-user-plus"></i> Add User
                     </button>
+                    <?php endif; ?>
                 </div>
 
-                <div class="control-card">
+                <?php if ($canViewUsers): ?>
+                <form method="GET" class="control-card" id="controlForm">
                     <div class="control-left">
                         <div class="search-box">
                             <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="searchInput" placeholder="Search ID No, Name, Username, Email..." />
+                            <input type="text" id="searchInput" name="search" placeholder="Search ID No, Name, Username, Email..." value="<?= e($search) ?>" />
                         </div>
 
-                        <select id="statusFilter" class="filter-select" aria-label="Status Filter">
-                            <option value="all">Status: All</option>
-                            <option value="active">Active</option>
-                            <option value="blocked">Blocked</option>
+                        <select id="statusFilter" name="status" class="filter-select" aria-label="Status Filter">
+                            <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>Status: All</option>
+                            <option value="active" <?= $status === 'active' ? 'selected' : '' ?>>Active</option>
+                            <option value="blocked" <?= $status === 'blocked' ? 'selected' : '' ?>>Blocked</option>
                         </select>
 
                         <select id="roleFilter" class="filter-select" disabled aria-label="Role Filter">
@@ -64,15 +122,15 @@ $currentIdNumber = $_SESSION['user_id'] ?? '';
                     <div class="control-right">
                         <div class="entries-select-wrapper">
                             <label for="entriesSelect">Show Entries:</label>
-                            <select id="entriesSelect" class="filter-select">
-                                <option value="10" selected>10</option>
-                                <option value="25">25</option>
-                                <option value="50">50</option>
-                                <option value="100">100</option>
+                            <select id="entriesSelect" name="limit" class="filter-select">
+                                <option value="10" <?= $limit === 10 ? 'selected' : '' ?>>10</option>
+                                <option value="25" <?= $limit === 25 ? 'selected' : '' ?>>25</option>
+                                <option value="50" <?= $limit === 50 ? 'selected' : '' ?>>50</option>
+                                <option value="100" <?= $limit === 100 ? 'selected' : '' ?>>100</option>
                             </select>
                         </div>
                     </div>
-                </div>
+                </form>
 
                 <div class="table-card">
                     <div class="table-responsive">
@@ -90,15 +148,122 @@ $currentIdNumber = $_SESSION['user_id'] ?? '';
                                 </tr>
                             </thead>
                             <tbody id="userTableBody">
+                                <?php if (!empty($users)): ?>
+                                    <?php foreach ($users as $index => $user):
+                                        $rowId = $startIdx + $index;
+                                        $isBlocked = $user['status'] === 'block' || $user['status'] === 'blocked';
+                                        $userName = trim(($user['first_name'] ?? '') . ' ' . ($user['middle_name'] ?? '') . ' ' . ($user['last_name'] ?? '') . ' ' . ($user['extension'] ?? ''));
+                                        $dataName = $user['name'] ?? $userName;
+                                        $dataEmail = $user['email'] ?? '';
+                                    ?>
+                                        <tr
+                                            data-id_number="<?= e($user['id_number']) ?>"
+                                            data-name="<?= e($dataName) ?>"
+                                            data-username="<?= e($user['username']) ?>"
+                                            data-email="<?= e($dataEmail) ?>"
+                                            data-status="<?= e($user['status']) ?>"
+                                            data-role="user"
+                                            data-created="<?= e($user['created_at'] ?? '') ?>">
+                                            <td><strong>#<?= $rowId ?></strong></td>
+                                            <td><code><?= e($user['id_number']) ?></code></td>
+                                            <td><strong><?= e($dataName) ?></strong></td>
+                                            <td>@<?= e($user['username']) ?></td>
+                                            <td><?= $dataEmail !== '' ? e($dataEmail) : 'N/A' ?></td>
+                                            <td><span class="badge-role-user">User</span></td>
+                                            <td>
+                                                <?php if ($isBlocked): ?>
+                                                    <span class="badge-status badge-blocked">Blocked</span>
+                                                <?php else: ?>
+                                                    <span class="badge-status badge-active">Active</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <div class="action-buttons">
+                                                    <button class="btn-action view" title="View Details" onclick="viewUser(this)">
+                                                        <i class="fa-solid fa-eye"></i>
+                                                    </button>
+                                                    <?php if ($canEditUsers): ?>
+                                                    <button class="btn-action edit" title="Edit User" onclick="editUser(this)">
+                                                        <i class="fa-solid fa-pen"></i>
+                                                    </button>
+                                                    <?php endif; ?>
+                                                    <?php if ($canBlockUsers): ?>
+                                                    <button class="btn-action <?= $isBlocked ? 'unblock' : 'block' ?>" title="<?= $isBlocked ? 'Unblock' : 'Block' ?> User" onclick="confirmToggleBlock(this)">
+                                                        <i class="fa-solid <?= $isBlocked ? 'fa-unlock' : 'fa-ban' ?>"></i>
+                                                    </button>
+                                                    <?php endif; ?>
+                                                    <?php if ($canDeleteUsers): ?>
+                                                    <button class="btn-action delete" title="Delete User" onclick="confirmDeleteUser(this)">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <tr>
+                                        <td colspan="8" class="empty-state">
+                                            <i class="fa-solid fa-user-slash"></i>
+                                            <p>No user accounts found.</p>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
 
                     <div class="table-footer">
-                        <div class="pagination-info" id="paginationInfo">Showing 0 entries</div>
-                        <div class="pagination-controls" id="paginationControls"></div>
+                        <div class="pagination-info" id="paginationInfo">
+                            <?php if ($totalRecords > 0): ?>
+                                Showing <?= $startIdx ?> to <?= $endIdx ?> of <?= $totalRecords ?> entries
+                            <?php else: ?>
+                                Showing 0 entries
+                            <?php endif; ?>
+                        </div>
+                        <div class="pagination-controls" id="paginationControls">
+                            <?php if ($totalRecords > 0):
+                                $queryBase = function ($p) use ($search, $status, $limit) {
+                                    $qs = http_build_query([
+                                        'search' => $search,
+                                        'status' => $status,
+                                        'limit'  => $limit,
+                                        'page'   => $p
+                                    ]);
+                                    return '?' . $qs;
+                                };
+                            ?>
+                                <a class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" href="<?= $page <= 1 ? '#' : $queryBase($page - 1) ?>">
+                                    <i class="fa-solid fa-chevron-left"></i>
+                                </a>
+                                <?php for ($i = 1; $i <= $totalPages; $i++):
+                                    $show = $i === 1 || $i === $totalPages || ($i >= $page - 1 && $i <= $page + 1);
+                                    $ellipsisBefore = $i === $page - 2 && $i > 2;
+                                    $ellipsisAfter  = $i === $page + 2 && $i < $totalPages - 1;
+                                ?>
+                                    <?php if ($ellipsisBefore || $ellipsisAfter): ?>
+                                        <span style="padding: 0 4px; color: var(--farm-muted);">...</span>
+                                    <?php endif; ?>
+                                    <?php if ($show): ?>
+                                        <a class="page-btn <?= $i === $page ? 'active' : '' ?>" href="<?= $queryBase($i) ?>"><?= $i ?></a>
+                                    <?php endif; ?>
+                                <?php endfor; ?>
+                                <a class="page-btn <?= $page >= $totalPages ? 'disabled' : '' ?>" href="<?= $page >= $totalPages ? '#' : $queryBase($page + 1) ?>">
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
+                <?php else: ?>
+                <div class="table-card">
+                    <div class="restricted-state">
+                        <i class="fa-solid fa-user-lock"></i>
+                        <h3>Access Restricted</h3>
+                        <p>You do not have the required "View Users" privilege to load this list.</p>
+                    </div>
+                </div>
+                <?php endif; ?>
 
             </main>
         </div>
@@ -321,7 +486,7 @@ $currentIdNumber = $_SESSION['user_id'] ?? '';
         </div>
     </div>
 
-    <!-- <div class="modal-overlay" id="viewModal">
+    <div class="modal-overlay" id="viewModal">
         <div class="modal-card">
             <div class="modal-header">
                 <h3>User Details</h3>
@@ -363,7 +528,7 @@ $currentIdNumber = $_SESSION['user_id'] ?? '';
                 <button type="button" class="btn-secondary" id="closeViewModalFooterBtn">Close</button>
             </div>
         </div>
-    </div> -->
+    </div>
 
     <div class="modal-overlay" id="confirmModal">
         <div class="modal-card" style="max-width: 440px;">
@@ -382,7 +547,7 @@ $currentIdNumber = $_SESSION['user_id'] ?? '';
     </div>
 
     <script src="../../js/admin/admin.js"></script>
-    <script src="../../js/super_admin/manage_users.js?v=<?= time() ?>"></script>
+    <script src="../../js/admin/manage_users.js?v=<?= time() ?>"></script>
 </body>
 
 </html>

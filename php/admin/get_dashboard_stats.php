@@ -12,6 +12,21 @@ if ($role !== 'admin') {
 }
 
 $userModel = new User();
+
+// Privilege gate: without "View All User Accounts", no statistics are exposed
+$canViewUsers = $userModel->hasAdminPrivilege($_SESSION['user_id'] ?? '', 'view_users');
+if (!$canViewUsers) {
+    echo json_encode([
+        'success'    => true,
+        'restricted' => true,
+        'total_users'   => 'N/A',
+        'active_users'  => 'N/A',
+        'blocked_users' => 'N/A',
+        'timestamp' => date('Y-m-d H:i:s')
+    ]);
+    exit();
+}
+
 $stats = $userModel->getAdminDashboardStats();
 
 echo json_encode([

@@ -82,6 +82,14 @@
       const data = await res.json();
       if (!data || !data.success) throw new Error('Invalid response');
 
+      if (data.restricted) {
+        // No "View Users" privilege: do not expose user statistics
+        [statTotal, statActive, statBlocked].forEach((el) => {
+          if (el && el.textContent.trim() !== 'N/A') el.textContent = 'N/A';
+        });
+        return;
+      }
+
       const prevTotal = parseStatValue(statTotal);
       const prevActive = parseStatValue(statActive);
       const prevBlocked = parseStatValue(statBlocked);

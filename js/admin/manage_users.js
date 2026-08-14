@@ -318,7 +318,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const row = getRowData(btnEl);
     if (!row) return;
 
-    fetch(`../../php/auth/index.php?action=getUserDetail&id_number=${encodeURIComponent(row.id_number)}`)
+    fetch(`../../php/auth/index.php?action=adminGetUserDetail&id_number=${encodeURIComponent(row.id_number)}`)
       .then((res) => res.json())
       .then((res) => {
         if (!res.success) {
@@ -405,7 +405,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    const action = mode === "add" ? "addStandardUser" : "updateStandardUser";
+    const action = mode === "add" ? "adminAddUser" : "adminUpdateUser";
 
     fetch(`../../php/auth/index.php?action=${action}`, {
       method: "POST",
@@ -498,7 +498,7 @@ document.addEventListener("DOMContentLoaded", function () {
         body.append("reason", reasonInput.value.trim());
       }
 
-      fetch("../../php/auth/index.php?action=toggleBlockUser", {
+      fetch("../../php/auth/index.php?action=adminToggleBlockUser", {
         method: "POST",
         body: body,
       })
@@ -531,7 +531,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const body = new FormData();
       body.append("id_number", row.id_number);
 
-      fetch("../../php/auth/index.php?action=deleteStandardUser", {
+      fetch("../../php/auth/index.php?action=adminDeleteUser", {
         method: "POST",
         body: body,
       })
@@ -561,111 +561,6 @@ document.addEventListener("DOMContentLoaded", function () {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
-  }
-
-  /* ===================== ROLE CHANGE (dropdown) ===================== */
-
-  const roleConfirmModal = document.getElementById("roleConfirmModal");
-  const roleConfirmMessage = document.getElementById("roleConfirmMessage");
-  const confirmRoleChangeBtn = document.getElementById("confirmRoleChangeBtn");
-  const cancelRoleConfirmModalBtn = document.getElementById("cancelRoleConfirmModalBtn");
-  const closeRoleConfirmModalBtn = document.getElementById("closeRoleConfirmModalBtn");
-
-  const roleLabels = { user: "User", admin: "Admin", superadmin: "Super Admin" };
-  let pendingRoleChange = null;
-
-  function setRoleSelectCurrent(select) {
-    const selected = select.querySelector("option:checked");
-    select.dataset.currentRole = selected ? selected.value : "user";
-  }
-
-  function openRoleConfirm() {
-    if (roleConfirmModal) roleConfirmModal.classList.add("show");
-  }
-
-  function closeRoleConfirm() {
-    if (roleConfirmModal) roleConfirmModal.classList.remove("show");
-    pendingRoleChange = null;
-  }
-
-  if (cancelRoleConfirmModalBtn) cancelRoleConfirmModalBtn.addEventListener("click", closeRoleConfirm);
-  if (closeRoleConfirmModalBtn) closeRoleConfirmModalBtn.addEventListener("click", closeRoleConfirm);
-
-  document.querySelectorAll(".role-select").forEach((select) => {
-    setRoleSelectCurrent(select);
-
-    select.addEventListener("change", function () {
-      const newRole = this.value;
-      const previousRole = this.dataset.currentRole || "user";
-
-      // Revert the dropdown until the change is confirmed (or rejected)
-      this.value = previousRole;
-
-      if (newRole === previousRole) return;
-
-      pendingRoleChange = {
-        id_number: this.dataset.id_number || "",
-        username: this.dataset.username || "",
-        name: this.dataset.name || "",
-        newRole: newRole,
-        previousRole: previousRole,
-        confirmSelf: false,
-      };
-
-      roleConfirmMessage.innerHTML = [
-        `You are about to change this user's role.`,
-        ``,
-        `<strong>New Role:</strong> ${escapeHtml(roleLabels[newRole] || newRole)}`,
-        newRole === "user"
-          ? `This will remove all administrator privileges.`
-          : `Privileges must be assigned separately after the role change.`,
-        ``,
-        `Are you sure you want to continue?`,
-      ].join("<br>");
-
-      confirmRoleChangeBtn.textContent = "Confirm";
-      openRoleConfirm();
-    });
-  });
-
-  if (confirmRoleChangeBtn) {
-    confirmRoleChangeBtn.addEventListener("click", function () {
-      if (!pendingRoleChange) return;
-
-      const body = new FormData();
-      body.append("id_number", pendingRoleChange.id_number);
-      body.append("new_role", pendingRoleChange.newRole);
-      if (pendingRoleChange.confirmSelf) body.append("confirm_self", "true");
-
-      fetch("../../php/auth/index.php?action=changeRole", {
-        method: "POST",
-        body: body,
-      })
-        .then((res) => res.json())
-        .then((res) => {
-          if (res.success) {
-            // The account moved to its new management section
-            window.location.reload();
-            return;
-          }
-          if (res.confirmation) {
-            // Deliberate security confirmation required (self-demotion)
-            pendingRoleChange.confirmSelf = true;
-            roleConfirmMessage.innerHTML = escapeHtml(
-              res.message || "This change removes your own Super Admin access. Confirm to continue."
-            );
-            confirmRoleChangeBtn.textContent = "Confirm Anyway";
-            return;
-          }
-          alert(res.message || "Failed to change role.");
-          closeRoleConfirm();
-        })
-        .catch((err) => {
-          console.error(err);
-          alert("An error occurred while changing the role.");
-          closeRoleConfirm();
-        });
-    });
   }
 
   window.closeAllDropdowns = function () {

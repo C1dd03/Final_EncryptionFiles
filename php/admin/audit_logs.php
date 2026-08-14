@@ -13,6 +13,13 @@ $activePage = 'audit_logs';
 
 $currentUsername = $_SESSION['username'] ?? 'Admin';
 $currentIdNumber = $_SESSION['user_id'] ?? '';
+
+// Audit log access depends on privileges: View User Activity Logs / View Admin Activity Logs
+$userModel = new User();
+$granted = $userModel->getAdminPrivileges($currentIdNumber);
+$canViewUserLogs  = in_array('view_user_logs', $granted, true);
+$canViewAdminLogs = in_array('view_admin_logs', $granted, true);
+$canViewAnyLogs   = $canViewUserLogs || $canViewAdminLogs;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -33,6 +40,20 @@ $currentIdNumber = $_SESSION['user_id'] ?? '';
       <?php include 'includes/admin_header.php'; ?>
       <main class="admin-content">
 
+        <?php if ($canViewAnyLogs): ?>
+        <div class="privileges-banner">
+          <i class="fa-solid fa-shield-halved"></i>
+          <div>
+            <h4>Your Admin Privileges:</h4>
+            <ul class="privilege-list">
+              <?php if ($canViewUserLogs): ?><li><i class="fa-solid fa-check"></i> View User Activity Logs</li><?php endif; ?>
+              <?php if ($canViewAdminLogs): ?><li><i class="fa-solid fa-check"></i> View Admin Activity Logs</li><?php endif; ?>
+            </ul>
+          </div>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($canViewAnyLogs): ?>
         <div class="audit-header">
           <div>
             <h2>Audit Logs</h2>
@@ -121,6 +142,15 @@ $currentIdNumber = $_SESSION['user_id'] ?? '';
             </div>
           </div>
         </div>
+        <?php else: ?>
+        <div class="table-card">
+          <div class="restricted-state">
+            <i class="fa-solid fa-file-shield"></i>
+            <h3>Access Restricted</h3>
+            <p>You do not have the required audit log privileges to view this list.</p>
+          </div>
+        </div>
+        <?php endif; ?>
 
       </main>
     </div>

@@ -35,23 +35,17 @@ $activePage = 'block_list';
         <div class="block-list-header">
           <div>
             <h2>Block List</h2>
-            <p>View, search, filter, and unblock restricted user and admin accounts.</p>
+            <p>View, search, and unblock restricted administrator and user accounts.</p>
           </div>
         </div>
 
-        <!-- Controls: Search, Filters & Show Entries -->
+        <!-- Controls: Search & Show Entries -->
         <div class="control-card">
           <div class="control-left">
             <div class="search-box">
               <i class="fa-solid fa-magnifying-glass"></i>
               <input type="text" id="searchInput" placeholder="Search ID No, Name, Username, Email, Blocked By..." />
             </div>
-
-            <select id="statusFilter" class="filter-select" aria-label="Status Filter">
-              <option value="all">Status: All</option>
-              <option value="blocked" selected>Blocked</option>
-              <option value="unblocked">Unblocked</option>
-            </select>
           </div>
 
           <div class="control-right">
@@ -67,36 +61,80 @@ $activePage = 'block_list';
           </div>
         </div>
 
-        <!-- Responsive Block List Table -->
-        <div class="table-card">
-          <div class="table-responsive">
-            <table class="block-table" id="blockTable">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>ID No</th>
-                  <th>Name</th>
-                  <th>Username</th>
-                  <th>Email</th>
-                  <th>Blocked By</th>
-                  <th>Blocked At</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="blockTableBody">
-                <!-- Dynamically Populated via JS -->
-              </tbody>
-            </table>
+        <!-- Blocked Admins Table -->
+        <div class="block-section">
+          <div class="block-section-header">
+            <h3><i class="fa-solid fa-user-shield"></i> Blocked Admins</h3>
           </div>
-
-          <!-- Table Footer / Pagination -->
-          <div class="table-footer">
-            <div class="pagination-info" id="paginationInfo">
-              Showing 0 to 0 of 0 entries
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="block-table" id="blockAdminTable">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>ID No</th>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Blocked By</th>
+                    <th>Blocked At</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="blockAdminTableBody">
+                  <!-- Dynamically Populated via JS -->
+                </tbody>
+              </table>
             </div>
-            <div class="pagination-controls" id="paginationControls">
-              <!-- Dynamically Populated via JS -->
+
+            <!-- Table Footer / Pagination -->
+            <div class="table-footer">
+              <div class="pagination-info" id="adminPaginationInfo">
+                Showing 0 to 0 of 0 entries
+              </div>
+              <div class="pagination-controls" id="adminPaginationControls">
+                <!-- Dynamically Populated via JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Blocked Users Table -->
+        <div class="block-section">
+          <div class="block-section-header">
+            <h3><i class="fa-solid fa-user"></i> Blocked Users</h3>
+          </div>
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="block-table" id="blockUserTable">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>ID No</th>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Blocked By</th>
+                    <th>Blocked At</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="blockUserTableBody">
+                  <!-- Dynamically Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Table Footer / Pagination -->
+            <div class="table-footer">
+              <div class="pagination-info" id="userPaginationInfo">
+                Showing 0 to 0 of 0 entries
+              </div>
+              <div class="pagination-controls" id="userPaginationControls">
+                <!-- Dynamically Populated via JS -->
+              </div>
             </div>
           </div>
         </div>
@@ -143,6 +181,10 @@ $activePage = 'block_list';
             <span id="viewBlockedBy">-</span>
           </div>
           <div class="detail-item">
+            <label>Reason</label>
+            <span id="viewReason">-</span>
+          </div>
+          <div class="detail-item">
             <label>Blocked At</label>
             <span id="viewBlockedAt">-</span>
           </div>
@@ -153,7 +195,7 @@ $activePage = 'block_list';
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn-secondary" id="closeViewModalBtn">Close</button>
+        <button type="button" class="btn-secondary" id="closeViewModalFooterBtn">Close</button>
       </div>
     </div>
   </div>
@@ -176,7 +218,7 @@ $activePage = 'block_list';
   </div>
 
   <script src="../../js/super_admin/superadmin.js"></script>
-  <script src="../../js/super_admin/block_list.js"></script>
+  <script src="../../js/super_admin/block_list.js?v=<?= time() ?>"></script>
 </body>
 
 </html>

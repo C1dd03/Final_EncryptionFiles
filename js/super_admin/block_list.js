@@ -1,21 +1,29 @@
 document.addEventListener("DOMContentLoaded", function () {
-  let currentPage = 1;
+  // Separate state per section: Blocked Admins vs Blocked Users
+  const adminState = { page: 1 };
+  const userState = { page: 1 };
   let currentLimit = 10;
   let currentSearch = "";
-  let currentStatus = "blocked"; // Default filter is Blocked
   let searchTimeout = null;
 
-  // DOM Elements
-  const blockTableBody = document.getElementById("blockTableBody");
+  // Shared controls
   const searchInput = document.getElementById("searchInput");
-  const statusFilter = document.getElementById("statusFilter");
   const entriesSelect = document.getElementById("entriesSelect");
-  const paginationInfo = document.getElementById("paginationInfo");
-  const paginationControls = document.getElementById("paginationControls");
+
+  // Blocked Admins table
+  const blockAdminTableBody = document.getElementById("blockAdminTableBody");
+  const adminPaginationInfo = document.getElementById("adminPaginationInfo");
+  const adminPaginationControls = document.getElementById("adminPaginationControls");
+
+  // Blocked Users table
+  const blockUserTableBody = document.getElementById("blockUserTableBody");
+  const userPaginationInfo = document.getElementById("userPaginationInfo");
+  const userPaginationControls = document.getElementById("userPaginationControls");
 
   // Detail View Modal Elements
   const viewModal = document.getElementById("viewModal");
   const closeViewModalBtn = document.getElementById("closeViewModalBtn");
+  const closeViewModalFooterBtn = document.getElementById("closeViewModalFooterBtn");
   const viewRecordId = document.getElementById("viewRecordId");
   const viewIdNumber = document.getElementById("viewIdNumber");
   const viewName = document.getElementById("viewName");
@@ -23,6 +31,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const viewEmail = document.getElementById("viewEmail");
   const viewRole = document.getElementById("viewRole");
   const viewBlockedBy = document.getElementById("viewBlockedBy");
+  const viewReason = document.getElementById("viewReason");
   const viewBlockedAt = document.getElementById("viewBlockedAt");
   const viewStatus = document.getElementById("viewStatus");
 
@@ -36,8 +45,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
   let activeConfirmCallback = null;
 
-  // Initial Load
-  loadBlockList();
+  // Initial Load: both sections separately
+  loadBlockList("admin");
+  loadBlockList("user");
 
   // Event Listeners
   if (searchInput) {
@@ -45,18 +55,11 @@ document.addEventListener("DOMContentLoaded", function () {
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(() => {
         currentSearch = this.value.trim();
-        currentPage = 1;
-        loadBlockList();
+        adminState.page = 1;
+        userState.page = 1;
+        loadBlockList("admin");
+        loadBlockList("user");
       }, 300);
-    });
-  }
-
-  if (statusFilter) {
-    statusFilter.value = currentStatus; // Set default filter to 'blocked'
-    statusFilter.addEventListener("change", function () {
-      currentStatus = this.value;
-      currentPage = 1;
-      loadBlockList();
     });
   }
 
@@ -64,12 +67,15 @@ document.addEventListener("DOMContentLoaded", function () {
     entriesSelect.value = currentLimit;
     entriesSelect.addEventListener("change", function () {
       currentLimit = parseInt(this.value, 10);
-      currentPage = 1;
-      loadBlockList();
+      adminState.page = 1;
+      userState.page = 1;
+      loadBlockList("admin");
+      loadBlockList("user");
     });
   }
 
   if (closeViewModalBtn) closeViewModalBtn.addEventListener("click", closeViewModal);
+  if (closeViewModalFooterBtn) closeViewModalFooterBtn.addEventListener("click", closeViewModal);
   if (closeConfirmModalBtn) closeConfirmModalBtn.addEventListener("click", closeConfirmModal);
   if (cancelConfirmModalBtn) cancelConfirmModalBtn.addEventListener("click", closeConfirmModal);
 
@@ -82,11 +88,21 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // Load Block List
-  function loadBlockList() {
-    if (!blockTableBody) return;
+  function stateFor(roleFilter) {
+    return roleFilter === "admin" ? adminState : userState;
+  }
 
-    blockTableBody.innerHTML = `
+  function bodyFor(roleFilter) {
+    return roleFilter === "admin" ? blockAdminTableBody : blockUserTableBody;
+  }
+
+  // Load one block list section (admins or users)
+  function loadBlockList(roleFilter) {
+    const body = bodyFor(roleFilter);
+    const state = stateFor(roleFilter);
+    if (!body) return;
+
+    body.innerHTML = `
       <tr>
         <td colspan="9" class="empty-state">
           <i class="fa-solid fa-spinner fa-spin"></i>
@@ -95,18 +111,18 @@ document.addEventListener("DOMContentLoaded", function () {
       </tr>
     `;
 
-    const url = `../../php/auth/index.php?action=getBlockList&search=${encodeURIComponent(
-      currentSearch
-    )}&status=${encodeURIComponent(currentStatus)}&page=${currentPage}&limit=${currentLimit}`;
+    const url = `../../php/auth/index.php?action=getBlockList&role_filter=${encodeURIComponent(
+      roleFilter
+    )}&search=${encodeURIComponent(currentSearch)}&status=blocked&page=${state.page}&limit=${currentLimit}`;
 
     fetch(url)
       .then((res) => res.json())
       .then((res) => {
         if (res.success) {
-          renderTable(res.data || []);
-          renderPagination(res.totalRecords, res.totalPages, res.currentPage, res.limit);
+          renderTable(roleFilter, res.data || []);
+          renderPagination(roleFilter, res.totalRecords, res.totalPages, res.currentPage, res.limit);
         } else {
-          blockTableBody.innerHTML = `
+          body.innerHTML = `
             <tr>
               <td colspan="9" class="empty-state">
                 <i class="fa-solid fa-circle-exclamation" style="color: #ef4444;"></i>
@@ -118,7 +134,7 @@ document.addEventListener("DOMContentLoaded", function () {
       })
       .catch((err) => {
         console.error("Error fetching block list:", err);
-        blockTableBody.innerHTML = `
+        body.innerHTML = `
           <tr>
             <td colspan="9" class="empty-state">
               <i class="fa-solid fa-triangle-exclamation" style="color: #f59e0b;"></i>
@@ -129,10 +145,13 @@ document.addEventListener("DOMContentLoaded", function () {
       });
   }
 
-  // Render Block List Table Rows
-  function renderTable(data) {
+  // Render rows for one section
+  function renderTable(roleFilter, data) {
+    const body = bodyFor(roleFilter);
+    if (!body) return;
+
     if (!data || data.length === 0) {
-      blockTableBody.innerHTML = `
+      body.innerHTML = `
         <tr>
           <td colspan="9" class="empty-state">
             <i class="fa-solid fa-user-check"></i>
@@ -187,18 +206,18 @@ document.addEventListener("DOMContentLoaded", function () {
       `;
     });
 
-    blockTableBody.innerHTML = rowsHtml;
+    body.innerHTML = rowsHtml;
 
-    // Attach Event Listeners to View Buttons
-    document.querySelectorAll(".btn-view-trigger").forEach((btn) => {
+    // Attach Event Listeners to View Buttons (scoped to this section)
+    body.querySelectorAll(".btn-view-trigger").forEach((btn) => {
       btn.addEventListener("click", function () {
         const id = this.getAttribute("data-id");
         openViewModal(id);
       });
     });
 
-    // Attach Event Listeners to Unblock Buttons
-    document.querySelectorAll(".btn-unblock-trigger").forEach((btn) => {
+    // Attach Event Listeners to Unblock Buttons (scoped to this section)
+    body.querySelectorAll(".btn-unblock-trigger").forEach((btn) => {
       btn.addEventListener("click", function () {
         const id = this.getAttribute("data-id");
         openUnblockConfirmation(id);
@@ -206,27 +225,27 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // Render Pagination Controls
-  function renderPagination(totalRecords, totalPages, page, limit) {
-    if (!paginationInfo || !paginationControls) return;
+  // Render pagination for one section
+  function renderPagination(roleFilter, totalRecords, totalPages, page, limit) {
+    const info = roleFilter === "admin" ? adminPaginationInfo : userPaginationInfo;
+    const controls = roleFilter === "admin" ? adminPaginationControls : userPaginationControls;
+    if (!info || !controls) return;
 
     if (totalRecords === 0) {
-      paginationInfo.textContent = "Showing 0 to 0 of 0 entries";
-      paginationControls.innerHTML = "";
+      info.textContent = "Showing 0 to 0 of 0 entries";
+      controls.innerHTML = "";
       return;
     }
 
     const start = (page - 1) * limit + 1;
     const end = Math.min(page * limit, totalRecords);
-    paginationInfo.textContent = `Showing ${start} to ${end} of ${totalRecords} entries`;
+    info.textContent = `Showing ${start} to ${end} of ${totalRecords} entries`;
 
     let controlsHtml = "";
 
-    // Previous Button
     const prevDisabled = page <= 1 ? "disabled" : "";
     controlsHtml += `<button type="button" class="page-link ${prevDisabled}" data-page="${page - 1}">Previous</button>`;
 
-    // Page Numbers
     for (let p = 1; p <= totalPages; p++) {
       if (
         p === 1 ||
@@ -240,20 +259,18 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    // Next Button
     const nextDisabled = page >= totalPages ? "disabled" : "";
     controlsHtml += `<button type="button" class="page-link ${nextDisabled}" data-page="${page + 1}">Next</button>`;
 
-    paginationControls.innerHTML = controlsHtml;
+    controls.innerHTML = controlsHtml;
 
-    // Attach Pagination Click Handlers
-    paginationControls.querySelectorAll("button.page-link").forEach((btn) => {
+    controls.querySelectorAll("button.page-link").forEach((btn) => {
       btn.addEventListener("click", function () {
         if (this.classList.contains("disabled") || this.classList.contains("active")) return;
         const targetPage = parseInt(this.getAttribute("data-page"), 10);
         if (targetPage && targetPage > 0 && targetPage <= totalPages) {
-          currentPage = targetPage;
-          loadBlockList();
+          stateFor(roleFilter).page = targetPage;
+          loadBlockList(roleFilter);
         }
       });
     });
@@ -273,6 +290,7 @@ document.addEventListener("DOMContentLoaded", function () {
           if (viewEmail) viewEmail.textContent = d.email || "-";
           if (viewRole) viewRole.textContent = (d.role || "-").toUpperCase();
           if (viewBlockedBy) viewBlockedBy.textContent = d.blocked_by || "Super Admin";
+          if (viewReason) viewReason.textContent = d.reason || "-";
           if (viewBlockedAt) viewBlockedAt.textContent = formatDate(d.blocked_at);
           if (viewStatus) {
             const isBlocked = (d.status || "").toLowerCase() === "blocked";
@@ -328,7 +346,11 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((res) => {
         if (res.success) {
           showToast(res.message || "Account unblocked successfully.", "success");
-          loadBlockList();
+          // Refresh both sections
+          adminState.page = 1;
+          userState.page = 1;
+          loadBlockList("admin");
+          loadBlockList("user");
         } else {
           showToast(res.message || "Failed to unblock account.", "error");
         }

@@ -477,6 +477,12 @@ class UserController
                 return;
             }
 
+            // Blocked accounts cannot log in
+            if (($user['status'] ?? 'active') !== 'active') {
+                echo json_encode(['success' => false, 'message' => 'Your account has been blocked. Please contact the Super Admin.', 'errorType' => 'accountBlocked']);
+                return;
+            }
+
             // Success
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
@@ -484,6 +490,7 @@ class UserController
             $_SESSION['user_id'] = $user['id_number'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = strtolower($user['role'] ?? 'user');
+            $_SESSION['session_version'] = (int)($user['session_version'] ?? 0);
 
             // Record Login Audit Log — always use Philippine local time
             date_default_timezone_set('Asia/Manila');
@@ -808,15 +815,77 @@ class UserController
 
     /* ========================== SUPER ADMIN: MANAGE ADMINS ACTIONS ======================== */
 
-    private function requireSuperAdmin()
+    /**
+     * Live session validation for AJAX endpoints. Verifies, against the database:
+     * logged-in user + current role + account status + session version.
+     */
+    private function validateLiveSession(array $allowedRoles): ?array
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
-        $role = strtolower($_SESSION['role'] ?? '');
-        if ($role !== 'superadmin') {
+
+        $userId = $_SESSION['user_id'] ?? '';
+        $authState = $userId !== '' ? $this->userModel->getAccountAuthState($userId) : null;
+
+        if (!$authState) {
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['success' => false, 'message' => 'Unauthorized access. Super Admin role required.']);
+            echo json_encode(['success' => false, 'message' => 'Session expired. Please log in again.', 'sessionExpired' => true]);
+            exit;
+        }
+
+        if ($authState['status'] !== 'active') {
+            session_unset();
+            session_destroy();
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'message' => 'Your account has been blocked. Please contact the Super Admin.', 'accountBlocked' => true]);
+            exit;
+        }
+
+        if ((int)($_SESSION['session_version'] ?? 0) !== (int)$authState['session_version']) {
+            session_unset();
+            session_destroy();
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'message' => 'Your role has changed. Please log in again.', 'sessionExpired' => true]);
+            exit;
+        }
+
+        // Refresh live role from DB
+        $_SESSION['role'] = $authState['role'];
+        $_SESSION['username'] = $authState['username'];
+
+        $role = strtolower($authState['role']);
+        if (!in_array($role, $allowedRoles, true)) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'message' => 'Unauthorized access. Required role: ' . implode(' or ', $allowedRoles) . '.']);
+            exit;
+        }
+
+        return $authState;
+    }
+
+    private function requireSuperAdmin()
+    {
+        $this->validateLiveSession(['superadmin']);
+    }
+
+    /**
+     * Admin session validation used by endpoints shared with the Admin module.
+     * Returns the live auth state (id_number, username, role, status).
+     */
+    public function requireValidAdmin(): array
+    {
+        return $this->validateLiveSession(['admin']);
+    }
+
+    /**
+     * Requires one of the given admin privileges for the current admin account.
+     */
+    private function requireAdminPrivilege(string $privilegeKey, string $idNumber): void
+    {
+        if (!$this->userModel->hasAdminPrivilege($idNumber, $privilegeKey)) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'message' => 'You do not have the required privilege (' . $privilegeKey . ').']);
             exit;
         }
     }
@@ -1099,6 +1168,7 @@ class UserController
             ]);
 
             echo json_encode(['success' => true, 'message' => 'Admin account created successfully.', 'id_number' => $newId]);
+            $this->userModel->logAuditAction($_SESSION['user_id'] ?? null, $_SESSION['username'] ?? 'superadmin', 'superadmin', 'Create Admin', "Created Admin: {$username}");
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Failed to create admin: ' . $e->getMessage()]);
         }
@@ -1309,6 +1379,7 @@ class UserController
 
             if ($updated) {
                 echo json_encode(['success' => true, 'message' => 'Admin account updated successfully.']);
+                $this->userModel->logAuditAction($_SESSION['user_id'] ?? null, $_SESSION['username'] ?? 'superadmin', 'superadmin', 'Update Admin', "Updated Admin: {$username}");
             } else {
                 echo json_encode(['success' => false, 'message' => 'Failed to update admin account.']);
             }
@@ -1325,13 +1396,22 @@ class UserController
 
         $id_number  = trim($_POST['id_number'] ?? '');
         $new_status = trim($_POST['status'] ?? '');
+        $reason     = trim($_POST['reason'] ?? '');
+        $ip         = $_SERVER['REMOTE_ADDR'] ?? '';
+        $operator   = $_SESSION['username'] ?? 'superadmin';
 
         if (empty($id_number) || !in_array($new_status, ['active', 'block'], true)) {
             echo json_encode(['success' => false, 'message' => 'Invalid parameters provided.']);
             exit;
         }
 
-        $updated = $this->userModel->toggleAdminStatus($id_number, $new_status);
+        // Protect the currently logged-in Super Admin from self-blocking
+        if (strtolower($operator) === 'superadmin' && $id_number === ($_SESSION['user_id'] ?? '')) {
+            echo json_encode(['success' => false, 'message' => 'You cannot block your own account.']);
+            exit;
+        }
+
+        $updated = $this->userModel->toggleAdminStatus($id_number, $new_status, $operator, $reason, $ip);
         if ($updated) {
             $actionText = ($new_status === 'block') ? 'blocked' : 'unblocked';
             echo json_encode(['success' => true, 'message' => "Admin account has been {$actionText}."]);
@@ -1355,6 +1435,7 @@ class UserController
         $deleted = $this->userModel->deleteAdmin($id_number);
         if ($deleted) {
             echo json_encode(['success' => true, 'message' => 'Admin account deleted successfully.']);
+            $this->userModel->logAuditAction($_SESSION['user_id'] ?? null, $_SESSION['username'] ?? 'superadmin', 'superadmin', 'Delete Admin', "Deleted Admin ID: {$id_number}");
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to delete admin account.']);
         }
@@ -1627,6 +1708,7 @@ class UserController
             ]);
 
             echo json_encode(['success' => true, 'message' => 'User account created successfully.', 'id_number' => $newId]);
+            $this->userModel->logAuditAction($_SESSION['user_id'] ?? null, $_SESSION['username'] ?? 'superadmin', 'superadmin', 'Create User', "Created User: {$username}");
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Failed to create user: ' . $e->getMessage()]);
         }
@@ -1850,6 +1932,7 @@ class UserController
 
             if ($updated) {
                 echo json_encode(['success' => true, 'message' => 'User account updated successfully.']);
+                $this->userModel->logAuditAction($_SESSION['user_id'] ?? null, $_SESSION['username'] ?? 'superadmin', 'superadmin', 'Edit User', "Edited User: {$username}");
             } else {
                 echo json_encode(['success' => false, 'message' => 'Failed to update user account.']);
             }
@@ -1866,13 +1949,16 @@ class UserController
 
         $id_number  = trim($_POST['id_number'] ?? '');
         $new_status = trim($_POST['status'] ?? '');
+        $reason     = trim($_POST['reason'] ?? '');
+        $ip         = $_SERVER['REMOTE_ADDR'] ?? '';
+        $operator   = $_SESSION['username'] ?? 'superadmin';
 
         if (empty($id_number) || !in_array($new_status, ['active', 'block'], true)) {
             echo json_encode(['success' => false, 'message' => 'Invalid parameters provided.']);
             exit;
         }
 
-        $updated = $this->userModel->toggleStandardUserStatus($id_number, $new_status);
+        $updated = $this->userModel->toggleStandardUserStatus($id_number, $new_status, $operator, $reason, $ip);
         if ($updated) {
             $actionText = ($new_status === 'block') ? 'blocked' : 'unblocked';
             echo json_encode(['success' => true, 'message' => "User account has been {$actionText}."]);
@@ -1896,6 +1982,7 @@ class UserController
         $deleted = $this->userModel->deleteStandardUser($id_number);
         if ($deleted) {
             echo json_encode(['success' => true, 'message' => 'User account deleted successfully.']);
+            $this->userModel->logAuditAction($_SESSION['user_id'] ?? null, $_SESSION['username'] ?? 'superadmin', 'superadmin', 'Delete User', "Deleted User ID: {$id_number}");
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to delete user account.']);
         }
@@ -1911,17 +1998,21 @@ class UserController
 
         $search = trim($_GET['search'] ?? '');
         $status = trim($_GET['status'] ?? 'blocked'); // Default filter is 'blocked'
+        $roleFilter = trim($_GET['role_filter'] ?? $_GET['role'] ?? 'all');
+        if (!in_array($roleFilter, ['all', 'admin', 'user'], true)) {
+            $roleFilter = 'all';
+        }
         $page   = max(1, (int)($_GET['page'] ?? 1));
         $limit  = in_array((int)($_GET['limit'] ?? 10), [10, 25, 50, 100], true) ? (int)$_GET['limit'] : 10;
 
-        $totalRecords = $this->userModel->getBlockListCount($search, $status);
+        $totalRecords = $this->userModel->getBlockListCount($search, $status, $roleFilter);
         $totalPages   = max(1, (int)ceil($totalRecords / $limit));
         if ($page > $totalPages && $totalPages > 0) {
             $page = $totalPages;
         }
         $offset = ($page - 1) * $limit;
 
-        $records = $this->userModel->getBlockList($search, $status, $offset, $limit);
+        $records = $this->userModel->getBlockList($search, $status, $roleFilter, $offset, $limit);
 
         echo json_encode([
             'success'      => true,
@@ -1981,8 +2072,11 @@ class UserController
 
     public function getAuditLogs()
     {
-        $this->requireSuperAdmin();
         header('Content-Type: application/json; charset=utf-8');
+
+        // Super Admin sees everything; Admin access is privilege-gated below
+        $authState = $this->validateLiveSession(['superadmin', 'admin']);
+        $isSuperAdmin = strtolower($authState['role']) === 'superadmin';
 
         $search    = trim($_GET['search'] ?? '');
         $action    = trim($_GET['action_filter'] ?? $_GET['action'] ?? 'all');
@@ -1992,14 +2086,42 @@ class UserController
         $page      = max(1, (int)($_GET['page'] ?? 1));
         $limit     = in_array((int)($_GET['limit'] ?? 10), [10, 25, 50, 100], true) ? (int)$_GET['limit'] : 10;
 
-        $totalRecords = $this->userModel->getAuditLogsCount($search, $action, $role, $startDate, $endDate);
+        $rolesIn = [];
+        if (!$isSuperAdmin) {
+            // Admin: only the log categories matching assigned privileges
+            $canUserLogs  = $this->userModel->hasAdminPrivilege($authState['id_number'], 'view_user_logs');
+            $canAdminLogs = $this->userModel->hasAdminPrivilege($authState['id_number'], 'view_admin_logs');
+
+            if (!$canUserLogs && !$canAdminLogs) {
+                echo json_encode([
+                    'success'      => true,
+                    'restricted'   => true,
+                    'message'      => 'You do not have the required audit log privileges.',
+                    'data'         => [],
+                    'totalRecords' => 0,
+                    'totalPages'   => 1,
+                    'currentPage'  => 1,
+                    'limit'        => $limit
+                ]);
+                exit;
+            }
+
+            if ($canUserLogs)  $rolesIn[] = 'user';
+            if ($canAdminLogs) {
+                $rolesIn[] = 'admin';
+                $rolesIn[] = 'superadmin';
+            }
+            $role = 'all'; // role filter handled by rolesIn
+        }
+
+        $totalRecords = $this->userModel->getAuditLogsCount($search, $action, $role, $startDate, $endDate, $rolesIn);
         $totalPages   = max(1, (int)ceil($totalRecords / $limit));
         if ($page > $totalPages && $totalPages > 0) {
             $page = $totalPages;
         }
         $offset = ($page - 1) * $limit;
 
-        $records = $this->userModel->getAuditLogs($search, $action, $role, $startDate, $endDate, $offset, $limit);
+        $records = $this->userModel->getAuditLogs($search, $action, $role, $startDate, $endDate, $offset, $limit, $rolesIn);
 
         echo json_encode([
             'success'      => true,
@@ -2009,6 +2131,130 @@ class UserController
             'currentPage'  => $page,
             'limit'        => $limit
         ]);
+        exit;
+    }
+
+    /* ========================== SUPER ADMIN: ROLE CHANGE & PRIVILEGES ======================== */
+
+    public function changeRole()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        $id_number = trim($_POST['id_number'] ?? '');
+        $newRole   = strtolower(trim($_POST['new_role'] ?? ''));
+        $confirmSelf = ($_POST['confirm_self'] ?? '') === 'true';
+
+        if (empty($id_number) || !in_array($newRole, ['user', 'admin', 'superadmin'], true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid parameters provided.']);
+            exit;
+        }
+
+        // Protect the currently logged-in Super Admin from self-demotion
+        // unless a deliberate confirmation was provided.
+        $currentId = $_SESSION['user_id'] ?? '';
+        if ($id_number === $currentId && $newRole !== 'superadmin') {
+            if (!$confirmSelf) {
+                echo json_encode([
+                    'success'      => false,
+                    'confirmation' => true,
+                    'message'      => 'You are about to change your own role. This will remove your Super Admin access. Confirm to continue.'
+                ]);
+                exit;
+            }
+        }
+
+        // Prevent changing the role of another super admin through this flow
+        // (super admin accounts are not listed on the management pages).
+        $target = $this->userModel->getUserOrAdminByIdNumber($id_number);
+        if ($target && strtolower($target['role']) === 'superadmin' && $id_number !== $currentId) {
+            echo json_encode(['success' => false, 'message' => 'Super Admin accounts cannot be changed from this page.']);
+            exit;
+        }
+
+        $result = $this->userModel->changeRole(
+            $id_number,
+            $newRole,
+            $_SESSION['user_id'],
+            $_SESSION['username'] ?? 'superadmin'
+        );
+
+        echo json_encode($result);
+        exit;
+    }
+
+    public function getAdminPrivileges()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $id_number = trim($_GET['id_number'] ?? $_POST['id_number'] ?? '');
+        if (empty($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
+            exit;
+        }
+
+        $privileges = $this->userModel->getAdminPrivileges($id_number);
+        echo json_encode(['success' => true, 'privileges' => $privileges]);
+        exit;
+    }
+
+    public function saveAdminPrivileges()
+    {
+        $this->requireSuperAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        $id_number = trim($_POST['id_number'] ?? '');
+        if (empty($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
+            exit;
+        }
+
+        // Only role='admin' accounts can hold privileges
+        $target = $this->userModel->getUserOrAdminByIdNumber($id_number);
+        if (!$target || strtolower($target['role']) !== 'admin') {
+            echo json_encode(['success' => false, 'message' => 'Privileges can only be assigned to Admin accounts.']);
+            exit;
+        }
+
+        $submitted = $_POST['privileges'] ?? [];
+        if (!is_array($submitted)) {
+            $submitted = json_decode((string)$submitted, true) ?: [];
+        }
+        $granted = array_values(array_intersect(array_keys(User::PRIVILEGES), array_map('strval', $submitted)));
+
+        $oldPrivileges = $this->userModel->getAdminPrivileges($id_number);
+        $saved = $this->userModel->saveAdminPrivileges($id_number, $granted);
+
+        if ($saved) {
+            $added   = array_values(array_diff($granted, $oldPrivileges));
+            $removed = array_values(array_diff($oldPrivileges, $granted));
+
+            $details = "Changed By: {$_SESSION['username']} | Target Admin: {$target['username']}";
+            if (!empty($added))   $details .= " | Granted: " . implode(', ', array_map(fn($k) => User::PRIVILEGES[$k], $added));
+            if (!empty($removed)) $details .= " | Removed: " . implode(', ', array_map(fn($k) => User::PRIVILEGES[$k], $removed));
+
+            if (!empty($added)) {
+                $this->userModel->logAuditAction($_SESSION['user_id'], $_SESSION['username'], 'superadmin', 'Assign Privilege', $details);
+            }
+            if (!empty($removed)) {
+                $this->userModel->logAuditAction($_SESSION['user_id'], $_SESSION['username'], 'superadmin', 'Remove Privilege', $details);
+            }
+
+            echo json_encode(['success' => true, 'message' => 'Admin privileges updated successfully.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to save admin privileges.']);
+        }
         exit;
     }
 }

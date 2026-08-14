@@ -266,6 +266,16 @@ document.addEventListener("DOMContentLoaded", function () {
           const target = data.redirect || "/Final_EncryptionFiles/public/dashboard.php";
           window.location.href = target;
         } else {
+          // Blocked accounts: show the blocked message and skip the attempt/lock flow
+          if (data.errorType === "accountBlocked") {
+            setMessage(
+              data.message ||
+                "Your account has been blocked. Please contact the Super Admin.",
+              "error"
+            );
+            return;
+          }
+
           // Ignore validation errors from backend
           if (
             data.message &&

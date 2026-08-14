@@ -12,8 +12,14 @@ header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 header("Expires: 0");
 
+if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
+  <p style="color: #dc2626; font-weight: bold; text-align:center;">
+    Your account has been blocked. Please contact the Super Admin.
+  </p>
+<?php endif; ?>
 
-if (isset($_GET['registered']) && $_GET['registered'] == 1): ?>
+
+<?php if (isset($_GET['registered']) && $_GET['registered'] == 1): ?>
   <p style="color: green; font-weight: bold; text-align:center;">
     🎉 Registration successful! Please log in.
   </p>

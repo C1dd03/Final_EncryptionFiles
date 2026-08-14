@@ -1,9 +1,11 @@
 <?php
 // require_once __DIR__ . '/../controllers/AuthController.php';
 require_once __DIR__ . '/../../controllers/UserController.php';
+require_once __DIR__ . '/../../controllers/AdminController.php';
 
 // $authController = new AuthController();
 $userController = new UserController();
+$adminController = new AdminController();
 
 $action = $_GET['action'] ?? 'login';
 
@@ -50,7 +52,7 @@ switch ($action) {
         exit();
 
 
-    /* ========================== ADD LOGOUT ======================== */
+        /* ========================== ADD LOGOUT ======================== */
     case 'logout':
         $userController->logout();
 
@@ -136,8 +138,35 @@ switch ($action) {
         $userController->getAuditLogs();
         break;
 
+    /* ========================== ROLE & PRIVILEGE ROUTES ======================== */
+    case 'changeRole':
+        $userController->changeRole();
+        break;
+    case 'getAdminPrivileges':
+        $userController->getAdminPrivileges();
+        break;
+    case 'saveAdminPrivileges':
+        $userController->saveAdminPrivileges();
+        break;
+
+    /* ========================== ADMIN: MANAGE USERS ROUTES ======================== */
+    case 'adminGetUserDetail':
+        $adminController->getAdminUserDetail();
+        break;
+    case 'adminAddUser':
+        $adminController->addAdminUser();
+        break;
+    case 'adminUpdateUser':
+        $adminController->updateAdminUser();
+        break;
+    case 'adminToggleBlockUser':
+        $adminController->toggleBlockAdminUser();
+        break;
+    case 'adminDeleteUser':
+        $adminController->deleteAdminUser();
+        break;
+
     default:
         $userController->showLogin();
         break;
 }
-
