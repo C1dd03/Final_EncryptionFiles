@@ -1330,12 +1330,12 @@ class User
             $placeholders = [];
             foreach ($rolesIn as $i => $r) {
                 $placeholders[] = ':role_in_' . $i;
-                $params[':role_in_' . $i] = strtolower($r);
+                $params[':role_in_' . $i] = strtolower(trim($r));
             }
-            $sql .= " AND LOWER(role) IN (" . implode(', ', $placeholders) . ")";
+            $sql .= " AND LOWER(TRIM(role)) IN (" . implode(', ', $placeholders) . ")";
         } elseif (!empty($role) && $role !== 'all') {
-            $sql .= " AND LOWER(role) = :role";
-            $params[':role'] = strtolower($role);
+            $sql .= " AND LOWER(TRIM(role)) = :role";
+            $params[':role'] = strtolower(trim($role));
         }
 
         if (!empty($startDate)) {
@@ -1386,12 +1386,12 @@ class User
             $placeholders = [];
             foreach ($rolesIn as $i => $r) {
                 $placeholders[] = ':role_in_' . $i;
-                $params[':role_in_' . $i] = strtolower($r);
+                $params[':role_in_' . $i] = strtolower(trim($r));
             }
-            $sql .= " AND LOWER(role) IN (" . implode(', ', $placeholders) . ")";
+            $sql .= " AND LOWER(TRIM(role)) IN (" . implode(', ', $placeholders) . ")";
         } elseif (!empty($role) && $role !== 'all') {
-            $sql .= " AND LOWER(role) = :role";
-            $params[':role'] = strtolower($role);
+            $sql .= " AND LOWER(TRIM(role)) = :role";
+            $params[':role'] = strtolower(trim($role));
         }
 
         if (!empty($startDate)) {

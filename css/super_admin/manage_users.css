@@ -566,33 +566,44 @@
 }
 
 /* =====================================================
-   Action Dropdown Menu
+   Accessible Action Dropdown Menu (Matching Design)
    ===================================================== */
 .action-dropdown {
   position: relative;
   display: inline-block;
 }
 
-.action-dropdown-toggle {
-  width: 34px;
-  height: 34px;
+.action-dropdown-btn {
+  background: #3b82f6;
+  color: #ffffff;
+  border: 1px solid #2563eb;
+  padding: 7px 14px;
   border-radius: 8px;
-  border: 1px solid var(--farm-border);
-  background: #ffffff;
-  color: var(--farm-text);
+  font-weight: 500;
+  font-size: 0.86rem;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 14px;
+  justify-content: space-between;
+  gap: 10px;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
   transition: all 0.2s ease;
+  min-width: 100px;
 }
 
-.action-dropdown-toggle:hover,
-.action-dropdown-toggle.active {
-  background: rgba(88, 129, 87, 0.1);
-  border-color: var(--farm-card-1);
-  color: var(--farm-card-1);
+.action-dropdown-btn:hover,
+.action-dropdown-btn.active {
+  background: #2563eb;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+}
+
+.action-dropdown-btn .dropdown-chevron {
+  font-size: 11px;
+  transition: transform 0.2s ease;
+}
+
+.action-dropdown-btn.active .dropdown-chevron {
+  transform: rotate(180deg);
 }
 
 .action-dropdown-menu {
@@ -600,17 +611,17 @@
   right: 0;
   top: calc(100% + 6px);
   background: #ffffff;
-  border: 1px solid var(--farm-border);
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(47, 63, 51, 0.15);
-  min-width: 150px;
-  z-index: 1000;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  min-width: 160px;
+  z-index: 1050;
   opacity: 0;
   visibility: hidden;
   transform: translateY(-6px) scale(0.97);
   transform-origin: top right;
   transition: all 0.18s ease;
-  overflow: hidden;
+  padding: 6px;
 }
 
 .action-dropdown-menu.open {
@@ -624,11 +635,13 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border: none;
+  border-radius: 6px;
   background: transparent;
-  font-size: 0.875rem;
-  color: var(--farm-text);
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: #334155;
   cursor: pointer;
   text-align: left;
   transition: background 0.15s ease, color 0.15s ease;
@@ -636,61 +649,300 @@
 }
 
 .action-menu-item i {
-  width: 14px;
+  width: 16px;
   text-align: center;
   font-size: 13px;
+  color: #64748b;
 }
 
 .action-menu-item:hover {
-  background: rgba(88, 129, 87, 0.08);
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
-.action-menu-item.view:hover {
-  color: #1a73e8;
-  background: #e8f0fe;
+.action-menu-item.edit i {
+  color: #3b82f6;
 }
 
 .action-menu-item.edit:hover {
-  color: #e37400;
-  background: #feefe3;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.action-menu-item.unblock i {
+  color: #10b981;
 }
 
 .action-menu-item.unblock:hover {
-  color: #137333;
-  background: #e6f4ea;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.action-menu-item.block i {
+  color: #f59e0b;
 }
 
 .action-menu-item.block:hover {
-  color: #c5221f;
-  background: #fce8e6;
+  background: #fffbeb;
+  color: #b45309;
 }
 
 .action-menu-item.delete {
-  color: #c5221f;
+  color: #dc2626;
+}
+
+.action-menu-item.delete i {
+  color: #ef4444;
 }
 
 .action-menu-item.delete:hover {
-  color: #ffffff;
-  background: #dc2626;
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .action-menu-divider {
   height: 1px;
-  background: rgba(154, 166, 142, 0.3);
+  background: #f1f5f9;
   margin: 4px 0;
 }
 
-/* Role dropdown inside the Manage Users table */
+
+/* ─── Custom Role Dropdown (Manage Users table) ─────────────────────────── */
+
+/* Hide native select — kept for JS compatibility only */
 .role-select {
-  padding: 6px 8px;
-  border: 1px solid #9aa68e;
-  border-radius: 6px;
-  background: #f6f3e8;
-  color: #2f3f33;
-  font-size: 0.85rem;
-  cursor: pointer;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.role-select:focus {
-  outline: 2px solid rgba(88, 129, 87, 0.35);
+.role-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+/* Trigger pill button */
+.role-dropdown-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 9px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.role-dropdown-btn:hover {
+  filter: brightness(0.93);
+}
+
+.role-dropdown-chevron {
+  font-size: 0.65rem;
+  transition: transform 0.22s ease;
+  margin-left: 2px;
+  opacity: 0.75;
+}
+
+.role-dropdown.open .role-dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+/* Per-role colour themes */
+.role-btn-user {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-color: #a5d6a7;
+}
+.role-btn-admin {
+  background: #e3f2fd;
+  color: #1565c0;
+  border-color: #90caf9;
+}
+.role-btn-superadmin {
+  background: #f3e5f5;
+  color: #6a1b9a;
+  border-color: #ce93d8;
+}
+
+/* Dropdown panel */
+.role-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  min-width: 190px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(47, 63, 51, 0.14), 0 4px 10px rgba(0, 0, 0, 0.06);
+  padding: 6px;
+  z-index: 9999;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
+}
+
+.role-dropdown.open .role-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+/* Option rows */
+.role-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.82rem;
+  color: #334155;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.role-option:hover {
+  background: #f1f5f9;
+}
+
+.role-option.active {
+  background: #f1f5f9;
+  font-weight: 600;
+}
+
+/* Icons in option rows */
+.role-option > .fa-solid:first-child {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+
+.role-opt-user > .fa-solid:first-child    { background: #e8f5e9; color: #2e7d32; }
+.role-opt-admin > .fa-solid:first-child   { background: #e3f2fd; color: #1565c0; }
+.role-opt-superadmin > .fa-solid:first-child { background: #f3e5f5; color: #6a1b9a; }
+
+/* Text block */
+.role-opt-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.role-opt-label {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: #1e293b;
+}
+
+.role-opt-desc {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+/* Check mark on active option */
+.role-opt-check {
+  font-size: 0.72rem;
+  color: #588157;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+
+/* Toast Notifications */
+.toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast-item {
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: 400px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast-item.toast-success {
+  border-left: 4px solid #10b981;
+  color: #065f46;
+}
+
+.toast-item.toast-success i.toast-icon {
+  color: #10b981;
+  font-size: 1.1rem;
+}
+
+.toast-item.toast-error {
+  border-left: 4px solid #ef4444;
+  color: #991b1b;
+}
+
+.toast-item.toast-error i.toast-icon {
+  color: #ef4444;
+  font-size: 1.1rem;
+}
+
+.toast-item .toast-msg {
+  flex: 1;
+}
+
+.toast-item .toast-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  font-size: 14px;
+}
+
+.toast-item .toast-close:hover {
+  color: #475569;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
 }

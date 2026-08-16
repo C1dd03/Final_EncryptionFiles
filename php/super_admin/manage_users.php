@@ -138,16 +138,51 @@ function e($text)
                       <td>@<?= e($user['username']) ?></td>
                       <td><?= $dataEmail !== '' ? e($dataEmail) : 'N/A' ?></td>
                       <td>
-                        <select
-                          class="role-select"
+                        <div class="role-dropdown"
                           data-id_number="<?= e($user['id_number']) ?>"
                           data-username="<?= e($user['username']) ?>"
                           data-name="<?= e($dataName) ?>"
-                          aria-label="Change role for <?= e($user['username']) ?>">
-                          <option value="user" <?= $user['role'] === 'user' ? 'selected' : '' ?>>User</option>
-                          <option value="admin" <?= $user['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
-                          <option value="superadmin" <?= $user['role'] === 'superadmin' ? 'selected' : '' ?>>Super Admin</option>
-                        </select>
+                          data-current-role="<?= e($user['role']) ?>">
+                          <!-- Hidden native select keeps data attrs; JS fires change on it -->
+                          <select class="role-select" aria-hidden="true" tabindex="-1"
+                            data-id_number="<?= e($user['id_number']) ?>"
+                            data-username="<?= e($user['username']) ?>"
+                            data-name="<?= e($dataName) ?>">
+                            <option value="user"  <?= $user['role'] === 'user'  ? 'selected' : '' ?>>User</option>
+                            <option value="admin" <?= $user['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
+                          </select>
+                          <!-- Visible trigger button -->
+                          <button type="button" class="role-dropdown-btn role-btn-<?= e($user['role']) ?>"
+                            aria-haspopup="listbox" aria-expanded="false"
+                            aria-label="Change role for <?= e($user['username']) ?>">
+                            <i class="fa-solid <?= $user['role'] === 'admin' ? 'fa-user-shield' : 'fa-user' ?>"></i>
+                            <span class="role-btn-label"><?= $user['role'] === 'admin' ? 'Admin' : 'User' ?></span>
+                            <i class="fa-solid fa-chevron-down role-dropdown-chevron"></i>
+                          </button>
+                          <!-- Dropdown menu -->
+                          <div class="role-dropdown-menu" role="listbox">
+                            <button type="button" class="role-option role-opt-user <?= $user['role'] === 'user' ? 'active' : '' ?>" data-value="user" role="option">
+                              <i class="fa-solid fa-user"></i>
+                              <div class="role-opt-text">
+                                <span class="role-opt-label">User</span>
+                                <span class="role-opt-desc">Standard account</span>
+                              </div>
+                              <?php if ($user['role'] === 'user'): ?>
+                              <i class="fa-solid fa-check role-opt-check"></i>
+                              <?php endif; ?>
+                            </button>
+                            <button type="button" class="role-option role-opt-admin <?= $user['role'] === 'admin' ? 'active' : '' ?>" data-value="admin" role="option">
+                              <i class="fa-solid fa-user-shield"></i>
+                              <div class="role-opt-text">
+                                <span class="role-opt-label">Admin</span>
+                                <span class="role-opt-desc">Privileged account</span>
+                              </div>
+                              <?php if ($user['role'] === 'admin'): ?>
+                              <i class="fa-solid fa-check role-opt-check"></i>
+                              <?php endif; ?>
+                            </button>
+                          </div>
+                        </div>
                       </td>
                       <td>
                         <?php if ($isBlocked): ?>
@@ -157,19 +192,30 @@ function e($text)
                         <?php endif; ?>
                       </td>
                       <td>
-                        <div class="action-buttons">
-                          <button class="btn-action view" title="View Details" onclick="viewUser(this)">
-                            <i class="fa-solid fa-eye"></i>
+                        <div class="action-dropdown">
+                          <button type="button" class="action-dropdown-btn" onclick="toggleActionDropdown(this)" aria-expanded="false" aria-label="Action options">
+                            <span>Options</span>
+                            <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
                           </button>
-                          <button class="btn-action edit" title="Edit User" onclick="editUser(this)">
-                            <i class="fa-solid fa-pen"></i>
-                          </button>
-                          <button class="btn-action <?= $isBlocked ? 'unblock' : 'block' ?>" title="<?= $isBlocked ? 'Unblock' : 'Block' ?> User" onclick="confirmToggleBlock(this)">
-                            <i class="fa-solid <?= $isBlocked ? 'fa-unlock' : 'fa-ban' ?>"></i>
-                          </button>
-                          <button class="btn-action delete" title="Delete User" onclick="confirmDeleteUser(this)">
-                            <i class="fa-solid fa-trash"></i>
-                          </button>
+                          <div class="action-dropdown-menu">
+                            <button type="button" class="action-menu-item view" onclick="viewUser(this)">
+                              <i class="fa-solid fa-eye"></i>
+                              <span>View Details</span>
+                            </button>
+                            <button type="button" class="action-menu-item edit" onclick="editUser(this)">
+                              <i class="fa-solid fa-pen"></i>
+                              <span>Edit</span>
+                            </button>
+                            <button type="button" class="action-menu-item <?= $isBlocked ? 'unblock' : 'block' ?>" onclick="confirmToggleBlock(this)">
+                              <i class="fa-solid <?= $isBlocked ? 'fa-unlock' : 'fa-ban' ?>"></i>
+                              <span><?= $isBlocked ? 'Unblock' : 'Block' ?></span>
+                            </button>
+                            <div class="action-menu-divider"></div>
+                            <button type="button" class="action-menu-item delete" onclick="confirmDeleteUser(this)">
+                              <i class="fa-solid fa-trash"></i>
+                              <span>Delete</span>
+                            </button>
+                          </div>
                         </div>
                       </td>
                     </tr>

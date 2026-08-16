@@ -2088,7 +2088,7 @@ class UserController
 
         $rolesIn = [];
         if (!$isSuperAdmin) {
-            // Admin: only the log categories matching assigned privileges
+            // Determine which role logs this admin is allowed to see
             $canUserLogs  = $this->userModel->hasAdminPrivilege($authState['id_number'], 'view_user_logs');
             $canAdminLogs = $this->userModel->hasAdminPrivilege($authState['id_number'], 'view_admin_logs');
 
@@ -2106,12 +2106,22 @@ class UserController
                 exit;
             }
 
-            if ($canUserLogs)  $rolesIn[] = 'user';
-            if ($canAdminLogs) {
-                $rolesIn[] = 'admin';
-                $rolesIn[] = 'superadmin';
+            // Build the allowed roles set — superadmin is NEVER included on the Admin side
+            $allowedRoles = [];
+            if ($canUserLogs)  $allowedRoles[] = 'user';
+            if ($canAdminLogs) $allowedRoles[] = 'admin';
+
+            // If the caller passed a role filter, honour it only if it is within the allowed set
+            $roleLower = strtolower(trim($role));
+            if ($roleLower !== 'all' && in_array($roleLower, $allowedRoles, true)) {
+                // Narrow to the requested role only
+                $rolesIn = [$roleLower];
+            } else {
+                // Show all allowed roles (never superadmin)
+                $rolesIn = $allowedRoles;
             }
-            $role = 'all'; // role filter handled by rolesIn
+            // Reset $role so the model's elseif branch is not hit; $rolesIn takes full control
+            $role = 'all';
         }
 
         $totalRecords = $this->userModel->getAuditLogsCount($search, $action, $role, $startDate, $endDate, $rolesIn);

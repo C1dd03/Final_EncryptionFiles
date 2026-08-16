@@ -139,16 +139,75 @@ function e($text)
                       <td><?= e($admin['username']) ?></td>
                       <td><?= $dataEmail !== '' ? e($dataEmail) : 'N/A' ?></td>
                       <td>
-                        <select
-                          class="role-select"
+                        <?php
+                          $adminRole = $admin['role'] ?? 'admin';
+                          $roleIcon  = match($adminRole) {
+                            'superadmin' => 'fa-user-astronaut',
+                            'admin'      => 'fa-user-shield',
+                            default      => 'fa-user',
+                          };
+                          $roleLabel = match($adminRole) {
+                            'superadmin' => 'Super Admin',
+                            'admin'      => 'Admin',
+                            default      => 'User',
+                          };
+                        ?>
+                        <div class="role-dropdown"
                           data-id_number="<?= e($admin['id_number']) ?>"
                           data-username="<?= e($admin['username']) ?>"
                           data-name="<?= e($dataName) ?>"
-                          aria-label="Change role for <?= e($admin['username']) ?>">
-                          <option value="user" <?= $admin['role'] === 'user' ? 'selected' : '' ?>>User</option>
-                          <option value="admin" <?= $admin['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
-                          <option value="superadmin" <?= $admin['role'] === 'superadmin' ? 'selected' : '' ?>>Super Admin</option>
-                        </select>
+                          data-current-role="<?= e($adminRole) ?>">
+                          <!-- Hidden native select keeps data attrs; JS fires change on it -->
+                          <select class="role-select" aria-hidden="true" tabindex="-1"
+                            data-id_number="<?= e($admin['id_number']) ?>"
+                            data-username="<?= e($admin['username']) ?>"
+                            data-name="<?= e($dataName) ?>">
+                            <option value="user"       <?= $adminRole === 'user'       ? 'selected' : '' ?>>User</option>
+                            <option value="admin"      <?= $adminRole === 'admin'      ? 'selected' : '' ?>>Admin</option>
+                            <option value="superadmin" <?= $adminRole === 'superadmin' ? 'selected' : '' ?>>Super Admin</option>
+                          </select>
+                          <!-- Visible trigger button -->
+                          <button type="button" class="role-dropdown-btn role-btn-<?= e($adminRole) ?>"
+                            aria-haspopup="listbox" aria-expanded="false"
+                            aria-label="Change role for <?= e($admin['username']) ?>">
+                            <i class="fa-solid <?= e($roleIcon) ?>"></i>
+                            <span class="role-btn-label"><?= e($roleLabel) ?></span>
+                            <i class="fa-solid fa-chevron-down role-dropdown-chevron"></i>
+                          </button>
+                          <!-- Dropdown menu -->
+                          <div class="role-dropdown-menu" role="listbox">
+                            <button type="button" class="role-option role-opt-user <?= $adminRole === 'user' ? 'active' : '' ?>" data-value="user" role="option">
+                              <i class="fa-solid fa-user"></i>
+                              <div class="role-opt-text">
+                                <span class="role-opt-label">User</span>
+                                <span class="role-opt-desc">Standard account</span>
+                              </div>
+                              <?php if ($adminRole === 'user'): ?>
+                              <i class="fa-solid fa-check role-opt-check"></i>
+                              <?php endif; ?>
+                            </button>
+                            <button type="button" class="role-option role-opt-admin <?= $adminRole === 'admin' ? 'active' : '' ?>" data-value="admin" role="option">
+                              <i class="fa-solid fa-user-shield"></i>
+                              <div class="role-opt-text">
+                                <span class="role-opt-label">Admin</span>
+                                <span class="role-opt-desc">Privileged account</span>
+                              </div>
+                              <?php if ($adminRole === 'admin'): ?>
+                              <i class="fa-solid fa-check role-opt-check"></i>
+                              <?php endif; ?>
+                            </button>
+                            <button type="button" class="role-option role-opt-superadmin <?= $adminRole === 'superadmin' ? 'active' : '' ?>" data-value="superadmin" role="option">
+                              <i class="fa-solid fa-user-astronaut"></i>
+                              <div class="role-opt-text">
+                                <span class="role-opt-label">Super Admin</span>
+                                <span class="role-opt-desc">Full system access</span>
+                              </div>
+                              <?php if ($adminRole === 'superadmin'): ?>
+                              <i class="fa-solid fa-check role-opt-check"></i>
+                              <?php endif; ?>
+                            </button>
+                          </div>
+                        </div>
                       </td>
                       <td>
                         <?php if ($isBlocked): ?>
@@ -158,22 +217,34 @@ function e($text)
                         <?php endif; ?>
                       </td>
                       <td>
-                        <div class="action-buttons">
-                          <button class="btn-action view" title="View Details" onclick="viewAdmin(this)">
-                            <i class="fa-solid fa-eye"></i>
+                        <div class="action-dropdown">
+                          <button type="button" class="action-dropdown-btn" onclick="toggleActionDropdown(this)" aria-expanded="false" aria-label="Action options">
+                            <span>Options</span>
+                            <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
                           </button>
-                          <button class="btn-action edit" title="Edit Admin" onclick="editAdmin(this)">
-                            <i class="fa-solid fa-pen"></i>
-                          </button>
-                          <button class="btn-action <?= $isBlocked ? 'unblock' : 'block' ?>" title="<?= $isBlocked ? 'Unblock' : 'Block' ?> Admin" onclick="confirmToggleBlock(this)">
-                            <i class="fa-solid <?= $isBlocked ? 'fa-unlock' : 'fa-ban' ?>"></i>
-                          </button>
-                          <button class="btn-action privileges" title="Manage Privileges" onclick="openPrivilegesModal(this)">
-                            <i class="fa-solid fa-shield-halved"></i>
-                          </button>
-                          <button class="btn-action delete" title="Delete Admin" onclick="confirmDeleteAdmin(this)">
-                            <i class="fa-solid fa-trash"></i>
-                          </button>
+                          <div class="action-dropdown-menu">
+                            <button type="button" class="action-menu-item view" onclick="viewAdmin(this)">
+                              <i class="fa-solid fa-eye"></i>
+                              <span>View Details</span>
+                            </button>
+                            <button type="button" class="action-menu-item edit" onclick="editAdmin(this)">
+                              <i class="fa-solid fa-pen"></i>
+                              <span>Edit</span>
+                            </button>
+                            <button type="button" class="action-menu-item privileges" onclick="openPrivilegesModal(this)">
+                              <i class="fa-solid fa-shield-halved"></i>
+                              <span>Privileges</span>
+                            </button>
+                            <button type="button" class="action-menu-item <?= $isBlocked ? 'unblock' : 'block' ?>" onclick="confirmToggleBlock(this)">
+                              <i class="fa-solid <?= $isBlocked ? 'fa-unlock' : 'fa-ban' ?>"></i>
+                              <span><?= $isBlocked ? 'Unblock' : 'Block' ?></span>
+                            </button>
+                            <div class="action-menu-divider"></div>
+                            <button type="button" class="action-menu-item delete" onclick="confirmDeleteAdmin(this)">
+                              <i class="fa-solid fa-trash"></i>
+                              <span>Delete</span>
+                            </button>
+                          </div>
                         </div>
                       </td>
                       
@@ -540,47 +611,108 @@ function e($text)
 
   <!-- Manage Privileges Modal -->
   <div class="modal-overlay" id="privilegesModal">
-    <div class="modal-card" style="max-width: 520px;">
+    <div class="modal-card modal-card-privileges" style="max-width: 600px;">
       <div class="modal-header">
-        <h3>Manage Privileges</h3>
+        <h3><i class="fa-solid fa-shield-halved" style="margin-right: 8px;"></i> Manage Privileges</h3>
         <button type="button" class="modal-close" id="closePrivilegesModalBtn">&times;</button>
       </div>
       <div class="modal-body">
-        <p style="margin:0 0 12px; font-size: 0.9rem; color: var(--farm-muted);">
-          Assign specific actions to this administrator:
-        </p>
+        <div class="privileges-target-card">
+          <div class="priv-target-icon"><i class="fa-solid fa-user-gear"></i></div>
+          <div class="priv-target-info">
+            <h4 id="privilegesTargetName">Administrator</h4>
+            <p id="privilegesTargetMeta">ID: <code id="privilegesTargetId">-</code> • Username: <span id="privilegesTargetUser">@admin</span></p>
+          </div>
+        </div>
+
+        <div class="privileges-toolbar">
+          <span class="priv-toolbar-title">Permissions Checklist</span>
+          <div class="priv-toolbar-actions">
+            <button type="button" class="btn-priv-tool" id="btnSelectAllPriv">
+              <i class="fa-solid fa-check-double"></i> Select All
+            </button>
+            <button type="button" class="btn-priv-tool" id="btnDeselectAllPriv">
+              <i class="fa-solid fa-xmark"></i> Deselect All
+            </button>
+          </div>
+        </div>
+
         <input type="hidden" id="privilegesIdNumber" value="" />
         <input type="hidden" id="privilegesUsername" value="" />
-        <div class="privilege-list" id="privilegeCheckboxList">
-          <label class="privilege-item">
+
+        <div class="privilege-grid" id="privilegeCheckboxList">
+          <label class="privilege-card">
             <input type="checkbox" value="view_user_logs" class="privilege-checkbox" />
-            <span>View User Activity Logs</span>
+            <div class="priv-card-body">
+              <div class="priv-card-icon"><i class="fa-solid fa-list-check"></i></div>
+              <div class="priv-card-text">
+                <span class="priv-card-title">View User Activity Logs</span>
+                <span class="priv-card-desc">Access and inspect user activity audit trails</span>
+              </div>
+            </div>
           </label>
-          <label class="privilege-item">
+
+          <label class="privilege-card">
             <input type="checkbox" value="view_admin_logs" class="privilege-checkbox" />
-            <span>View Admin Activity Logs</span>
+            <div class="priv-card-body">
+              <div class="priv-card-icon"><i class="fa-solid fa-shield-cat"></i></div>
+              <div class="priv-card-text">
+                <span class="priv-card-title">View Admin Activity Logs</span>
+                <span class="priv-card-desc">Access and inspect admin security audit trails</span>
+              </div>
+            </div>
           </label>
-          <label class="privilege-item">
+
+          <label class="privilege-card">
             <input type="checkbox" value="view_users" class="privilege-checkbox" />
-            <span>View All User Accounts</span>
+            <div class="priv-card-body">
+              <div class="priv-card-icon"><i class="fa-solid fa-users"></i></div>
+              <div class="priv-card-text">
+                <span class="priv-card-title">View All User Accounts</span>
+                <span class="priv-card-desc">Search, filter, and view registered user profiles</span>
+              </div>
+            </div>
           </label>
-          <label class="privilege-item">
+
+          <label class="privilege-card">
             <input type="checkbox" value="block_users" class="privilege-checkbox" />
-            <span>Block/Unblock Users</span>
+            <div class="priv-card-body">
+              <div class="priv-card-icon"><i class="fa-solid fa-user-slash"></i></div>
+              <div class="priv-card-text">
+                <span class="priv-card-title">Block / Unblock Users</span>
+                <span class="priv-card-desc">Restrict or reinstate active user accounts</span>
+              </div>
+            </div>
           </label>
-          <label class="privilege-item">
+
+          <label class="privilege-card">
             <input type="checkbox" value="delete_users" class="privilege-checkbox" />
-            <span>Delete User Accounts</span>
+            <div class="priv-card-body">
+              <div class="priv-card-icon"><i class="fa-solid fa-trash-can"></i></div>
+              <div class="priv-card-text">
+                <span class="priv-card-title">Delete User Accounts</span>
+                <span class="priv-card-desc">Permanently remove user accounts from system</span>
+              </div>
+            </div>
           </label>
-          <label class="privilege-item">
+
+          <label class="privilege-card">
             <input type="checkbox" value="edit_users" class="privilege-checkbox" />
-            <span>Edit User Information</span>
+            <div class="priv-card-body">
+              <div class="priv-card-icon"><i class="fa-solid fa-user-pen"></i></div>
+              <div class="priv-card-text">
+                <span class="priv-card-title">Edit User Information</span>
+                <span class="priv-card-desc">Update user details, address, and profile data</span>
+              </div>
+            </div>
           </label>
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-secondary" id="cancelPrivilegesModalBtn">Cancel</button>
-        <button type="button" class="btn-primary" id="savePrivilegesBtn">Save Privileges</button>
+        <button type="button" class="btn-primary" id="savePrivilegesBtn">
+          <i class="fa-solid fa-floppy-disk"></i> Save Privileges
+        </button>
       </div>
     </div>
   </div>

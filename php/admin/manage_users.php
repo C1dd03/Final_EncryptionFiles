@@ -73,27 +73,25 @@ function e($text)
             <?php include 'includes/admin_header.php'; ?>
             <main class="admin-content">
 
-                <?php if ($canViewUsers): ?>
                 <div class="privileges-banner">
                     <i class="fa-solid fa-shield-halved"></i>
                     <div>
                         <h4>Your Admin Privileges:</h4>
                         <ul class="privilege-list">
-                            <li><i class="fa-solid fa-check"></i> View Users</li>
+                            <?php if ($canViewUsers): ?><li><i class="fa-solid fa-check"></i> View Users</li><?php endif; ?>
                             <?php if ($canBlockUsers): ?><li><i class="fa-solid fa-check"></i> Block/Unblock Users</li><?php endif; ?>
                             <?php if ($canEditUsers): ?><li><i class="fa-solid fa-check"></i> Edit User Info</li><?php endif; ?>
                             <?php if ($canDeleteUsers): ?><li><i class="fa-solid fa-check"></i> Delete Users</li><?php endif; ?>
                         </ul>
                     </div>
                 </div>
-                <?php endif; ?>
 
                 <div class="manage-users-header">
                     <div>
                         <h2>Manage Users</h2>
-                        <p>Review, create, edit, block/unblock, and manage standard user accounts.</p>
+                        <p><?= $canViewUsers ? 'Review, create, edit, block/unblock, and manage standard user accounts.' : 'View and manage user accounts. Note: You can only manage users with the "user" role.' ?></p>
                     </div>
-                    <?php if ($canEditUsers): ?>
+                    <?php if ($canViewUsers && $canEditUsers): ?>
                     <button type="button" class="btn-primary" id="openAddUserBtn">
                         <i class="fa-solid fa-user-plus"></i> Add User
                     </button>
@@ -178,25 +176,38 @@ function e($text)
                                                 <?php endif; ?>
                                             </td>
                                             <td>
-                                                <div class="action-buttons">
-                                                    <button class="btn-action view" title="View Details" onclick="viewUser(this)">
-                                                        <i class="fa-solid fa-eye"></i>
+                                                <div class="action-dropdown">
+                                                    <button type="button" class="action-dropdown-btn" onclick="toggleActionDropdown(this)" aria-expanded="false" aria-label="Action options">
+                                                        <span>Options</span>
+                                                        <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
                                                     </button>
-                                                    <?php if ($canEditUsers): ?>
-                                                    <button class="btn-action edit" title="Edit User" onclick="editUser(this)">
-                                                        <i class="fa-solid fa-pen"></i>
-                                                    </button>
-                                                    <?php endif; ?>
-                                                    <?php if ($canBlockUsers): ?>
-                                                    <button class="btn-action <?= $isBlocked ? 'unblock' : 'block' ?>" title="<?= $isBlocked ? 'Unblock' : 'Block' ?> User" onclick="confirmToggleBlock(this)">
-                                                        <i class="fa-solid <?= $isBlocked ? 'fa-unlock' : 'fa-ban' ?>"></i>
-                                                    </button>
-                                                    <?php endif; ?>
-                                                    <?php if ($canDeleteUsers): ?>
-                                                    <button class="btn-action delete" title="Delete User" onclick="confirmDeleteUser(this)">
-                                                        <i class="fa-solid fa-trash"></i>
-                                                    </button>
-                                                    <?php endif; ?>
+                                                    <div class="action-dropdown-menu">
+                                                        <?php if ($canViewUsers): ?>
+                                                        <button type="button" class="action-menu-item view" onclick="viewUser(this)">
+                                                            <i class="fa-solid fa-eye"></i>
+                                                            <span>View Details</span>
+                                                        </button>
+                                                        <?php endif; ?>
+                                                        <?php if ($canEditUsers): ?>
+                                                        <button type="button" class="action-menu-item edit" onclick="editUser(this)">
+                                                            <i class="fa-solid fa-pen"></i>
+                                                            <span>Edit</span>
+                                                        </button>
+                                                        <?php endif; ?>
+                                                        <?php if ($canBlockUsers): ?>
+                                                        <button type="button" class="action-menu-item <?= $isBlocked ? 'unblock' : 'block' ?>" onclick="confirmToggleBlock(this)">
+                                                            <i class="fa-solid <?= $isBlocked ? 'fa-unlock' : 'fa-ban' ?>"></i>
+                                                            <span><?= $isBlocked ? 'Unblock' : 'Block' ?></span>
+                                                        </button>
+                                                        <?php endif; ?>
+                                                        <?php if ($canDeleteUsers): ?>
+                                                        <div class="action-menu-divider"></div>
+                                                        <button type="button" class="action-menu-item delete" onclick="confirmDeleteUser(this)">
+                                                            <i class="fa-solid fa-trash"></i>
+                                                            <span>Delete</span>
+                                                        </button>
+                                                        <?php endif; ?>
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>

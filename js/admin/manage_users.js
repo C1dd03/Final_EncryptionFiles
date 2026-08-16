@@ -394,60 +394,65 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const mode = document.getElementById("formMode").value;
     const formData = new FormData(userForm);
+    const isEdit = mode !== "add";
+    const userName = (formData.get("first_name") || "") + " " + (formData.get("last_name") || "");
 
-    if (mode === "add") {
-      const password = formData.get("password");
-      const confirm = formData.get("confirm_password");
-      if (password !== confirm) {
-        const confInput = document.getElementById("formConfirmPassword");
-        setFieldError(confInput, "Passwords do not match!");
-        return;
-      }
-    }
+    // Show confirmation modal before saving changes / adding user
+    confirmModalTitle.textContent = isEdit ? "Save Changes?" : "Add User?";
+    confirmModalMessage.innerHTML = isEdit
+      ? `Are you sure you want to save changes to user account <strong>${escapeHtml(userName.trim())}</strong>?`
+      : `Are you sure you want to create a new user account for <strong>${escapeHtml(userName.trim())}</strong>?`;
 
-    const action = mode === "add" ? "adminAddUser" : "adminUpdateUser";
+    confirmModalBtn.className = "btn-primary";
+    confirmModalBtn.textContent = isEdit ? "Confirm & Save" : "Confirm & Create";
 
-    fetch(`../../php/auth/index.php?action=${action}`, {
-      method: "POST",
-      body: formData,
-    })
-      .then((res) => res.json())
-      .then((res) => {
-        if (res.success) {
-          alert(res.message);
-          closeUserModal();
-          window.location.reload();
-        } else if (res.fieldErrors) {
-          const fieldMap = {
-            first_name:         "formFirstName",
-            middle_name:        "formMiddleName",
-            last_name:          "formLastName",
-            extension:          "formExtension",
-            birthdate:          "formBirthdate",
-            gender:             "formGender",
-            street:             "formStreet",
-            barangay:           "formBarangay",
-            city:               "formCity",
-            province:           "formProvince",
-            country:            "formCountry",
-            zip:                "formZip",
-            username:           "formUsername",
-            email:              "formEmail",
-            password:           "formPassword",
-            confirm_password:   "formConfirmPassword",
-          };
-          Object.entries(res.fieldErrors).forEach(([field, msg]) => {
-            const elId = fieldMap[field];
-            if (elId) setFieldError(document.getElementById(elId), msg);
-          });
-        } else {
-          alert(res.message || "Operation failed.");
-        }
+    activeConfirmCallback = function () {
+      const action = mode === "add" ? "adminAddUser" : "adminUpdateUser";
+
+      fetch(`../../php/auth/index.php?action=${action}`, {
+        method: "POST",
+        body: formData,
       })
-      .catch((err) => {
-        console.error(err);
-        alert("An error occurred during form submission.");
-      });
+        .then((res) => res.json())
+        .then((res) => {
+          if (res.success) {
+            setFlashToast(isEdit ? "User successfully updated." : "User successfully created.", "success");
+            closeUserModal();
+            window.location.reload();
+          } else if (res.fieldErrors) {
+            const fieldMap = {
+              first_name:         "formFirstName",
+              middle_name:        "formMiddleName",
+              last_name:          "formLastName",
+              extension:          "formExtension",
+              birthdate:          "formBirthdate",
+              gender:             "formGender",
+              street:             "formStreet",
+              barangay:           "formBarangay",
+              city:               "formCity",
+              province:           "formProvince",
+              country:            "formCountry",
+              zip:                "formZip",
+              username:           "formUsername",
+              email:              "formEmail",
+              password:           "formPassword",
+              confirm_password:   "formConfirmPassword",
+            };
+            Object.entries(res.fieldErrors).forEach(([field, msg]) => {
+              const elId = fieldMap[field];
+              if (elId) setFieldError(document.getElementById(elId), msg);
+            });
+          } else {
+            showToast(res.message || "Operation failed.", "error");
+          }
+        })
+        .catch((err) => {
+          console.error(err);
+          showToast("An error occurred during form submission.", "error");
+        });
+    };
+
+    confirmModal.classList.add("show");
   }
 
   window.viewUser = function (btnEl) {
@@ -505,10 +510,15 @@ document.addEventListener("DOMContentLoaded", function () {
         .then((res) => res.json())
         .then((res) => {
           if (res.success) {
+            setFlashToast(isBlocking ? "User successfully blocked." : "User successfully unblocked.", "success");
             window.location.reload();
           } else {
-            alert(res.message || "Failed to update status.");
+            showToast(res.message || "Failed to update status.", "error");
           }
+        })
+        .catch((err) => {
+          console.error(err);
+          showToast("An error occurred while updating status.", "error");
         });
     };
 
@@ -520,12 +530,12 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!row) return;
 
     confirmModalTitle.textContent = "Delete User Account";
-    confirmModalMessage.innerHTML = `Are you sure you want to permanently <strong>DELETE</strong> user account <strong>${escapeHtml(
+    confirmModalMessage.innerHTML = `Are you sure you want to delete user account <strong>${escapeHtml(
       row.name
-    )}</strong> (<code>${escapeHtml(row.id_number)}</code>)?<br><br><span style="color:#dc2626; font-size: 0.85rem;">Warning: This action cannot be undone.</span>`;
+    )}</strong> (<code>${escapeHtml(row.id_number)}</code>)?<br><br><span style="color:#dc2626; font-size: 0.85rem;"><i class="fa-solid fa-triangle-exclamation"></i> Warning: This action cannot be undone.</span>`;
 
     confirmModalBtn.className = "btn-danger";
-    confirmModalBtn.textContent = "Delete Permanently";
+    confirmModalBtn.textContent = "Confirm & Delete";
 
     activeConfirmCallback = function () {
       const body = new FormData();
@@ -538,10 +548,15 @@ document.addEventListener("DOMContentLoaded", function () {
         .then((res) => res.json())
         .then((res) => {
           if (res.success) {
+            setFlashToast("User successfully deleted.", "success");
             window.location.reload();
           } else {
-            alert(res.message || "Failed to delete user.");
+            showToast(res.message || "Failed to delete user.", "error");
           }
+        })
+        .catch((err) => {
+          console.error(err);
+          showToast("An error occurred while deleting user.", "error");
         });
     };
 
@@ -563,18 +578,24 @@ document.addEventListener("DOMContentLoaded", function () {
       .replace(/'/g, "&#039;");
   }
 
+  /* ===================== ACCESSIBLE ACTION DROPDOWN ===================== */
+
   window.closeAllDropdowns = function () {
     document.querySelectorAll(".action-dropdown-menu.open").forEach((m) => m.classList.remove("open"));
-    document.querySelectorAll(".action-dropdown-toggle.active").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".action-dropdown-btn.active").forEach((b) => {
+      b.classList.remove("active");
+      b.setAttribute("aria-expanded", "false");
+    });
   };
 
   window.toggleActionDropdown = function (btn) {
     const menu = btn.nextElementSibling;
-    const isOpen = menu.classList.contains("open");
+    const isOpen = menu && menu.classList.contains("open");
     closeAllDropdowns();
-    if (!isOpen) {
+    if (!isOpen && menu) {
       menu.classList.add("open");
       btn.classList.add("active");
+      btn.setAttribute("aria-expanded", "true");
     }
   };
 
@@ -583,4 +604,48 @@ document.addEventListener("DOMContentLoaded", function () {
       closeAllDropdowns();
     }
   });
+
+  /* ===================== TOAST NOTIFICATION SYSTEM ===================== */
+
+  function showToast(message, type = "success") {
+    let container = document.querySelector(".toast-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.className = "toast-container";
+      document.body.appendChild(container);
+    }
+    const toast = document.createElement("div");
+    toast.className = `toast-item toast-${type}`;
+    const iconClass = type === "success" ? "fa-solid fa-circle-check" : "fa-solid fa-circle-exclamation";
+    toast.innerHTML = `
+      <i class="${iconClass} toast-icon"></i>
+      <div class="toast-msg">${escapeHtml(message)}</div>
+      <button type="button" class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+    `;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transform = "translateX(40px) scale(0.95)";
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
+  }
+
+  function setFlashToast(message, type = "success") {
+    sessionStorage.setItem("flash_toast", JSON.stringify({ message, type }));
+  }
+
+  function checkFlashToast() {
+    const flash = sessionStorage.getItem("flash_toast");
+    if (flash) {
+      try {
+        const data = JSON.parse(flash);
+        if (data && data.message) {
+          showToast(data.message, data.type || "success");
+        }
+      } catch (e) {}
+      sessionStorage.removeItem("flash_toast");
+    }
+  }
+
+  checkFlashToast();
 });

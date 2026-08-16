@@ -83,8 +83,12 @@ $canViewAnyLogs   = $canViewUserLogs || $canViewAdminLogs;
 
               <select id="roleFilter" class="filter-select" aria-label="Role Filter">
                 <option value="all" selected>All Roles</option>
+                <?php if ($canViewUserLogs): ?>
                 <option value="user">User</option>
+                <?php endif; ?>
+                <?php if ($canViewAdminLogs): ?>
                 <option value="admin">Admin</option>
+                <?php endif; ?>
               </select>
             </div>
 
@@ -157,7 +161,7 @@ $canViewAnyLogs   = $canViewUserLogs || $canViewAdminLogs;
   </div>
 
   <script src="../../js/admin/admin.js"></script>
-  <script src="../../js/super_admin/audit_logs.js"></script>
+  <script src="../../js/super_admin/audit_logs.js?v=<?= time() ?>"></script>
 </body>
 
 </html>

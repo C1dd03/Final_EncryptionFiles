@@ -1119,3 +1119,405 @@ button {
   max-width: 480px;
   margin-inline: auto;
 }
+
+/* =====================================================
+   Accessible Action Dropdown Menu (Matching Design)
+   ===================================================== */
+.action-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.action-dropdown-btn {
+  background: #3b82f6;
+  color: #ffffff;
+  border: 1px solid #2563eb;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.86rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
+  transition: all 0.2s ease;
+  min-width: 100px;
+}
+
+.action-dropdown-btn:hover,
+.action-dropdown-btn.active {
+  background: #2563eb;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+}
+
+.action-dropdown-btn .dropdown-chevron {
+  font-size: 11px;
+  transition: transform 0.2s ease;
+}
+
+.action-dropdown-btn.active .dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+.action-dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  min-width: 160px;
+  z-index: 1050;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px) scale(0.97);
+  transform-origin: top right;
+  transition: all 0.18s ease;
+  padding: 6px;
+}
+
+.action-dropdown-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+.action-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+}
+
+.action-menu-item i {
+  width: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.action-menu-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.action-menu-item.edit i {
+  color: #3b82f6;
+}
+
+.action-menu-item.edit:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.action-menu-item.unblock i {
+  color: #10b981;
+}
+
+.action-menu-item.unblock:hover {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.action-menu-item.block i {
+  color: #f59e0b;
+}
+
+.action-menu-item.block:hover {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.action-menu-item.delete {
+  color: #dc2626;
+}
+
+.action-menu-item.delete i {
+  color: #ef4444;
+}
+
+.action-menu-item.delete:hover {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.action-menu-divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 4px 0;
+}
+
+/* Toast Notifications */
+.toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast-item {
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: 400px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast-item.toast-success {
+  border-left: 4px solid #10b981;
+  color: #065f46;
+}
+
+.toast-item.toast-success i.toast-icon {
+  color: #10b981;
+  font-size: 1.1rem;
+}
+
+.toast-item.toast-error {
+  border-left: 4px solid #ef4444;
+  color: #991b1b;
+}
+
+.toast-item.toast-error i.toast-icon {
+  color: #ef4444;
+  font-size: 1.1rem;
+}
+
+.toast-item .toast-msg {
+  flex: 1;
+}
+
+.toast-item .toast-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  font-size: 14px;
+}
+
+.toast-item .toast-close:hover {
+  color: #475569;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* =====================================================
+   Admin Audit Logs Custom Styles & Badges
+   ===================================================== */
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.date-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--farm-muted);
+}
+
+.date-input {
+  padding: 8px 12px;
+  border: 1px solid var(--farm-border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  outline: none;
+  background: #ffffff;
+  color: var(--farm-text);
+  transition: border-color 0.2s ease;
+}
+
+.date-input:focus {
+  border-color: var(--farm-card-1);
+}
+
+.btn-clear-date {
+  background: transparent;
+  border: 1px solid var(--farm-border);
+  color: var(--farm-muted);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-clear-date:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.details-cell {
+  max-width: 320px;
+  white-space: normal !important;
+  word-break: break-word;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+/* Action Badges in Audit Table */
+.action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.badge-login {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+
+.badge-logout {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+}
+
+.badge-create {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #6ee7b7;
+}
+
+.badge-update {
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #38bdf8;
+}
+
+.badge-delete {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.badge-block {
+  background: #fde8e8;
+  color: #9b1c1c;
+  border: 1px solid #f8b4b4;
+}
+
+.badge-unblock {
+  background: #def7ec;
+  color: #03543f;
+  border: 1px solid #84e1bc;
+}
+
+.badge-default {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+/* Role Badges in Audit Table */
+.role-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.role-superadmin {
+  background: rgba(139, 92, 246, 0.12);
+  color: #6d28d9;
+}
+
+.role-admin {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.role-user {
+  background: rgba(107, 114, 128, 0.12);
+  color: #374151;
+}
+
+/* Pagination page-link (Used by audit_logs.js) */
+.page-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--farm-border);
+  background: #ffffff;
+  color: var(--farm-text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.page-link:hover:not(.disabled):not(.active) {
+  border-color: var(--farm-card-1);
+  color: var(--farm-card-1);
+  background: rgba(218, 229, 207, 0.3);
+}
+
+.page-link.active {
+  background: var(--farm-card-1);
+  color: var(--farm-white);
+  border-color: var(--farm-card-1);
+  font-weight: 600;
+}
+
+.page-link.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
