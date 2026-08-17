@@ -27,9 +27,9 @@ class User
 
             // ✅ 1. Insert into users
             $sqlUser = "INSERT INTO users 
-                        (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash) 
+                        (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, status) 
                         VALUES 
-                        (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash)";
+                        (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, :status)";
             $stmt = $this->conn->prepare($sqlUser);
             $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
             $stmt->execute([
@@ -43,7 +43,8 @@ class User
                 ':age'           => $age,
                 ':username'      => $data['username'],
                 ':email'         => $data['email'] ?? null,
-                ':password_hash' => $passwordHash
+                ':password_hash' => $passwordHash,
+                ':status'        => $data['status'] ?? 'active'
             ]);
 
             // ✅ 2. Insert into addresses
@@ -163,14 +164,14 @@ class User
 
 
     /* ========================== ADD FORGOT PASSWORD MODEL ======================== */
-    public function findById(int $id_number)
+    public function findById(string $id_number)
     {
         $stmt = $this->conn->prepare("SELECT * FROM users WHERE id_number = :id_number");
         $stmt->execute([':id_number' => $id_number]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function getUserAuthAnswers(int $id_number)
+    public function getUserAuthAnswers(string $id_number)
     {
         $stmt = $this->conn->prepare("
             SELECT ua.question_id, ua.answer_hash, aq.question_text 
@@ -183,17 +184,36 @@ class User
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getUserAuthAnswer(int $id_number, int $question_id)
+    public function getUserAuthAnswer(string $id_number, int $question_id)
     {
         $stmt = $this->conn->prepare("SELECT * FROM user_auth_answers WHERE id_number = :id_number AND question_id = :question_id");
         $stmt->execute([':id_number' => $id_number, ':question_id' => $question_id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function updatePassword(int $id_number, string $password_hash)
+    public function updatePassword(string $id_number, string $password_hash)
     {
-        $stmt = $this->conn->prepare("UPDATE users SET password_hash=:password WHERE id_number=:id_number");
+        // Bump session_version so any existing sessions are invalidated after a password change.
+        $stmt = $this->conn->prepare("UPDATE users SET password_hash=:password, session_version = session_version + 1 WHERE id_number=:id_number");
         return $stmt->execute([':password' => $password_hash, ':id_number' => $id_number]);
+    }
+
+    /* ========================== FIND BY EMAIL & ACCOUNT ACTIVATION ======================== */
+    public function findByEmail(string $email)
+    {
+        $email = trim($email);
+        if ($email === '') {
+            return false;
+        }
+        $stmt = $this->conn->prepare("SELECT * FROM users WHERE email = :email LIMIT 1");
+        $stmt->execute([':email' => $email]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function activateAccount(string $id_number): bool
+    {
+        $stmt = $this->conn->prepare("UPDATE users SET status = 'active' WHERE id_number = :id_number");
+        return $stmt->execute([':id_number' => $id_number]);
     }
 
     /* ========================== CHECK USERNAME AND EMAIL AVAILABILITY ======================== */

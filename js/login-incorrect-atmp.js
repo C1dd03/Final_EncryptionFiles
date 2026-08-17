@@ -85,6 +85,16 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  // Loading state on the Login button while the OTP is being prepared and emailed
+  function setSubmitLoading(loading) {
+    otpSetButtonLoading(
+      submitBtn,
+      loading,
+      "Sending code...",
+      submitBtn ? submitBtn.textContent : "Login"
+    );
+  }
+
   function setFieldError(type, text) {
     if (type === "username") {
       if (usernameError) {
@@ -253,6 +263,8 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    setSubmitLoading(true); // show spinner while the OTP is being sent
+
     fetch("index.php?action=loginUser", {
       method: "POST",
       body: formData,
@@ -260,14 +272,28 @@ document.addEventListener("DOMContentLoaded", function () {
     })
       .then((response) => response.json())
       .then((data) => {
+        setSubmitLoading(false);
+
         if (data.success) {
           clearState();
           setForgotLinkVisible(false); // hide the link
+
+          // Credentials accepted -> show the OTP verification step
+          if (data.needOtp) {
+            showOtpStep(data);
+            return;
+          }
+
           const target = data.redirect || "/Final_EncryptionFiles/public/dashboard.php";
           window.location.href = target;
         } else {
-          // Blocked accounts: show the blocked message and skip the attempt/lock flow
-          if (data.errorType === "accountBlocked") {
+          // Blocked / unverified / no-email accounts: show the message and skip the attempt/lock flow
+          if (
+            data.errorType === "accountBlocked" ||
+            data.errorType === "accountPending" ||
+            data.errorType === "noEmail" ||
+            data.errorType === "otpSendFailed"
+          ) {
             setMessage(
               data.message ||
                 "Your account has been blocked. Please contact the Super Admin.",
@@ -329,7 +355,146 @@ document.addEventListener("DOMContentLoaded", function () {
       })
       .catch((error) => {
         console.error("Error:", error);
+        setSubmitLoading(false);
         setMessage("An error occurred. Please try again.", "error");
       });
   });
+
+  /* =========================== OTP VERIFICATION STEP =========================== */
+  const otpStep = document.getElementById("loginOtpStep");
+  const otpEmailDisplay = document.getElementById("loginOtpEmail");
+  const otpInput = document.getElementById("loginOtpInput");
+  const otpError = document.getElementById("login-otp-error");
+  const otpMessage = document.getElementById("login-otp-message");
+  const otpExpiryEl = document.getElementById("loginOtpExpiry");
+  const otpResendTimerEl = document.getElementById("loginOtpResendTimer");
+  const otpResendLink = document.getElementById("loginResendOtp");
+  const otpDevBanner = document.getElementById("loginOtpDevBanner");
+  const verifyOtpBtn = document.getElementById("verifyLoginOtpBtn");
+  let otpTimers = [];
+
+  function clearOtpTimers() {
+    otpTimers.forEach((t) => clearInterval(t));
+    otpTimers = [];
+  }
+
+  function setOtpError(text) {
+    if (!otpError) return;
+    otpError.textContent = text;
+    otpError.style.display = text ? "block" : "none";
+  }
+
+  function setOtpMessage(text) {
+    if (!otpMessage) return;
+    otpMessage.textContent = text;
+    otpMessage.style.display = text ? "block" : "none";
+  }
+
+  function showOtpStep(data) {
+    clearOtpTimers();
+    if (otpEmailDisplay) otpEmailDisplay.textContent = data.email || "";
+    if (otpInput) otpInput.value = "";
+    setOtpError("");
+    setOtpMessage("");
+    if (loginForm) loginForm.style.display = "none";
+    if (otpStep) otpStep.style.display = "block";
+    if (otpInput) otpInput.focus();
+    otpTimers.push(otpStartExpiryTimer(data.expires_in || 300, otpExpiryEl));
+    otpTimers.push(
+      otpStartResendTimer(data.cooldown || 60, otpResendLink, otpResendTimerEl)
+    );
+    otpShowDevBanner(otpDevBanner, data.dev_otp);
+  }
+
+  function hideOtpStep() {
+    clearOtpTimers();
+    if (otpStep) otpStep.style.display = "none";
+    if (loginForm) loginForm.style.display = "";
+  }
+
+  function verifyLoginOtp() {
+    const code = otpInput ? otpInput.value.trim() : "";
+    setOtpError("");
+    setOtpMessage("");
+
+    if (!/^\d{6}$/.test(code)) {
+      setOtpError("Please enter the 6-digit code.");
+      return;
+    }
+
+    otpSetButtonLoading(verifyOtpBtn, true, "Verifying...", "Verify & Log In");
+
+    otpPost("index.php?action=verifyLoginOtp", { otp: code })
+      .then((data) => {
+        if (data.success) {
+          clearOtpTimers();
+          const target = data.redirect || "/Final_EncryptionFiles/public/dashboard.php";
+          window.location.href = target;
+        } else {
+          otpSetButtonLoading(verifyOtpBtn, false, "", "Verify & Log In");
+          if (data.errorType === "otpSessionExpired") {
+            setOtpMessage(data.message);
+            hideOtpStep();
+            setMessage(data.message, "error");
+          } else {
+            setOtpError(data.message || "Invalid code. Please try again.");
+            if (otpInput) otpInput.value = "";
+            if (otpInput) otpInput.focus();
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("OTP verify error:", err);
+        otpSetButtonLoading(verifyOtpBtn, false, "", "Verify & Log In");
+        setOtpMessage("An error occurred. Please try again.");
+      });
+  }
+
+  function resendLoginOtp() {
+    setOtpError("");
+    setOtpMessage("");
+    otpResendLink.style.display = "none";
+
+    otpPost("index.php?action=resendOtp", {})
+      .then((data) => {
+        otpShowDevBanner(otpDevBanner, data.dev_otp);
+        if (data.success) {
+          setOtpMessage(data.message || "A new code has been sent.");
+          otpTimers.push(otpStartExpiryTimer(data.expires_in || 300, otpExpiryEl));
+          otpTimers.push(
+            otpStartResendTimer(data.cooldown || 60, otpResendLink, otpResendTimerEl)
+          );
+          if (otpInput) otpInput.value = "";
+          if (otpInput) otpInput.focus();
+        } else {
+          setOtpMessage(data.message || "Could not resend the code.");
+          otpTimers.push(
+            otpStartResendTimer(data.cooldown || 60, otpResendLink, otpResendTimerEl)
+          );
+        }
+      })
+      .catch((err) => {
+        console.error("OTP resend error:", err);
+        setOtpMessage("An error occurred. Please try again.");
+        otpResendLink.style.display = "inline";
+      });
+  }
+
+  if (verifyOtpBtn) {
+    verifyOtpBtn.addEventListener("click", verifyLoginOtp);
+  }
+  if (otpInput) {
+    otpInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        verifyLoginOtp();
+      }
+    });
+  }
+  if (otpResendLink) {
+    otpResendLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      resendLoginOtp();
+    });
+  }
 });

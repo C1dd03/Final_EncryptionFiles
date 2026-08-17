@@ -768,6 +768,11 @@ document.addEventListener("DOMContentLoaded", () => {
       // Don't use alert, just prevent submission
       return false;
     }
+
+    // Show spinner on the Register button while the account + OTP email are prepared
+    const submitBtn = form.querySelector(".btn_submit");
+    otpSetButtonLoading(submitBtn, true, "Creating account...", "Register");
+
     return true;
   };
 

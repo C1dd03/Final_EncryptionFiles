@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../models/Otp.php';
 
 class UserController
 {
@@ -263,15 +264,35 @@ class UserController
                 'security_answers' => $securityAnswers,
                 'username'    => $username,
                 'email'       => $email,
-                'password'    => password_hash($password, PASSWORD_DEFAULT) // hashed for security
+                'password'    => $password, // hashed once in User::insertUser
+                'status'      => 'pending' // account activates after email OTP verification
             ];
 
-            // --- INSERT INTO DATABASE ---
+            // --- INSERT INTO DATABASE (account starts as 'pending' until the email OTP is verified) ---
             $result = $this->userModel->insertUser($data);
             if ($result) {
-                // Set success flag and ID for modal display
-                $registrationSuccess = true;
                 $registeredId = $result; // This is the generated ID number
+
+                // Send the 6-digit verification code to the registered email
+                $otp = new Otp();
+                $issue = $otp->issue($data['email'], $result, 'register');
+
+                if (session_status() === PHP_SESSION_NONE) {
+                    session_start();
+                }
+                $_SESSION['otp_pending'] = [
+                    'purpose'   => 'register',
+                    'email'     => $data['email'],
+                    'id_number' => $result
+                ];
+
+                $showOtpStep    = true;
+                $otpMaskedEmail = $otp->maskEmail($data['email']);
+                $otpIssueError  = $issue['success'] ? null : $issue['message'];
+                $devOtp         = $issue['dev_otp'] ?? null;
+                $otpExpiresIn   = $issue['expires_in'] ?? Otp::CODE_LIFETIME;
+                $otpCooldown    = $issue['cooldown'] ?? Otp::RESEND_COOLDOWN;
+
                 $formView = "register.php";
                 require __DIR__ . '/../php/auth/auth.php';
                 exit;
@@ -477,58 +498,58 @@ class UserController
                 return;
             }
 
+            // Pending (unverified) accounts cannot log in yet
+            $userStatus = $user['status'] ?? 'active';
+            if ($userStatus === 'pending') {
+                echo json_encode(['success' => false, 'message' => 'Your account has not been verified yet. Please check your email for the verification code.', 'errorType' => 'accountPending']);
+                return;
+            }
+
             // Blocked accounts cannot log in
-            if (($user['status'] ?? 'active') !== 'active') {
+            if ($userStatus !== 'active') {
                 echo json_encode(['success' => false, 'message' => 'Your account has been blocked. Please contact the Super Admin.', 'errorType' => 'accountBlocked']);
                 return;
             }
 
-            // Success
+            // No email on file -> cannot deliver an OTP
+            if (empty($user['email'])) {
+                echo json_encode(['success' => false, 'message' => 'No email address is linked to this account. Please contact the Super Admin.', 'errorType' => 'noEmail']);
+                return;
+            }
+
+            // Credentials are valid -> require a 6-digit OTP before creating the session
+            $otp = new Otp();
+            $issue = $otp->issue($user['email'], $user['id_number'], 'login');
+            if (!$issue['success']) {
+                echo json_encode([
+                    'success'   => false,
+                    'message'   => $issue['message'],
+                    'errorType' => 'otpSendFailed',
+                    'cooldown'  => $issue['cooldown'] ?? null,
+                    'dev_otp'   => $issue['dev_otp'] ?? null
+                ]);
+                return;
+            }
+
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
-            $_SESSION['user_id'] = $user['id_number'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role'] = strtolower($user['role'] ?? 'user');
-            $_SESSION['session_version'] = (int)($user['session_version'] ?? 0);
-
-            // Record Login Audit Log — always use Philippine local time
-            date_default_timezone_set('Asia/Manila');
-            $loginTime = date('Y-m-d H:i:s');
-
-            $ip = $_SERVER['REMOTE_ADDR'] ?? '::1';
-            if ($ip === '127.0.0.1') $ip = '::1';
-            $host = gethostname() ?: 'DESKTOP-SYSTEM';
-            $agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Browser';
-            $device = 'Microsoft Edge';
-            if (strpos($agent, 'Chrome') !== false && strpos($agent, 'Edg') === false) {
-                $device = 'Google Chrome';
-            } elseif (strpos($agent, 'Firefox') !== false) {
-                $device = 'Mozilla Firefox';
-            }
-
-            $details = "Login successful. IP: {$ip} | Host: {$host} | Device: {$device}";
-            $auditId = $this->userModel->logAuditAction(
-                $user['id_number'],
-                $user['username'],
-                strtolower($user['role'] ?? 'user'),
-                'Login',
-                $details,
-                $loginTime,
-                null
-            );
-            $_SESSION['audit_log_id'] = $auditId;
-
-            $redirectUrl = 'index.php?action=dashboard';
-            if ($_SESSION['role'] === 'superadmin') {
-                $redirectUrl = '../super_admin/dashboard.php';
-            } elseif ($_SESSION['role'] === 'admin') {
-                $redirectUrl = '../admin/dashboard.php';
-            }
+            $_SESSION['otp_pending'] = [
+                'purpose'         => 'login',
+                'email'           => $user['email'],
+                'id_number'       => $user['id_number'],
+                'username'        => $user['username'],
+                'role'            => $user['role'] ?? 'user',
+                'session_version' => (int)($user['session_version'] ?? 0)
+            ];
 
             echo json_encode([
-                'success' => true,
-                'redirect' => $redirectUrl
+                'success'    => true,
+                'needOtp'    => true,
+                'email'      => $otp->maskEmail($user['email']),
+                'expires_in' => $issue['expires_in'] ?? Otp::CODE_LIFETIME,
+                'cooldown'   => $issue['cooldown'] ?? Otp::RESEND_COOLDOWN,
+                'dev_otp'    => $issue['dev_otp'] ?? null
             ]);
             return;
 
@@ -537,10 +558,302 @@ class UserController
         echo json_encode(['success' => false, 'message' => 'Invalid request method.', 'errorType' => 'invalidMethod']);
     }
 
+    //========================================== Verify Login OTP =====================================
+    public function verifyLoginOtp()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.', 'errorType' => 'invalidMethod']);
+            exit;
+        }
+
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $pending = $_SESSION['otp_pending'] ?? null;
+        if (!$pending || ($pending['purpose'] ?? '') !== 'login') {
+            echo json_encode(['success' => false, 'message' => 'Your login session has expired. Please log in again.', 'errorType' => 'otpSessionExpired']);
+            exit;
+        }
+
+        $otp = new Otp();
+        $result = $otp->verify($pending['email'], 'login', trim($_POST['otp'] ?? ''));
+        if (!$result['success']) {
+            echo json_encode(['success' => false, 'message' => $result['message'], 'errorType' => 'otpInvalid']);
+            exit;
+        }
+
+        // Re-fetch the account: it must still exist and be active.
+        $user = $this->userModel->findByUsername($pending['username']);
+        if (!$user || ($user['status'] ?? 'active') !== 'active') {
+            unset($_SESSION['otp_pending']);
+            echo json_encode(['success' => false, 'message' => 'Your account is no longer active. Please contact the Super Admin.', 'errorType' => 'accountBlocked']);
+            exit;
+        }
+
+        $_SESSION['user_id'] = $user['id_number'];
+        $_SESSION['username'] = $user['username'];
+        $_SESSION['role'] = strtolower($user['role'] ?? 'user');
+        $_SESSION['session_version'] = (int)($user['session_version'] ?? 0);
+
+        // Record Login Audit Log — always use Philippine local time
+        date_default_timezone_set('Asia/Manila');
+        $loginTime = date('Y-m-d H:i:s');
+
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '::1';
+        if ($ip === '127.0.0.1') $ip = '::1';
+        $host = gethostname() ?: 'DESKTOP-SYSTEM';
+        $agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Browser';
+        $device = 'Microsoft Edge';
+        if (strpos($agent, 'Chrome') !== false && strpos($agent, 'Edg') === false) {
+            $device = 'Google Chrome';
+        } elseif (strpos($agent, 'Firefox') !== false) {
+            $device = 'Mozilla Firefox';
+        }
+
+        $details = "Login successful (OTP verified). IP: {$ip} | Host: {$host} | Device: {$device}";
+        $auditId = $this->userModel->logAuditAction(
+            $user['id_number'],
+            $user['username'],
+            strtolower($user['role'] ?? 'user'),
+            'Login',
+            $details,
+            $loginTime,
+            null
+        );
+        $_SESSION['audit_log_id'] = $auditId;
+
+        $redirectUrl = 'index.php?action=dashboard';
+        if ($_SESSION['role'] === 'superadmin') {
+            $redirectUrl = '../super_admin/dashboard.php';
+        } elseif ($_SESSION['role'] === 'admin') {
+            $redirectUrl = '../admin/dashboard.php';
+        }
+
+        unset($_SESSION['otp_pending']);
+
+        echo json_encode(['success' => true, 'redirect' => $redirectUrl]);
+        exit;
+    }
 
 
 
 
+
+
+    //========================================== Verify Forgot-Password Email =====================================
+    public function verifyForgotEmail()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        $email = strtolower(trim($_POST['email'] ?? ''));
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['success' => false, 'message' => 'Please enter a valid email address.']);
+            exit;
+        }
+
+        $user = $this->userModel->findByEmail($email);
+        if (!$user) {
+            echo json_encode(['success' => false, 'message' => 'No account found with that email address.']);
+            exit;
+        }
+
+        if (($user['status'] ?? 'active') === 'block') {
+            echo json_encode(['success' => false, 'message' => 'This account is blocked. Please contact the Super Admin.']);
+            exit;
+        }
+
+        $questions = $this->userModel->getUserAuthAnswers($user['id_number']);
+        if (empty($questions)) {
+            echo json_encode(['success' => false, 'message' => 'No security questions are set for this account.']);
+            exit;
+        }
+
+        // Never send the answer hashes to the browser — only the question text.
+        $safeQuestions = array_map(function ($q) {
+            return [
+                'question_id'   => $q['question_id'],
+                'question_text' => $q['question_text']
+            ];
+        }, $questions);
+
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $_SESSION['otp_pending'] = [
+            'purpose'   => 'forgot_password',
+            'email'     => $email,
+            'id_number' => $user['id_number']
+        ];
+
+        echo json_encode([
+            'success'   => true,
+            'user'      => [
+                'email'    => $email,
+                'username' => $user['username'],
+                'id_number' => $user['id_number']
+            ],
+            'questions' => $safeQuestions
+        ]);
+        exit;
+    }
+
+    //========================================== Send Forgot-Password OTP =====================================
+    public function sendForgotOtp()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        $email = strtolower(trim($_POST['email'] ?? ''));
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['success' => false, 'message' => 'Please enter a valid email address.']);
+            exit;
+        }
+
+        $user = $this->userModel->findByEmail($email);
+        if (!$user) {
+            echo json_encode(['success' => false, 'message' => 'No account found with that email address.']);
+            exit;
+        }
+
+        if (($user['status'] ?? 'active') === 'block') {
+            echo json_encode(['success' => false, 'message' => 'This account is blocked. Please contact the Super Admin.']);
+            exit;
+        }
+
+        $otp = new Otp();
+        $issue = $otp->issue($email, $user['id_number'], 'forgot_password');
+        if (!$issue['success']) {
+            echo json_encode(['success' => false, 'message' => $issue['message'], 'cooldown' => $issue['cooldown'] ?? null]);
+            exit;
+        }
+
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $_SESSION['otp_pending'] = [
+            'purpose'   => 'forgot_password',
+            'email'     => $email,
+            'id_number' => $user['id_number']
+        ];
+
+        echo json_encode([
+            'success'    => true,
+            'message'    => $issue['message'],
+            'email'      => $otp->maskEmail($email),
+            'expires_in' => $issue['expires_in'] ?? Otp::CODE_LIFETIME,
+            'cooldown'   => $issue['cooldown'] ?? Otp::RESEND_COOLDOWN,
+            'dev_otp'    => $issue['dev_otp'] ?? null
+        ]);
+        exit;
+    }
+
+    //========================================== Verify Forgot-Password OTP =====================================
+    public function verifyForgotOtp()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $pending = $_SESSION['otp_pending'] ?? null;
+        if (!$pending || ($pending['purpose'] ?? '') !== 'forgot_password') {
+            echo json_encode(['success' => false, 'message' => 'Session expired. Please start the password reset again.']);
+            exit;
+        }
+
+        $otp = new Otp();
+        $result = $otp->verify($pending['email'], 'forgot_password', trim($_POST['otp'] ?? ''));
+        if (!$result['success']) {
+            echo json_encode(['success' => false, 'message' => $result['message']]);
+            exit;
+        }
+
+        $_SESSION['otp_pending']['verified'] = true;
+        echo json_encode(['success' => true, 'message' => 'Code verified! You can now set a new password.']);
+        exit;
+    }
+
+    //========================================== Verify Registration OTP =====================================
+    public function verifyRegisterOtp()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $pending = $_SESSION['otp_pending'] ?? null;
+        if (!$pending || ($pending['purpose'] ?? '') !== 'register') {
+            echo json_encode(['success' => false, 'message' => 'Registration session expired. Please register again.']);
+            exit;
+        }
+
+        $otp = new Otp();
+        $result = $otp->verify($pending['email'], 'register', trim($_POST['otp'] ?? ''));
+        if (!$result['success']) {
+            echo json_encode(['success' => false, 'message' => $result['message']]);
+            exit;
+        }
+
+        // Activate the pending account
+        $this->userModel->activateAccount($pending['id_number']);
+        $registeredId = $pending['id_number'];
+        unset($_SESSION['otp_pending']);
+
+        echo json_encode(['success' => true, 'message' => 'Account activated successfully!', 'id_number' => $registeredId]);
+        exit;
+    }
+
+    //========================================== Resend OTP (any pending flow) =====================================
+    public function resendOtp()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $pending = $_SESSION['otp_pending'] ?? null;
+        if (!$pending || empty($pending['email']) || empty($pending['purpose'])) {
+            echo json_encode(['success' => false, 'message' => 'Session expired. Please start the process again.']);
+            exit;
+        }
+
+        $otp = new Otp();
+        $issue = $otp->resend($pending['email'], $pending['purpose']);
+        echo json_encode([
+            'success'    => $issue['success'],
+            'message'    => $issue['message'],
+            'cooldown'   => $issue['cooldown'] ?? Otp::RESEND_COOLDOWN,
+            'expires_in' => $issue['expires_in'] ?? Otp::CODE_LIFETIME,
+            'dev_otp'    => $issue['dev_otp'] ?? null
+        ]);
+        exit;
+    }
 
     //========================================== Verify ID =====================================
     public function verifyId()
@@ -580,6 +893,14 @@ class UserController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id_number = trim($_POST['id_number'] ?? '');
+
+            // Fall back to the pending forgot-password account from the session.
+            if ($id_number === '') {
+                if (session_status() === PHP_SESSION_NONE) {
+                    session_start();
+                }
+                $id_number = trim($_SESSION['otp_pending']['id_number'] ?? '');
+            }
 
             // Validate ID number is provided
             if (empty($id_number)) {
@@ -650,6 +971,14 @@ class UserController
             $question_index = (int)($_POST['question_id'] ?? 0); // This is now the index (1, 2, 3) rather than question_id
             $answer = trim($_POST['answer'] ?? '');
 
+            // Fall back to the pending forgot-password account from the session.
+            if ($id_number === '') {
+                if (session_status() === PHP_SESSION_NONE) {
+                    session_start();
+                }
+                $id_number = trim($_SESSION['otp_pending']['id_number'] ?? '');
+            }
+
             // Validate required fields
             if (empty($id_number)) {
                 echo json_encode(['valid' => false, 'message' => 'ID Number is required.']);
@@ -692,9 +1021,18 @@ class UserController
     //=========================================== Reset Password =======================================
     public function resetPassword()
     {
-        $id_number = $_POST['id_number'] ?? '';
-        $question_index = (int)($_POST['security_question'] ?? 0); // This is now the index (1, 2, 3) rather than question_id
-        $answer = trim($_POST['answer'] ?? '');
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $pending = $_SESSION['otp_pending'] ?? null;
+        if (!$pending || ($pending['purpose'] ?? '') !== 'forgot_password' || empty($pending['verified'])) {
+            echo json_encode(['success' => false, 'message' => 'OTP verification required. Please start the password reset again.']);
+            return;
+        }
+
+        $id_number = $pending['id_number'];
         $new_password = $_POST['new_password'] ?? '';
         $confirm_password = $_POST['confirm_password'] ?? '';
 
@@ -735,24 +1073,9 @@ class UserController
             return;
         }
 
-        // Get the user's actual security questions
-        $userQuestions = $this->userModel->getUserAuthAnswers($id_number);
-
-        if (empty($userQuestions) || !isset($userQuestions[$question_index - 1])) {
-            echo json_encode(['success' => false, 'message' => 'No security question found']);
-            return;
-        }
-
-        // Get the stored answer hash for the specific question
-        $record = $userQuestions[$question_index - 1];
-
-        if (!password_verify($answer, $record['answer_hash'])) {
-            echo json_encode(['success' => false, 'message' => 'Incorrect security answer']);
-            return;
-        }
-
         $hashed = password_hash($new_password, PASSWORD_BCRYPT);
         if ($this->userModel->updatePassword($id_number, $hashed)) {
+            unset($_SESSION['otp_pending']);
             echo json_encode(['success' => true, 'message' => 'Your password has been successfully changed!']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to reset password']);

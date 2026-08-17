@@ -64,6 +64,33 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
 
 </form>
 
+<!-- OTP Verification Step (shown after username/password are accepted) -->
+<div class="otp-verify-step" id="loginOtpStep" style="display:none;">
+  <h2>Verify Your Login</h2>
+  <p class="otp-info">Enter the 6-digit code sent to<br /><strong id="loginOtpEmail"></strong></p>
+
+  <div class="form-field" style="margin-bottom: 10px;">
+    <div class="input-field">
+      <input type="text" name="otp" id="loginOtpInput" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" placeholder=" " />
+      <label>OTP Code</label>
+    </div>
+    <div class="field-error" id="login-otp-error" role="alert" style="display:none; color:#dc3545; font-size:12px; text-align:center;"></div>
+  </div>
+
+  <button class="btn_submit" id="verifyLoginOtpBtn" type="button">Verify &amp; Log In</button>
+
+  <p class="otp-timer" id="loginOtpExpiry" style="text-align:center; font-size:12px; color:#6b7280; margin-top:6px;"></p>
+  <p class="otp-timer" id="loginOtpResendTimer" style="text-align:center; font-size:12px; color:#6b7280;"></p>
+  <div class="field-error" id="login-otp-message" role="alert" style="display:none; color:#dc3545; font-size:12px; text-align:center; margin-top:4px;"></div>
+  <p class="otp-resend" style="text-align:center; font-size:13px; margin-top:8px;">
+    Didn't receive the code? <a href="javascript:void(0)" id="loginResendOtp" style="display:none;">Resend OTP</a>
+  </p>
+  <div class="dev-otp-banner" id="loginOtpDevBanner" style="display:none; background:#fef9c3; color:#854d0e; font-size:12px; text-align:center; padding:8px; border-radius:6px; margin-top:8px;"></div>
+  <p class="toggle-link" style="margin-top: 12px;">
+    <a href="index.php?action=login">← Back to Login</a>
+  </p>
+</div>
+
 <!-- Reserve Code for forgot password
 
 // After failed login

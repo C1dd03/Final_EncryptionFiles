@@ -99,6 +99,7 @@
   <script src="../../js/forgot_password.js"></script>
   <script src="../../js/validation.js"></script>
   <script src="../../js/login-incorrect-atmp.js"></script>
+  <script src="../../js/otp-common.js"></script>
 
 
   <!---------------------------- Added restrict js code --->
@@ -106,6 +107,7 @@
   <script src="../../js/forgot_password.php"></script>
   <script src="../../js/validation.php"></script>
   <script src="../../js/login-incorrect-atmp.php"></script>
+  <script src="../../js/otp-common.php"></script>
 
 
 </body>

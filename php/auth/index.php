@@ -74,6 +74,26 @@ switch ($action) {
         $userController->resetPassword();
         break;
 
+    /* ========================== OTP VERIFICATION ROUTES ======================== */
+    case 'verifyForgotEmail':
+        $userController->verifyForgotEmail();
+        break;
+    case 'sendForgotOtp':
+        $userController->sendForgotOtp();
+        break;
+    case 'verifyForgotOtp':
+        $userController->verifyForgotOtp();
+        break;
+    case 'verifyRegisterOtp':
+        $userController->verifyRegisterOtp();
+        break;
+    case 'verifyLoginOtp':
+        $userController->verifyLoginOtp();
+        break;
+    case 'resendOtp':
+        $userController->resendOtp();
+        break;
+
     case 'checkUsername':
         $userController->checkUsername();
         break;

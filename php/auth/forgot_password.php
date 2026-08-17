@@ -1,4 +1,4 @@
-<!------------------------------- ADD STEP 1, 2, 3 for forgot password -------------------------------------->
+<!------------------------------- ADD STEP 1, 2, 3, 4 for forgot password -------------------------------------->
 <form class="forgot-password" id="forgotForm">
     <h2 class="text-xl font-semibold mb-4 text-center">Forgot Password</h2>
     <div class="forgot-pass" style="display: flex; justify-content: space-around; align-items: center;">
@@ -8,40 +8,38 @@
         <div class=number>2</div>
         <div class=line></div>
         <div class=number>3</div>
+        <div class=line></div>
+        <div class=number>4</div>
         <div class=line2></div>
     </div>
     <div class="title-container-forgot-pass" style="display: flex; justify-content:space-between; align-items: center;padding:0px 12px 0px 12px">
 
-        <div class=title>Verified ID Number</div>
+        <div class=title>Email Verification</div>
         <div class=line></div>
         <div class=title>Security Questions</div>
         <div class=line></div>
+        <div class=title>OTP Code</div>
+        <div class=line></div>
         <div class=title>Change Password</div>
     </div>
-    <!-- Step 1: Verify ID -->
 
+    <!-- Step 1: Verify Email -->
     <div class="step step-1 active">
-        <label class=" text-gray-600 text-sm">Enter your ID Number</label>
-        <div class="message-success" id="idVerifiedBox">
-            <i class="fa-solid fa-circle-check"></i>
-            <p>ID Verified Successfully!</p>
-        </div>
+        <label class="text-gray-600 text-sm">Enter the email address linked to your account</label>
         <div class="input-field" style="margin:3px;">
-            <input type="text" name="id_number" placeholder=" " />
-            <label>User ID</label>
+            <input type="email" name="email" id="forgotEmailInput" placeholder=" " />
+            <label>Email Address</label>
         </div>
-        <p class="message-error"></p>
+        <p class="message-error" id="emailError"></p>
         <div class="flex justify-between items-center mt-2 mb-2" style="margin-top: 10px;">
             <button type="button" class="btn next-btn" onclick="nextStepForgot(1)">Next &gt;</button>
         </div>
-
     </div>
 
-    <!-- Step 2: Security Question -->
+    <!-- Step 2: Security Questions -->
     <div class="step step-2">
-        <!-- User Info Display -->
         <div style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center;">
-            <p style="margin: 0; color: #555; font-size: 13px;">ID Number: <strong id="displayIdNumber"></strong></p>
+            <p style="margin: 0; color: #555; font-size: 13px;">Email: <strong id="displayEmail"></strong></p>
             <p style="margin: 5px 0 0 0; color: #555; font-size: 13px;">Username: <strong id="displayUsername"></strong></p>
         </div>
 
@@ -82,15 +80,33 @@
         </div>
     </div>
 
-    <!-- Step 3: New Password -->
+    <!-- Step 3: OTP Code -->
     <div class="step step-3">
-        <!-- User Info Display -->
         <div style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center;">
-            <p style="margin: 0; color: #555; font-size: 13px;">ID Number: <strong id="displayIdNumber"></strong></p>
-            <p style="margin: 5px 0 0 0; color: #555; font-size: 13px;">Username: <strong id="displayUsername"></strong></p>
+            <p style="margin: 0; color: #555; font-size: 13px;">We sent a 6-digit code to<br /><strong id="otpEmailDisplay"></strong></p>
         </div>
-        <p class="message-success" id="passwordSuccess" style="position: relative; top: 0; left: 0; transform: none; width: 100%; height: auto; padding: 10px; margin-bottom: 15px; display: none;"></p>
 
+        <div class="input-field" style="margin:3px;">
+            <input type="text" name="otp" id="forgotOtpInput" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" placeholder=" " />
+            <label>OTP Code</label>
+        </div>
+        <p class="message-error" id="otpError"></p>
+
+        <p class="otp-timer" id="forgotOtpExpiry" style="text-align:center; font-size:12px; color:#6b7280;"></p>
+        <p class="otp-timer" id="forgotOtpResendTimer" style="text-align:center; font-size:12px; color:#6b7280;"></p>
+        <p class="otp-resend" style="text-align:center; font-size:13px; margin-top:8px;">
+            Didn't receive the code? <a href="javascript:void(0)" id="forgotResendOtp" style="display:none;">Resend OTP</a>
+        </p>
+        <div class="dev-otp-banner" id="forgotOtpDevBanner" style="display:none; background:#fef9c3; color:#854d0e; font-size:12px; text-align:center; padding:8px; border-radius:6px; margin-top:8px;"></div>
+
+        <div class="flex justify-between mt-5">
+            <button type="button" class="btn prev-btn" onclick="prevStepForgot(3)">&lt; Prev</button>
+            <button type="button" class="btn next-btn" onclick="nextStepForgot(3)">Verify Code &gt;</button>
+        </div>
+    </div>
+
+    <!-- Step 4: New Password -->
+    <div class="step step-4">
         <div style="position: relative; margin-bottom: 15px; "> <!-- Password container  -->
             <div class="pass-input-field">
                 <input type="password" name="new_password" id="newPassword" placeholder=" " />
@@ -104,7 +120,6 @@
             </div>
             <!-- Password Strength Message -->
             <div id="passwordStrengthMessage" style="visibility: hidden;"></div>
-            <!-- <div class="password-message" id="newPasswordRequired" style="font-size: 12px; color: red;  margin: 4px 0; padding-left: 4px; display: none; position: absolute; top:35px;left:30%">New password required</div> -->
             <div id="passwordMessage"></div>
         </div>
         <div style="position: relative;  " class="forgot-confirm-field">
@@ -117,7 +132,7 @@
             <p class="message-error" id="passwordError"></p>
         </div>
         <div class="flex justify-between mt-2">
-            <button type="button" class="btn prev-btn " style="margin-bottom: 10px;" onclick="prevStepForgot(3)">&lt; Prev</button>
+            <button type="button" class="btn prev-btn " style="margin-bottom: 10px;" onclick="prevStepForgot(4)">&lt; Prev</button>
             <button type="submit" class="btn_submit">Change Password</button>
         </div>
     </div>

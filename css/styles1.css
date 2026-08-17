@@ -589,6 +589,31 @@ s .age-sex-column {
   transform: translateY(-1px);
 }
 
+/* Loading state: spinner shown while the OTP is being prepared/sent */
+.btn_submit.loading {
+  opacity: 0.75;
+  cursor: wait;
+  pointer-events: none;
+}
+
+.btn_submit .btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 8px;
+  animation: btn-spinner-spin 0.7s linear infinite;
+}
+
+@keyframes btn-spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .btn {
   color: var(--farm-text);
   /* margin-top: 10px; */
