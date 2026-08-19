@@ -697,6 +697,17 @@ function e($text)
           </label>
 
           <label class="privilege-card">
+            <input type="checkbox" value="approve_registrations" class="privilege-checkbox" />
+            <div class="priv-card-body">
+              <div class="priv-card-icon"><i class="fa-solid fa-user-check"></i></div>
+              <div class="priv-card-text">
+                <span class="priv-card-title">Approve / Reject Registrations</span>
+                <span class="priv-card-desc">Review, accept, approve, or reject pending registrations</span>
+              </div>
+            </div>
+          </label>
+
+          <label class="privilege-card">
             <input type="checkbox" value="edit_users" class="privilege-checkbox" />
             <div class="priv-card-body">
               <div class="priv-card-icon"><i class="fa-solid fa-user-pen"></i></div>

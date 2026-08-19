@@ -377,6 +377,7 @@ require_once __DIR__ . '/../auth/session_protect.php';
                 <button type="submit">Search</button>
             </form>
             <div class="actions">
+                <a class="action-icon" href="javascript:void(0)" onclick="openUserLogsModal()" style="color:var(--primary); font-weight:600;"><i class="bi bi-clock-history"></i> My Activity Logs</a>
                 <span class="action-icon"><i class="bi bi-cart3"></i> Cart</span>
                 <span class="action-icon"><i class="bi bi-bell"></i> Alerts</span>
                 <span>Welcome, <?= htmlspecialchars($_SESSION['username']); ?>!</span>
@@ -529,21 +530,226 @@ require_once __DIR__ . '/../auth/session_protect.php';
                 </div>
             </div>
         </section>
-    </main>
-    <script>
-        // Prevent going back to login after logout
-        // if (window.history && window.history.pushState) {
-        //     window.history.pushState(null, "", window.location.href);
-        //     window.onpopstate = function () {
-        //     window.history.pushState(null, "", window.location.href);
-        // };
-        // }
+    <!-- User Activity Logs Modal -->
+    <div id="userLogsModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:12px; max-width:850px; width:95%; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.15); max-height:90vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+                <h3 style="font-size:18px; font-weight:700; color:#2f3f33; margin:0; display:flex; align-items:center; gap:8px;">
+                    <i class="bi bi-clock-history" style="color:var(--primary);"></i> My Login & Activity History
+                </h3>
+                <button type="button" onclick="closeUserLogsModal()" style="border:none; background:none; font-size:24px; cursor:pointer; color:#64748b; line-height:1;">&times;</button>
+            </div>
 
-        /* =========================== CHANGE disable back browser button ================================== */
+            <!-- Filter Controls -->
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:16px; background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #e2e8f0;">
+                <input type="text" id="userLogSearch" placeholder="Search action or details..." style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; flex:1; min-width:180px;" />
+                
+                <select id="userLogMonth" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                    <option value="all" selected>All Months</option>
+                    <option value="1">January</option>
+                    <option value="2">February</option>
+                    <option value="3">March</option>
+                    <option value="4">April</option>
+                    <option value="5">May</option>
+                    <option value="6">June</option>
+                    <option value="7">July</option>
+                    <option value="8">August</option>
+                    <option value="9">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+
+                <select id="userLogYear" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                    <option value="all" selected>All Years</option>
+                    <option value="2025">2025</option>
+                    <option value="2026">2026</option>
+                    <option value="2027">2027</option>
+                </select>
+
+                <input type="date" id="userLogStartDate" title="From Date" style="padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px;" />
+                <span style="color:#64748b; font-size:12px;">to</span>
+                <input type="date" id="userLogEndDate" title="To Date" style="padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px;" />
+
+                <button type="button" id="userLogClearBtn" style="padding:6px 12px; background:#fff; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; cursor:pointer;">
+                    Clear
+                </button>
+            </div>
+
+            <!-- Table -->
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13px;">
+                    <thead>
+                        <tr style="background:#f1f5f9; color:#475569; border-bottom:2px solid #cbd5e1;">
+                            <th style="padding:10px 12px;">ID No</th>
+                            <th style="padding:10px 12px;">Full Name</th>
+                            <th style="padding:10px 12px;">Action</th>
+                            <th style="padding:10px 12px;">Details</th>
+                            <th style="padding:10px 12px;">Time In</th>
+                            <th style="padding:10px 12px;">Time Out</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userLogsTableBody">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; font-size:13px; color:#64748b;">
+                <div id="userLogPaginationInfo">Showing 0 to 0 of 0 entries</div>
+                <div id="userLogPaginationControls" style="display:flex; gap:4px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Disable back browser button
         history.pushState(null, null, location.href);
         window.onpopstate = function() {
             history.go(1);
         };
+
+        // User Activity Logs Modal Logic
+        let userLogPage = 1;
+        const userLogsModal = document.getElementById("userLogsModal");
+        const userLogSearch = document.getElementById("userLogSearch");
+        const userLogMonth = document.getElementById("userLogMonth");
+        const userLogYear = document.getElementById("userLogYear");
+        const userLogStartDate = document.getElementById("userLogStartDate");
+        const userLogEndDate = document.getElementById("userLogEndDate");
+        const userLogClearBtn = document.getElementById("userLogClearBtn");
+        const userLogsTableBody = document.getElementById("userLogsTableBody");
+        const userLogPaginationInfo = document.getElementById("userLogPaginationInfo");
+        const userLogPaginationControls = document.getElementById("userLogPaginationControls");
+
+        window.openUserLogsModal = function() {
+            userLogsModal.style.display = "flex";
+            userLogPage = 1;
+            fetchUserLogs();
+        };
+
+        window.closeUserLogsModal = function() {
+            userLogsModal.style.display = "none";
+        };
+
+        function escapeHtml(str) {
+            if (!str) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function fetchUserLogs() {
+            const search = userLogSearch.value.trim();
+            const month = userLogMonth.value;
+            const year = userLogYear.value;
+            const startDate = userLogStartDate.value;
+            const endDate = userLogEndDate.value;
+
+            userLogsTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:#64748b;">Loading logs...</td></tr>`;
+
+            const url = `../auth/index.php?action=getMyLogs&search=${encodeURIComponent(search)}&month=${encodeURIComponent(month)}&year=${encodeURIComponent(year)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&page=${userLogPage}&limit=10`;
+
+            fetch(url)
+                .then(res => res.json())
+                .then(res => {
+                    if (!res.success) {
+                        userLogsTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:#ef4444;">${escapeHtml(res.message || 'Failed to load logs.')}</td></tr>`;
+                        return;
+                    }
+
+                    renderUserLogsTable(res.data || []);
+                    renderUserLogsPagination(res.totalRecords, res.totalPages, res.currentPage, res.limit);
+                })
+                .catch(err => {
+                    console.error("Error fetching user logs:", err);
+                    userLogsTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:#ef4444;">Error connecting to server.</td></tr>`;
+                });
+        }
+
+        function renderUserLogsTable(data) {
+            if (!data || data.length === 0) {
+                userLogsTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:#64748b;">No log records found.</td></tr>`;
+                return;
+            }
+
+            let html = "";
+            data.forEach(row => {
+                const idNo = escapeHtml(row.id_number || '-');
+                const fullName = escapeHtml(row.full_name || row.username || '-');
+                const action = escapeHtml(row.action || '-');
+                const details = escapeHtml(row.details || '-');
+                const timeIn = escapeHtml(row.time_in || '-');
+                const timeOut = escapeHtml(row.time_out || 'NULL');
+
+                html += `<tr style="border-bottom:1px solid #e2e8f0;">
+                    <td style="padding:10px 12px;"><strong>${idNo}</strong></td>
+                    <td style="padding:10px 12px;">${fullName}</td>
+                    <td style="padding:10px 12px;"><span style="background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:6px; font-weight:600; font-size:12px;">${action}</span></td>
+                    <td style="padding:10px 12px; color:#475569;">${details}</td>
+                    <td style="padding:10px 12px;">${timeIn}</td>
+                    <td style="padding:10px 12px;">${timeOut}</td>
+                </tr>`;
+            });
+            userLogsTableBody.innerHTML = html;
+        }
+
+        function renderUserLogsPagination(totalRecords, totalPages, curPage, limit) {
+            const start = totalRecords > 0 ? (curPage - 1) * limit + 1 : 0;
+            const end = Math.min(curPage * limit, totalRecords);
+            userLogPaginationInfo.textContent = `Showing ${start} to ${end} of ${totalRecords} entries`;
+
+            let controlsHtml = "";
+            if (totalPages > 1) {
+                if (curPage > 1) {
+                    controlsHtml += `<button type="button" onclick="goToUserLogPage(${curPage - 1})" style="padding:4px 10px; border:1px solid #cbd5e1; background:#fff; border-radius:4px; cursor:pointer;">Prev</button>`;
+                }
+                for (let i = 1; i <= totalPages; i++) {
+                    if (i === 1 || i === totalPages || (i >= curPage - 1 && i <= curPage + 1)) {
+                        const active = i === curPage ? "background:var(--primary); color:#fff; font-weight:700;" : "background:#fff;";
+                        controlsHtml += `<button type="button" onclick="goToUserLogPage(${i})" style="padding:4px 10px; border:1px solid #cbd5e1; border-radius:4px; cursor:pointer; ${active}">${i}</button>`;
+                    }
+                }
+                if (curPage < totalPages) {
+                    controlsHtml += `<button type="button" onclick="goToUserLogPage(${curPage + 1})" style="padding:4px 10px; border:1px solid #cbd5e1; background:#fff; border-radius:4px; cursor:pointer;">Next</button>`;
+                }
+            }
+            userLogPaginationControls.innerHTML = controlsHtml;
+        }
+
+        window.goToUserLogPage = function(page) {
+            userLogPage = page;
+            fetchUserLogs();
+        };
+
+        // Filter listeners
+        let userLogDebounce;
+        userLogSearch.addEventListener("input", function() {
+            clearTimeout(userLogDebounce);
+            userLogDebounce = setTimeout(() => {
+                userLogPage = 1;
+                fetchUserLogs();
+            }, 300);
+        });
+
+        userLogMonth.addEventListener("change", function() { userLogPage = 1; fetchUserLogs(); });
+        userLogYear.addEventListener("change", function() { userLogPage = 1; fetchUserLogs(); });
+        userLogStartDate.addEventListener("change", function() { userLogPage = 1; fetchUserLogs(); });
+        userLogEndDate.addEventListener("change", function() { userLogPage = 1; fetchUserLogs(); });
+
+        userLogClearBtn.addEventListener("click", function() {
+            userLogSearch.value = "";
+            userLogMonth.value = "all";
+            userLogYear.value = "all";
+            userLogStartDate.value = "";
+            userLogEndDate.value = "";
+            userLogPage = 1;
+            fetchUserLogs();
+        });
     </script>
 </body>
 

@@ -153,9 +153,34 @@ switch ($action) {
         $userController->unblockAccount();
         break;
 
-    /* ========================== AUDIT LOGS ROUTES ======================== */
+    /* ========================== AUDIT LOGS & USER LOGS ROUTES ======================== */
     case 'getAuditLogs':
         $userController->getAuditLogs();
+        break;
+    case 'getMyLogs':
+        $userController->getMyLogs();
+        break;
+
+    /* ========================== REGISTRATION APPROVAL ROUTES ======================== */
+    case 'getPendingRegistrations':
+        $userController->getPendingRegistrations();
+        break;
+    case 'approveRegistration':
+        $userController->approveRegistration();
+        break;
+    case 'rejectRegistration':
+        $userController->rejectRegistration();
+        break;
+
+    /* ========================== DELETE REQUESTS (SUPER ADMIN) ROUTES ======================== */
+    case 'getDeleteRequests':
+        $userController->getDeleteRequests();
+        break;
+    case 'approveDeleteRequest':
+        $userController->approveDeleteRequest();
+        break;
+    case 'rejectDeleteRequest':
+        $userController->rejectDeleteRequest();
         break;
 
     /* ========================== ROLE & PRIVILEGE ROUTES ======================== */

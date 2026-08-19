@@ -48,6 +48,20 @@
         <span class="nav-label">Manage Users</span>
       </a>
 
+      <a href="approvals.php" class="nav-link <?= $activePage === 'approvals' ? 'active' : '' ?>">
+        <span class="nav-icon">
+          <i class="fa-solid fa-user-check"></i>
+        </span>
+        <span class="nav-label">Approvals</span>
+      </a>
+
+      <a href="delete_requests.php" class="nav-link <?= $activePage === 'delete_requests' ? 'active' : '' ?>">
+        <span class="nav-icon">
+          <i class="fa-solid fa-trash-arrow-up"></i>
+        </span>
+        <span class="nav-label">Delete Requests</span>
+      </a>
+
       <a href="block_list.php" class="nav-link <?= $activePage === 'block_list' ? 'active' : '' ?>">
         <span class="nav-icon">
           <svg viewBox="0 0 24 24" aria-hidden="true">

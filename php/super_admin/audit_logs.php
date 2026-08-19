@@ -82,13 +82,38 @@ $activePage = 'audit_logs';
           </div>
 
           <div class="control-row">
-            <div class="date-filter-group">
+            <div class="date-filter-group" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+              <label for="monthFilter"><i class="fa-regular fa-calendar"></i> Month:</label>
+              <select id="monthFilter" class="filter-select" aria-label="Month Filter">
+                <option value="all" selected>All Months</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+
+              <label for="yearFilter">Year:</label>
+              <select id="yearFilter" class="filter-select" aria-label="Year Filter">
+                <option value="all" selected>All Years</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
+                <option value="2027">2027</option>
+              </select>
+
               <label for="startDateInput"><i class="fa-regular fa-calendar-days"></i> From:</label>
               <input type="date" id="startDateInput" class="date-input" />
               <label for="endDateInput">To:</label>
               <input type="date" id="endDateInput" class="date-input" />
-              <button type="button" id="btnClearDate" class="btn-clear-date" title="Clear Date Range">
-                <i class="fa-solid fa-xmark"></i> Clear Dates
+              <button type="button" id="btnClearDate" class="btn-clear-date" title="Clear Filters">
+                <i class="fa-solid fa-xmark"></i> Clear Filters
               </button>
             </div>
           </div>
@@ -101,7 +126,8 @@ $activePage = 'audit_logs';
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>User ID</th>
+                  <th>ID No</th>
+                  <th>Full Name</th>
                   <th>Username</th>
                   <th>Role</th>
                   <th>Action</th>

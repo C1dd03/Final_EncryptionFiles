@@ -529,17 +529,38 @@ document.addEventListener("DOMContentLoaded", function () {
     const row = getRowData(btnEl);
     if (!row) return;
 
-    confirmModalTitle.textContent = "Delete User Account";
-    confirmModalMessage.innerHTML = `Are you sure you want to delete user account <strong>${escapeHtml(
-      row.name
-    )}</strong> (<code>${escapeHtml(row.id_number)}</code>)?<br><br><span style="color:#dc2626; font-size: 0.85rem;"><i class="fa-solid fa-triangle-exclamation"></i> Warning: This action cannot be undone.</span>`;
+    confirmModalTitle.textContent = "Submit Delete Request to Super Admin";
+    confirmModalMessage.innerHTML = `
+      <p style="margin:0 0 10px 0; font-size:0.95rem; color:var(--farm-text);">
+        You are requesting deletion for user account <strong>${escapeHtml(row.name)}</strong> (<code>${escapeHtml(row.id_number)}</code>).
+      </p>
+      <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:10px; margin-bottom:12px; font-size:0.85rem; color:#991b1b;">
+        <i class="fa-solid fa-info-circle"></i> As an Administrator, your deletion request and complete user info will be forwarded to the Super Admin for final review.
+      </div>
+      <label for="adminDeleteReasonInput" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:4px; color:var(--farm-text);">
+        Reason for Deletion <span style="color:#ef4444;">*</span>:
+      </label>
+      <textarea id="adminDeleteReasonInput" rows="3" style="width:100%; border:1px solid #cbd5e1; border-radius:6px; padding:8px; font-size:0.85rem; box-sizing:border-box;" placeholder="State reason why this account should be deleted..."></textarea>
+    `;
 
     confirmModalBtn.className = "btn-danger";
-    confirmModalBtn.textContent = "Confirm & Delete";
+    confirmModalBtn.textContent = "Submit Request";
 
     activeConfirmCallback = function () {
+      const reasonInput = document.getElementById("adminDeleteReasonInput");
+      const reason = reasonInput ? reasonInput.value.trim() : "";
+      if (!reason) {
+        alert("Please provide a reason for deleting this account.");
+        if (reasonInput) reasonInput.focus();
+        return;
+      }
+
       const body = new FormData();
       body.append("id_number", row.id_number);
+      body.append("reason", reason);
+
+      confirmModalBtn.disabled = true;
+      confirmModalBtn.textContent = "Submitting...";
 
       fetch("../../php/auth/index.php?action=adminDeleteUser", {
         method: "POST",
@@ -547,16 +568,19 @@ document.addEventListener("DOMContentLoaded", function () {
       })
         .then((res) => res.json())
         .then((res) => {
+          confirmModalBtn.disabled = false;
           if (res.success) {
-            setFlashToast("User successfully deleted.", "success");
+            closeConfirmModal();
+            setFlashToast("Delete request submitted to Super Admin.", "success");
             window.location.reload();
           } else {
-            showToast(res.message || "Failed to delete user.", "error");
+            showToast(res.message || "Failed to submit delete request.", "error");
           }
         })
         .catch((err) => {
+          confirmModalBtn.disabled = false;
           console.error(err);
-          showToast("An error occurred while deleting user.", "error");
+          showToast("An error occurred while submitting delete request.", "error");
         });
     };
 

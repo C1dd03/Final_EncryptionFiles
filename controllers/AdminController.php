@@ -663,19 +663,32 @@ class AdminController
         $this->requirePrivilege('delete_users', $authState['id_number']);
         header('Content-Type: application/json; charset=utf-8');
 
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
         $id_number = trim($_POST['id_number'] ?? '');
+        $reason    = trim($_POST['reason'] ?? '');
+
         if (empty($id_number)) {
             echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
             exit;
         }
 
-        $deleted = $this->userModel->deleteStandardUser($id_number);
-        if ($deleted) {
-            echo json_encode(['success' => true, 'message' => 'User account deleted successfully.']);
-            $this->userModel->logAuditAction($_SESSION['user_id'] ?? null, $_SESSION['username'] ?? 'admin', 'admin', 'Delete User', "Deleted User ID: {$id_number}");
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to delete user account.']);
+        if (empty($reason)) {
+            echo json_encode(['success' => false, 'message' => 'Please provide a valid reason for requesting account deletion.']);
+            exit;
         }
+
+        $result = $this->userModel->submitDeleteRequest(
+            $id_number,
+            $reason,
+            $authState['id_number'],
+            $authState['username']
+        );
+
+        echo json_encode($result);
         exit;
     }
 }

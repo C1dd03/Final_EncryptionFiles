@@ -14,6 +14,7 @@ class User
         $this->conn = Database::getInstance()->getConnection();
         $this->ensureBlockListSchema();
         $this->ensurePrivilegeSchema();
+        $this->ensureDeleteRequestsAndApprovalSchema();
     }
 
     public function insertUser(array $data)
@@ -887,6 +888,7 @@ class User
     /* ========================== ADMIN PRIVILEGES & ROLE MANAGEMENT ======================== */
 
     public const PRIVILEGES = [
+        'approve_registrations' => 'Approve/Reject Registrations',
         'view_user_logs' => 'View User Activity Logs',
         'view_admin_logs' => 'View Admin Activity Logs',
         'view_users' => 'View All User Accounts',
@@ -1336,13 +1338,357 @@ class User
         }
     }
 
-    public function getAuditLogs(string $search = '', string $action = 'all', string $role = 'all', string $startDate = '', string $endDate = '', int $offset = 0, int $limit = 10, array $rolesIn = []): array
+    /**
+     * Ensures delete_requests table and pending_approval status enum exist.
+     */
+    public function ensureDeleteRequestsAndApprovalSchema(): void
     {
-        $sql = "SELECT id, id_number, username, role, action, details, time_in, time_out FROM audit_logs WHERE 1=1";
+        try {
+            // Ensure users.status includes 'pending_approval'
+            $stmt = $this->conn->query("SHOW COLUMNS FROM users LIKE 'status'");
+            $col = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($col && strpos($col['Type'], 'pending_approval') === false) {
+                $this->conn->exec(
+                    "ALTER TABLE users MODIFY COLUMN status ENUM('block','pending','pending_approval','active') NOT NULL DEFAULT 'active'"
+                );
+            }
+
+            // Ensure delete_requests table
+            $stmt = $this->conn->query("SHOW TABLES LIKE 'delete_requests'");
+            if (!$stmt->fetch()) {
+                $this->conn->exec(
+                    "CREATE TABLE delete_requests (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id_number VARCHAR(20) NOT NULL,
+                        user_name VARCHAR(150) NOT NULL,
+                        user_username VARCHAR(100) NOT NULL,
+                        user_email VARCHAR(150) NOT NULL,
+                        user_role VARCHAR(50) NOT NULL,
+                        user_details TEXT NOT NULL,
+                        reason TEXT NOT NULL,
+                        requested_by_id VARCHAR(20) NOT NULL,
+                        requested_by_username VARCHAR(100) NOT NULL,
+                        status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+                        requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        reviewed_at DATETIME DEFAULT NULL,
+                        reviewed_by VARCHAR(100) DEFAULT NULL,
+                        review_notes TEXT DEFAULT NULL,
+                        KEY idx_status (status),
+                        KEY idx_user_id (user_id_number)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+                );
+            }
+        } catch (Exception $e) {
+            error_log("Approval and Delete Request schema sync warning: " . $e->getMessage());
+        }
+    }
+
+    public function setAccountStatus(string $id_number, string $status): bool
+    {
+        $stmt = $this->conn->prepare("UPDATE users SET status = :status WHERE id_number = :id_number");
+        return $stmt->execute([':status' => $status, ':id_number' => $id_number]);
+    }
+
+    /* ========================== REGISTRATION APPROVAL METHODS ======================== */
+
+    public function getPendingRegistrations(string $search = '', string $startDate = '', string $endDate = '', string $month = 'all', string $year = 'all', int $offset = 0, int $limit = 10): array
+    {
+        $sql = "SELECT u.id_number, u.first_name, u.middle_name, u.last_name, u.extension,
+                       TRIM(CONCAT(COALESCE(u.first_name, ''),
+                            IF(u.middle_name IS NOT NULL AND u.middle_name != '', CONCAT(' ', u.middle_name), ''),
+                            IF(u.last_name IS NOT NULL AND u.last_name != '', CONCAT(' ', u.last_name), ''),
+                            IF(u.extension IS NOT NULL AND u.extension != '', CONCAT(' ', u.extension), '')
+                       )) AS full_name,
+                       u.birthdate, u.gender, u.age, u.username, u.email, u.role, u.status, u.created_at,
+                       a.purok_street, a.barangay, a.city_municipality, a.province, a.country, a.zip_code
+                FROM users u
+                LEFT JOIN addresses a ON a.id_number = u.id_number
+                WHERE u.status = 'pending_approval'";
+        $params = [];
+
+        if (!empty($startDate)) {
+            $sql .= " AND DATE(u.created_at) >= :startDate";
+            $params[':startDate'] = $startDate;
+        }
+
+        if (!empty($endDate)) {
+            $sql .= " AND DATE(u.created_at) <= :endDate";
+            $params[':endDate'] = $endDate;
+        }
+
+        if (!empty($month) && $month !== 'all') {
+            $sql .= " AND MONTH(u.created_at) = :month";
+            $params[':month'] = (int)$month;
+        }
+
+        if (!empty($year) && $year !== 'all') {
+            $sql .= " AND YEAR(u.created_at) = :year";
+            $params[':year'] = (int)$year;
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (u.id_number LIKE :search OR u.first_name LIKE :search OR u.last_name LIKE :search OR u.username LIKE :search OR u.email LIKE :search)";
+            $params[':search'] = '%' . $search . '%';
+        }
+
+        $sql .= " ORDER BY u.created_at DESC LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->conn->prepare($sql);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getPendingRegistrationsCount(string $search = '', string $startDate = '', string $endDate = '', string $month = 'all', string $year = 'all'): int
+    {
+        $sql = "SELECT COUNT(*) FROM users u WHERE u.status = 'pending_approval'";
+        $params = [];
+
+        if (!empty($startDate)) {
+            $sql .= " AND DATE(u.created_at) >= :startDate";
+            $params[':startDate'] = $startDate;
+        }
+
+        if (!empty($endDate)) {
+            $sql .= " AND DATE(u.created_at) <= :endDate";
+            $params[':endDate'] = $endDate;
+        }
+
+        if (!empty($month) && $month !== 'all') {
+            $sql .= " AND MONTH(u.created_at) = :month";
+            $params[':month'] = (int)$month;
+        }
+
+        if (!empty($year) && $year !== 'all') {
+            $sql .= " AND YEAR(u.created_at) = :year";
+            $params[':year'] = (int)$year;
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (u.id_number LIKE :search OR u.first_name LIKE :search OR u.last_name LIKE :search OR u.username LIKE :search OR u.email LIKE :search)";
+            $params[':search'] = '%' . $search . '%';
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function approveRegistration(string $id_number, string $performedById, string $performedByUsername, string $performedByRole): bool
+    {
+        try {
+            $stmt = $this->conn->prepare("UPDATE users SET status = 'active' WHERE id_number = :id_number AND status = 'pending_approval'");
+            $success = $stmt->execute([':id_number' => $id_number]);
+            if ($success && $stmt->rowCount() > 0) {
+                $user = $this->getUserByIdNumber($id_number);
+                $name = $user ? $user['first_name'] . ' ' . $user['last_name'] : $id_number;
+                $this->logAuditAction($performedById, $performedByUsername, $performedByRole, 'Approve Registration', "Approved registration for {$name} (ID: {$id_number})");
+                return true;
+            }
+            return false;
+        } catch (Exception $e) {
+            error_log("Failed to approve registration: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function rejectRegistration(string $id_number, string $reason, string $performedById, string $performedByUsername, string $performedByRole): bool
+    {
+        try {
+            $user = $this->getUserByIdNumber($id_number);
+            $name = $user ? $user['first_name'] . ' ' . $user['last_name'] : $id_number;
+
+            $this->conn->beginTransaction();
+            $stmt = $this->conn->prepare("DELETE FROM addresses WHERE id_number = :id_number");
+            $stmt->execute([':id_number' => $id_number]);
+
+            $stmt = $this->conn->prepare("DELETE FROM user_auth_answers WHERE id_number = :id_number");
+            $stmt->execute([':id_number' => $id_number]);
+
+            $stmt = $this->conn->prepare("DELETE FROM users WHERE id_number = :id_number AND status = 'pending_approval'");
+            $stmt->execute([':id_number' => $id_number]);
+
+            $this->conn->commit();
+
+            $this->logAuditAction($performedById, $performedByUsername, $performedByRole, 'Reject Registration', "Rejected registration for {$name} (ID: {$id_number}). Reason: {$reason}");
+            return true;
+        } catch (Exception $e) {
+            $this->conn->rollBack();
+            error_log("Failed to reject registration: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /* ========================== DELETE REQUESTS METHODS ======================== */
+
+    public function submitDeleteRequest(string $id_number, string $reason, string $adminId, string $adminUsername): array
+    {
+        $user = $this->getUserByIdNumber($id_number);
+        if (!$user) {
+            return ['success' => false, 'message' => 'User account not found.'];
+        }
+
+        if (strtolower($user['role']) === 'superadmin') {
+            return ['success' => false, 'message' => 'Cannot request deletion for a Super Admin account.'];
+        }
+
+        // Check if a pending delete request already exists
+        $stmt = $this->conn->prepare("SELECT id FROM delete_requests WHERE user_id_number = :id_number AND status = 'pending'");
+        $stmt->execute([':id_number' => $id_number]);
+        if ($stmt->fetch()) {
+            return ['success' => false, 'message' => 'A pending deletion request already exists for this account.'];
+        }
+
+        $fullName = trim(($user['first_name'] ?? '') . ' ' . ($user['middle_name'] ?? '') . ' ' . ($user['last_name'] ?? '') . ' ' . ($user['extension'] ?? ''));
+
+        $stmt = $this->conn->prepare(
+            "INSERT INTO delete_requests (user_id_number, user_name, user_username, user_email, user_role, user_details, reason, requested_by_id, requested_by_username, status)
+             VALUES (:user_id_number, :user_name, :user_username, :user_email, :user_role, :user_details, :reason, :requested_by_id, :requested_by_username, 'pending')"
+        );
+
+        $success = $stmt->execute([
+            ':user_id_number'        => $id_number,
+            ':user_name'             => $fullName ?: $user['username'],
+            ':user_username'         => $user['username'],
+            ':user_email'            => $user['email'] ?? '',
+            ':user_role'             => $user['role'],
+            ':user_details'          => json_encode($user),
+            ':reason'                => $reason,
+            ':requested_by_id'       => $adminId,
+            ':requested_by_username' => $adminUsername
+        ]);
+
+        if ($success) {
+            $this->logAuditAction($adminId, $adminUsername, 'admin', 'Delete Request Submitted', "Requested deletion of user {$user['username']} (ID: {$id_number}). Reason: {$reason}");
+            return ['success' => true, 'message' => 'Delete request has been submitted to the Super Admin for approval.'];
+        }
+
+        return ['success' => false, 'message' => 'Failed to submit delete request.'];
+    }
+
+    public function getDeleteRequests(string $search = '', string $status = 'all', int $offset = 0, int $limit = 10): array
+    {
+        $sql = "SELECT id, user_id_number, user_name, user_username, user_email, user_role, user_details, reason,
+                       requested_by_id, requested_by_username, status, requested_at, reviewed_at, reviewed_by, review_notes
+                FROM delete_requests WHERE 1=1";
+        $params = [];
+
+        if (!empty($status) && $status !== 'all') {
+            $sql .= " AND status = :status";
+            $params[':status'] = $status;
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (user_id_number LIKE :search OR user_name LIKE :search OR user_username LIKE :search OR requested_by_username LIKE :search OR reason LIKE :search)";
+            $params[':search'] = '%' . $search . '%';
+        }
+
+        $sql .= " ORDER BY requested_at DESC LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->conn->prepare($sql);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getDeleteRequestsCount(string $search = '', string $status = 'all'): int
+    {
+        $sql = "SELECT COUNT(*) FROM delete_requests WHERE 1=1";
+        $params = [];
+
+        if (!empty($status) && $status !== 'all') {
+            $sql .= " AND status = :status";
+            $params[':status'] = $status;
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (user_id_number LIKE :search OR user_name LIKE :search OR user_username LIKE :search OR requested_by_username LIKE :search OR reason LIKE :search)";
+            $params[':search'] = '%' . $search . '%';
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function approveDeleteRequest(int $requestId, string $superAdminId, string $superAdminUsername): array
+    {
+        $stmt = $this->conn->prepare("SELECT * FROM delete_requests WHERE id = :id AND status = 'pending'");
+        $stmt->execute([':id' => $requestId]);
+        $request = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$request) {
+            return ['success' => false, 'message' => 'Pending deletion request not found.'];
+        }
+
+        $targetId = $request['user_id_number'];
+
+        // Perform actual deletion
+        $deleted = $this->deleteStandardUser($targetId);
+        if (!$deleted) {
+            return ['success' => false, 'message' => 'Failed to delete target user account.'];
+        }
+
+        // Update request status
+        $updateStmt = $this->conn->prepare(
+            "UPDATE delete_requests SET status = 'approved', reviewed_at = NOW(), reviewed_by = :reviewer WHERE id = :id"
+        );
+        $updateStmt->execute([':reviewer' => $superAdminUsername, ':id' => $requestId]);
+
+        $this->logAuditAction($superAdminId, $superAdminUsername, 'superadmin', 'Approve Delete Request', "Super Admin approved deletion of user {$request['user_username']} (ID: {$targetId}) requested by Admin {$request['requested_by_username']}");
+
+        return ['success' => true, 'message' => 'Delete request approved and account has been permanently deleted.'];
+    }
+
+    public function rejectDeleteRequest(int $requestId, string $notes, string $superAdminId, string $superAdminUsername): array
+    {
+        $stmt = $this->conn->prepare("SELECT * FROM delete_requests WHERE id = :id AND status = 'pending'");
+        $stmt->execute([':id' => $requestId]);
+        $request = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$request) {
+            return ['success' => false, 'message' => 'Pending deletion request not found.'];
+        }
+
+        $updateStmt = $this->conn->prepare(
+            "UPDATE delete_requests SET status = 'rejected', reviewed_at = NOW(), reviewed_by = :reviewer, review_notes = :notes WHERE id = :id"
+        );
+        $updateStmt->execute([':reviewer' => $superAdminUsername, ':notes' => $notes, ':id' => $requestId]);
+
+        $this->logAuditAction($superAdminId, $superAdminUsername, 'superadmin', 'Reject Delete Request', "Super Admin rejected delete request for {$request['user_username']} (ID: {$request['user_id_number']}). Notes: {$notes}");
+
+        return ['success' => true, 'message' => 'Delete request has been rejected.'];
+    }
+
+    /* ========================== ENHANCED AUDIT LOGS ======================== */
+
+    public function getAuditLogs(string $search = '', string $action = 'all', string $role = 'all', string $startDate = '', string $endDate = '', int $offset = 0, int $limit = 10, array $rolesIn = [], string $month = 'all', string $year = 'all'): array
+    {
+        $sql = "SELECT a.id, a.id_number,
+                       TRIM(CONCAT(
+                            COALESCE(u.first_name, ''),
+                            IF(u.middle_name IS NOT NULL AND u.middle_name != '', CONCAT(' ', u.middle_name), ''),
+                            IF(u.last_name IS NOT NULL AND u.last_name != '', CONCAT(' ', u.last_name), ''),
+                            IF(u.extension IS NOT NULL AND u.extension != '', CONCAT(' ', u.extension), '')
+                       )) AS full_name,
+                       a.username, a.role, a.action, a.details, a.time_in, a.time_out
+                FROM audit_logs a
+                LEFT JOIN users u ON (u.id_number = a.id_number OR (u.username = a.username AND u.username != ''))
+                WHERE 1=1";
         $params = [];
 
         if (!empty($action) && $action !== 'all') {
-            $sql .= " AND action = :action";
+            $sql .= " AND a.action = :action";
             $params[':action'] = $action;
         }
 
@@ -1352,28 +1698,38 @@ class User
                 $placeholders[] = ':role_in_' . $i;
                 $params[':role_in_' . $i] = strtolower(trim($r));
             }
-            $sql .= " AND LOWER(TRIM(role)) IN (" . implode(', ', $placeholders) . ")";
+            $sql .= " AND LOWER(TRIM(a.role)) IN (" . implode(', ', $placeholders) . ")";
         } elseif (!empty($role) && $role !== 'all') {
-            $sql .= " AND LOWER(TRIM(role)) = :role";
+            $sql .= " AND LOWER(TRIM(a.role)) = :role";
             $params[':role'] = strtolower(trim($role));
         }
 
         if (!empty($startDate)) {
-            $sql .= " AND DATE(time_in) >= :startDate";
+            $sql .= " AND DATE(a.time_in) >= :startDate";
             $params[':startDate'] = $startDate;
         }
 
         if (!empty($endDate)) {
-            $sql .= " AND DATE(time_in) <= :endDate";
+            $sql .= " AND DATE(a.time_in) <= :endDate";
             $params[':endDate'] = $endDate;
         }
 
+        if (!empty($month) && $month !== 'all') {
+            $sql .= " AND MONTH(a.time_in) = :month";
+            $params[':month'] = (int)$month;
+        }
+
+        if (!empty($year) && $year !== 'all') {
+            $sql .= " AND YEAR(a.time_in) = :year";
+            $params[':year'] = (int)$year;
+        }
+
         if (!empty($search)) {
-            $sql .= " AND (id_number LIKE :search OR username LIKE :search OR action LIKE :search OR details LIKE :search)";
+            $sql .= " AND (a.id_number LIKE :search OR a.username LIKE :search OR a.action LIKE :search OR a.details LIKE :search OR u.first_name LIKE :search OR u.last_name LIKE :search)";
             $params[':search'] = '%' . $search . '%';
         }
 
-        $sql .= " ORDER BY id DESC LIMIT :limit OFFSET :offset";
+        $sql .= " ORDER BY a.id DESC LIMIT :limit OFFSET :offset";
 
         $stmt = $this->conn->prepare($sql);
         foreach ($params as $key => $val) {
@@ -1388,17 +1744,22 @@ class User
             if (empty($row['id_number'])) {
                 $row['id_number'] = '-';
             }
+            if (empty($row['full_name'])) {
+                $row['full_name'] = $row['username'];
+            }
         }
         return $rows;
     }
 
-    public function getAuditLogsCount(string $search = '', string $action = 'all', string $role = 'all', string $startDate = '', string $endDate = '', array $rolesIn = []): int
+    public function getAuditLogsCount(string $search = '', string $action = 'all', string $role = 'all', string $startDate = '', string $endDate = '', array $rolesIn = [], string $month = 'all', string $year = 'all'): int
     {
-        $sql = "SELECT COUNT(*) FROM audit_logs WHERE 1=1";
+        $sql = "SELECT COUNT(*) FROM audit_logs a
+                LEFT JOIN users u ON (u.id_number = a.id_number OR (u.username = a.username AND u.username != ''))
+                WHERE 1=1";
         $params = [];
 
         if (!empty($action) && $action !== 'all') {
-            $sql .= " AND action = :action";
+            $sql .= " AND a.action = :action";
             $params[':action'] = $action;
         }
 
@@ -1408,24 +1769,140 @@ class User
                 $placeholders[] = ':role_in_' . $i;
                 $params[':role_in_' . $i] = strtolower(trim($r));
             }
-            $sql .= " AND LOWER(TRIM(role)) IN (" . implode(', ', $placeholders) . ")";
+            $sql .= " AND LOWER(TRIM(a.role)) IN (" . implode(', ', $placeholders) . ")";
         } elseif (!empty($role) && $role !== 'all') {
-            $sql .= " AND LOWER(TRIM(role)) = :role";
+            $sql .= " AND LOWER(TRIM(a.role)) = :role";
             $params[':role'] = strtolower(trim($role));
         }
 
         if (!empty($startDate)) {
-            $sql .= " AND DATE(time_in) >= :startDate";
+            $sql .= " AND DATE(a.time_in) >= :startDate";
             $params[':startDate'] = $startDate;
         }
 
         if (!empty($endDate)) {
-            $sql .= " AND DATE(time_in) <= :endDate";
+            $sql .= " AND DATE(a.time_in) <= :endDate";
             $params[':endDate'] = $endDate;
         }
 
+        if (!empty($month) && $month !== 'all') {
+            $sql .= " AND MONTH(a.time_in) = :month";
+            $params[':month'] = (int)$month;
+        }
+
+        if (!empty($year) && $year !== 'all') {
+            $sql .= " AND YEAR(a.time_in) = :year";
+            $params[':year'] = (int)$year;
+        }
+
         if (!empty($search)) {
-            $sql .= " AND (id_number LIKE :search OR username LIKE :search OR action LIKE :search OR details LIKE :search)";
+            $sql .= " AND (a.id_number LIKE :search OR a.username LIKE :search OR a.action LIKE :search OR a.details LIKE :search OR u.first_name LIKE :search OR u.last_name LIKE :search)";
+            $params[':search'] = '%' . $search . '%';
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
+    /* ========================== USER PERSONAL LOGS ======================== */
+
+    public function getUserPersonalLogs(string $idNumber, string $username, string $search = '', string $startDate = '', string $endDate = '', string $month = 'all', string $year = 'all', int $offset = 0, int $limit = 10): array
+    {
+        $sql = "SELECT a.id, a.id_number,
+                       TRIM(CONCAT(
+                            COALESCE(u.first_name, ''),
+                            IF(u.middle_name IS NOT NULL AND u.middle_name != '', CONCAT(' ', u.middle_name), ''),
+                            IF(u.last_name IS NOT NULL AND u.last_name != '', CONCAT(' ', u.last_name), ''),
+                            IF(u.extension IS NOT NULL AND u.extension != '', CONCAT(' ', u.extension), '')
+                       )) AS full_name,
+                       a.username, a.role, a.action, a.details, a.time_in, a.time_out
+                FROM audit_logs a
+                LEFT JOIN users u ON (u.id_number = a.id_number OR (u.username = a.username AND u.username != ''))
+                WHERE (a.id_number = :user_id OR a.username = :username)";
+        $params = [
+            ':user_id'  => $idNumber,
+            ':username' => $username
+        ];
+
+        if (!empty($startDate)) {
+            $sql .= " AND DATE(a.time_in) >= :startDate";
+            $params[':startDate'] = $startDate;
+        }
+
+        if (!empty($endDate)) {
+            $sql .= " AND DATE(a.time_in) <= :endDate";
+            $params[':endDate'] = $endDate;
+        }
+
+        if (!empty($month) && $month !== 'all') {
+            $sql .= " AND MONTH(a.time_in) = :month";
+            $params[':month'] = (int)$month;
+        }
+
+        if (!empty($year) && $year !== 'all') {
+            $sql .= " AND YEAR(a.time_in) = :year";
+            $params[':year'] = (int)$year;
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (a.action LIKE :search OR a.details LIKE :search)";
+            $params[':search'] = '%' . $search . '%';
+        }
+
+        $sql .= " ORDER BY a.id DESC LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->conn->prepare($sql);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            if (empty($row['id_number'])) {
+                $row['id_number'] = $idNumber;
+            }
+            if (empty($row['full_name'])) {
+                $row['full_name'] = $username;
+            }
+        }
+        return $rows;
+    }
+
+    public function getUserPersonalLogsCount(string $idNumber, string $username, string $search = '', string $startDate = '', string $endDate = '', string $month = 'all', string $year = 'all'): int
+    {
+        $sql = "SELECT COUNT(*) FROM audit_logs a
+                WHERE (a.id_number = :user_id OR a.username = :username)";
+        $params = [
+            ':user_id'  => $idNumber,
+            ':username' => $username
+        ];
+
+        if (!empty($startDate)) {
+            $sql .= " AND DATE(a.time_in) >= :startDate";
+            $params[':startDate'] = $startDate;
+        }
+
+        if (!empty($endDate)) {
+            $sql .= " AND DATE(a.time_in) <= :endDate";
+            $params[':endDate'] = $endDate;
+        }
+
+        if (!empty($month) && $month !== 'all') {
+            $sql .= " AND MONTH(a.time_in) = :month";
+            $params[':month'] = (int)$month;
+        }
+
+        if (!empty($year) && $year !== 'all') {
+            $sql .= " AND YEAR(a.time_in) = :year";
+            $params[':year'] = (int)$year;
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (a.action LIKE :search OR a.details LIKE :search)";
             $params[':search'] = '%' . $search . '%';
         }
 
@@ -1434,3 +1911,4 @@ class User
         return (int)$stmt->fetchColumn();
     }
 }
+

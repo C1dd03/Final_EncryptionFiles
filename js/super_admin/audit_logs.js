@@ -4,6 +4,8 @@ document.addEventListener("DOMContentLoaded", function () {
   let currentSearch = "";
   let currentAction = "all";
   let currentRole = "all";
+  let currentMonth = "all";
+  let currentYear = "all";
   let startDate = "";
   let endDate = "";
   let searchTimeout = null;
@@ -13,6 +15,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const searchInput = document.getElementById("searchInput");
   const actionFilter = document.getElementById("actionFilter");
   const roleFilter = document.getElementById("roleFilter");
+  const monthFilter = document.getElementById("monthFilter");
+  const yearFilter = document.getElementById("yearFilter");
   const startDateInput = document.getElementById("startDateInput");
   const endDateInput = document.getElementById("endDateInput");
   const btnClearDate = document.getElementById("btnClearDate");
@@ -23,10 +27,10 @@ document.addEventListener("DOMContentLoaded", function () {
   // Initialize
   loadAuditLogs();
 
-  // ✅ Real-time polling — reload audit logs every 3 seconds
+  // Polling reload audit logs every 4 seconds
   setInterval(function () {
     loadAuditLogs(true);
-  }, 3000);
+  }, 4000);
 
   // Event Listeners
   if (searchInput) {
@@ -56,6 +60,22 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  if (monthFilter) {
+    monthFilter.addEventListener("change", function () {
+      currentMonth = this.value;
+      currentPage = 1;
+      loadAuditLogs();
+    });
+  }
+
+  if (yearFilter) {
+    yearFilter.addEventListener("change", function () {
+      currentYear = this.value;
+      currentPage = 1;
+      loadAuditLogs();
+    });
+  }
+
   if (startDateInput) {
     startDateInput.addEventListener("change", function () {
       startDate = this.value;
@@ -76,8 +96,12 @@ document.addEventListener("DOMContentLoaded", function () {
     btnClearDate.addEventListener("click", function () {
       if (startDateInput) startDateInput.value = "";
       if (endDateInput) endDateInput.value = "";
+      if (monthFilter) monthFilter.value = "all";
+      if (yearFilter) yearFilter.value = "all";
       startDate = "";
       endDate = "";
+      currentMonth = "all";
+      currentYear = "all";
       currentPage = 1;
       loadAuditLogs();
     });
@@ -93,14 +117,13 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Fetch Audit Logs
-  // silent = true means polling refresh — no spinner, no flicker
   function loadAuditLogs(silent) {
     if (!auditTableBody) return;
 
     if (!silent) {
       auditTableBody.innerHTML = `
         <tr>
-          <td colspan="8" class="empty-state">
+          <td colspan="9" class="empty-state">
             <i class="fa-solid fa-spinner fa-spin"></i>
             <p>Loading audit log records...</p>
           </td>
@@ -112,6 +135,8 @@ document.addEventListener("DOMContentLoaded", function () {
       currentSearch
     )}&action_filter=${encodeURIComponent(currentAction)}&role_filter=${encodeURIComponent(
       currentRole
+    )}&month=${encodeURIComponent(currentMonth)}&year=${encodeURIComponent(
+      currentYear
     )}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(
       endDate
     )}&page=${currentPage}&limit=${currentLimit}`;
@@ -121,10 +146,9 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((res) => {
         if (res.success) {
           if (res.restricted) {
-            // Admin without audit log privileges
             auditTableBody.innerHTML = `
               <tr>
-                <td colspan="8" class="empty-state">
+                <td colspan="9" class="empty-state">
                   <i class="fa-solid fa-file-shield"></i>
                   <p>${escapeHtml(res.message || "Access Restricted")}</p>
                 </td>
@@ -139,7 +163,7 @@ document.addEventListener("DOMContentLoaded", function () {
         } else {
           auditTableBody.innerHTML = `
             <tr>
-              <td colspan="8" class="empty-state">
+              <td colspan="9" class="empty-state">
                 <i class="fa-solid fa-circle-exclamation" style="color: #ef4444;"></i>
                 <p>${escapeHtml(res.message || "Failed to load audit logs.")}</p>
               </td>
@@ -151,7 +175,7 @@ document.addEventListener("DOMContentLoaded", function () {
         console.error("Error fetching audit logs:", err);
         auditTableBody.innerHTML = `
           <tr>
-            <td colspan="8" class="empty-state">
+            <td colspan="9" class="empty-state">
               <i class="fa-solid fa-triangle-exclamation" style="color: #f59e0b;"></i>
               <p>Connection error. Please try again.</p>
             </td>
@@ -165,7 +189,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!data || data.length === 0) {
       auditTableBody.innerHTML = `
         <tr>
-          <td colspan="8" class="empty-state">
+          <td colspan="9" class="empty-state">
             <i class="fa-solid fa-clipboard-list"></i>
             <p>No audit logs found.</p>
           </td>
@@ -178,6 +202,7 @@ document.addEventListener("DOMContentLoaded", function () {
     data.forEach((row) => {
       const idDisplay = row.id ? `#${row.id}` : "-";
       const userIdDisplay = row.id_number || "-";
+      const fullNameDisplay = row.full_name || row.username || "-";
       const usernameDisplay = row.username || "-";
       const roleBadge = formatRoleBadge(row.role);
       const actionBadge = formatActionBadge(row.action);
@@ -189,6 +214,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <tr>
           <td><strong>${escapeHtml(idDisplay)}</strong></td>
           <td>${escapeHtml(userIdDisplay)}</td>
+          <td><strong>${escapeHtml(fullNameDisplay)}</strong></td>
           <td>${escapeHtml(usernameDisplay)}</td>
           <td>${roleBadge}</td>
           <td>${actionBadge}</td>

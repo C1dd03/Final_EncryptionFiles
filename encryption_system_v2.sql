@@ -114,6 +114,30 @@ CREATE TABLE `block_list` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `delete_requests`
+--
+
+CREATE TABLE `delete_requests` (
+  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id_number` varchar(20) NOT NULL,
+  `user_name` varchar(150) NOT NULL,
+  `user_username` varchar(100) NOT NULL,
+  `user_email` varchar(150) NOT NULL,
+  `user_role` varchar(50) NOT NULL,
+  `user_details` text NOT NULL,
+  `reason` text NOT NULL,
+  `requested_by_id` varchar(20) NOT NULL,
+  `requested_by_username` varchar(100) NOT NULL,
+  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `requested_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `reviewed_at` datetime DEFAULT NULL,
+  `reviewed_by` varchar(100) DEFAULT NULL,
+  `review_notes` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `users`
 --
 

@@ -498,10 +498,16 @@ class UserController
                 return;
             }
 
-            // Pending (unverified) accounts cannot log in yet
+            // Pending (unverified email) accounts cannot log in yet
             $userStatus = $user['status'] ?? 'active';
             if ($userStatus === 'pending') {
                 echo json_encode(['success' => false, 'message' => 'Your account has not been verified yet. Please check your email for the verification code.', 'errorType' => 'accountPending']);
+                return;
+            }
+
+            // Pending approval accounts cannot log in yet
+            if ($userStatus === 'pending_approval') {
+                echo json_encode(['success' => false, 'message' => 'Your registration has been submitted and is currently pending administrator approval before you can log in.', 'errorType' => 'accountPendingApproval']);
                 return;
             }
 
@@ -815,12 +821,17 @@ class UserController
             exit;
         }
 
-        // Activate the pending account
-        $this->userModel->activateAccount($pending['id_number']);
+        // Set status to pending_approval (awaits Super Admin / Admin approval)
+        $this->userModel->setAccountStatus($pending['id_number'], 'pending_approval');
         $registeredId = $pending['id_number'];
         unset($_SESSION['otp_pending']);
 
-        echo json_encode(['success' => true, 'message' => 'Account activated successfully!', 'id_number' => $registeredId]);
+        echo json_encode([
+            'success' => true,
+            'message' => 'Email verified successfully! Your account registration is now pending administrator approval.',
+            'id_number' => $registeredId,
+            'pendingApproval' => true
+        ]);
         exit;
     }
 
@@ -2406,6 +2417,8 @@ class UserController
         $role      = trim($_GET['role_filter'] ?? $_GET['role'] ?? 'all');
         $startDate = trim($_GET['start_date'] ?? '');
         $endDate   = trim($_GET['end_date'] ?? '');
+        $month     = trim($_GET['month'] ?? 'all');
+        $year      = trim($_GET['year'] ?? 'all');
         $page      = max(1, (int)($_GET['page'] ?? 1));
         $limit     = in_array((int)($_GET['limit'] ?? 10), [10, 25, 50, 100], true) ? (int)$_GET['limit'] : 10;
 
@@ -2447,14 +2460,14 @@ class UserController
             $role = 'all';
         }
 
-        $totalRecords = $this->userModel->getAuditLogsCount($search, $action, $role, $startDate, $endDate, $rolesIn);
+        $totalRecords = $this->userModel->getAuditLogsCount($search, $action, $role, $startDate, $endDate, $rolesIn, $month, $year);
         $totalPages   = max(1, (int)ceil($totalRecords / $limit));
         if ($page > $totalPages && $totalPages > 0) {
             $page = $totalPages;
         }
         $offset = ($page - 1) * $limit;
 
-        $records = $this->userModel->getAuditLogs($search, $action, $role, $startDate, $endDate, $offset, $limit, $rolesIn);
+        $records = $this->userModel->getAuditLogs($search, $action, $role, $startDate, $endDate, $offset, $limit, $rolesIn, $month, $year);
 
         echo json_encode([
             'success'      => true,
@@ -2464,6 +2477,269 @@ class UserController
             'currentPage'  => $page,
             'limit'        => $limit
         ]);
+        exit;
+    }
+
+    /* ========================== USER PERSONAL LOGS ======================== */
+
+    public function getMyLogs()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['user', 'admin', 'superadmin']);
+
+        $search    = trim($_GET['search'] ?? '');
+        $startDate = trim($_GET['start_date'] ?? '');
+        $endDate   = trim($_GET['end_date'] ?? '');
+        $month     = trim($_GET['month'] ?? 'all');
+        $year      = trim($_GET['year'] ?? 'all');
+        $page      = max(1, (int)($_GET['page'] ?? 1));
+        $limit     = in_array((int)($_GET['limit'] ?? 10), [10, 25, 50, 100], true) ? (int)$_GET['limit'] : 10;
+
+        $totalRecords = $this->userModel->getUserPersonalLogsCount(
+            $authState['id_number'],
+            $authState['username'],
+            $search,
+            $startDate,
+            $endDate,
+            $month,
+            $year
+        );
+
+        $totalPages = max(1, (int)ceil($totalRecords / $limit));
+        if ($page > $totalPages && $totalPages > 0) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $limit;
+
+        $records = $this->userModel->getUserPersonalLogs(
+            $authState['id_number'],
+            $authState['username'],
+            $search,
+            $startDate,
+            $endDate,
+            $month,
+            $year,
+            $offset,
+            $limit
+        );
+
+        echo json_encode([
+            'success'      => true,
+            'data'         => $records,
+            'totalRecords' => $totalRecords,
+            'totalPages'   => $totalPages,
+            'currentPage'  => $page,
+            'limit'        => $limit
+        ]);
+        exit;
+    }
+
+    /* ========================== REGISTRATION APPROVAL ACTIONS ======================== */
+
+    public function getPendingRegistrations()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['superadmin', 'admin']);
+
+        if (strtolower($authState['role']) === 'admin') {
+            if (!$this->userModel->hasAdminPrivilege($authState['id_number'], 'approve_registrations') &&
+                !$this->userModel->hasAdminPrivilege($authState['id_number'], 'view_users')) {
+                echo json_encode(['success' => false, 'message' => 'You do not have privilege to view pending registrations.']);
+                exit;
+            }
+        }
+
+        $search    = trim($_GET['search'] ?? '');
+        $startDate = trim($_GET['start_date'] ?? '');
+        $endDate   = trim($_GET['end_date'] ?? '');
+        $month     = trim($_GET['month'] ?? 'all');
+        $year      = trim($_GET['year'] ?? 'all');
+        $page      = max(1, (int)($_GET['page'] ?? 1));
+        $limit     = in_array((int)($_GET['limit'] ?? 10), [10, 25, 50, 100], true) ? (int)$_GET['limit'] : 10;
+
+        $totalRecords = $this->userModel->getPendingRegistrationsCount($search, $startDate, $endDate, $month, $year);
+        $totalPages   = max(1, (int)ceil($totalRecords / $limit));
+        if ($page > $totalPages && $totalPages > 0) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $limit;
+
+        $records = $this->userModel->getPendingRegistrations($search, $startDate, $endDate, $month, $year, $offset, $limit);
+
+        echo json_encode([
+            'success'      => true,
+            'data'         => $records,
+            'totalRecords' => $totalRecords,
+            'totalPages'   => $totalPages,
+            'currentPage'  => $page,
+            'limit'        => $limit
+        ]);
+        exit;
+    }
+
+    public function approveRegistration()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['superadmin', 'admin']);
+
+        if (strtolower($authState['role']) === 'admin') {
+            if (!$this->userModel->hasAdminPrivilege($authState['id_number'], 'approve_registrations') &&
+                !$this->userModel->hasAdminPrivilege($authState['id_number'], 'edit_users')) {
+                echo json_encode(['success' => false, 'message' => 'You do not have privilege to approve registrations.']);
+                exit;
+            }
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        $id_number = trim($_POST['id_number'] ?? '');
+        if (empty($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
+            exit;
+        }
+
+        $approved = $this->userModel->approveRegistration(
+            $id_number,
+            $authState['id_number'],
+            $authState['username'],
+            $authState['role']
+        );
+
+        if ($approved) {
+            echo json_encode(['success' => true, 'message' => 'Registration approved successfully. Account is now active.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to approve registration. Record may have already been approved or removed.']);
+        }
+        exit;
+    }
+
+    public function rejectRegistration()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['superadmin', 'admin']);
+
+        if (strtolower($authState['role']) === 'admin') {
+            if (!$this->userModel->hasAdminPrivilege($authState['id_number'], 'approve_registrations') &&
+                !$this->userModel->hasAdminPrivilege($authState['id_number'], 'block_users')) {
+                echo json_encode(['success' => false, 'message' => 'You do not have privilege to reject registrations.']);
+                exit;
+            }
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        $id_number = trim($_POST['id_number'] ?? '');
+        $reason    = trim($_POST['reason'] ?? 'Registration rejected by administrator');
+        if (empty($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
+            exit;
+        }
+
+        $rejected = $this->userModel->rejectRegistration(
+            $id_number,
+            $reason,
+            $authState['id_number'],
+            $authState['username'],
+            $authState['role']
+        );
+
+        if ($rejected) {
+            echo json_encode(['success' => true, 'message' => 'Registration rejected and removed.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to reject registration.']);
+        }
+        exit;
+    }
+
+    /* ========================== DELETE REQUEST ACTIONS (SUPER ADMIN) ======================== */
+
+    public function getDeleteRequests()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $this->requireSuperAdmin();
+
+        $search = trim($_GET['search'] ?? '');
+        $status = trim($_GET['status'] ?? 'pending');
+        $page   = max(1, (int)($_GET['page'] ?? 1));
+        $limit  = in_array((int)($_GET['limit'] ?? 10), [10, 25, 50, 100], true) ? (int)$_GET['limit'] : 10;
+
+        $totalRecords = $this->userModel->getDeleteRequestsCount($search, $status);
+        $totalPages   = max(1, (int)ceil($totalRecords / $limit));
+        if ($page > $totalPages && $totalPages > 0) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $limit;
+
+        $records = $this->userModel->getDeleteRequests($search, $status, $offset, $limit);
+
+        echo json_encode([
+            'success'      => true,
+            'data'         => $records,
+            'totalRecords' => $totalRecords,
+            'totalPages'   => $totalPages,
+            'currentPage'  => $page,
+            'limit'        => $limit
+        ]);
+        exit;
+    }
+
+    public function approveDeleteRequest()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $this->requireSuperAdmin();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        $requestId = (int)($_POST['request_id'] ?? 0);
+        if ($requestId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Valid request ID is required.']);
+            exit;
+        }
+
+        $result = $this->userModel->approveDeleteRequest(
+            $requestId,
+            $_SESSION['user_id'],
+            $_SESSION['username'] ?? 'superadmin'
+        );
+
+        echo json_encode($result);
+        exit;
+    }
+
+    public function rejectDeleteRequest()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $this->requireSuperAdmin();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+
+        $requestId = (int)($_POST['request_id'] ?? 0);
+        $notes     = trim($_POST['notes'] ?? 'Rejected by Super Admin');
+        if ($requestId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Valid request ID is required.']);
+            exit;
+        }
+
+        $result = $this->userModel->rejectDeleteRequest(
+            $requestId,
+            $notes,
+            $_SESSION['user_id'],
+            $_SESSION['username'] ?? 'superadmin'
+        );
+
+        echo json_encode($result);
         exit;
     }
 

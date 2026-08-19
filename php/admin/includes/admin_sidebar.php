@@ -43,6 +43,13 @@ $canNavViewLogs  = in_array('view_user_logs', $sidebarGranted, true)
       <span class="nav-label">Manage Users</span>
     </a>
 
+    <a href="approvals.php" class="nav-link <?= $activePage === 'approvals' ? 'active' : '' ?>">
+      <span class="nav-icon">
+        <i class="fa-solid fa-user-check"></i>
+      </span>
+      <span class="nav-label">Approvals</span>
+    </a>
+
     <?php if ($canNavViewLogs): ?>
     <a href="audit_logs.php" class="nav-link <?= $activePage === 'audit_logs' ? 'active' : '' ?>">
       <span class="nav-icon">
