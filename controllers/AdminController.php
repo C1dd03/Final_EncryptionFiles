@@ -647,7 +647,7 @@ class AdminController
             exit;
         }
 
-        $updated = $this->userModel->toggleStandardUserStatus($id_number, $new_status, $_SESSION['username'] ?? 'admin', $reason, $ip);
+        $updated = $this->userModel->toggleStandardUserStatus($id_number, $new_status, $_SESSION['user_id'] ?? 'admin', $reason, $ip);
         if ($updated) {
             $actionText = ($new_status === 'block') ? 'blocked' : 'unblocked';
             echo json_encode(['success' => true, 'message' => "User account has been {$actionText}."]);

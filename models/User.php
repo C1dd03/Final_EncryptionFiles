@@ -775,19 +775,20 @@ class User
             $targetName = $targetUser['name'] ?? $id_number;
             $opUser = $this->getUserOrAdminByIdNumber($operator);
             $opId = $opUser['id_number'] ?? $operator;
+            $opUsername = $opUser['username'] ?? $operator;
             $opRole = strtolower($opUser['role'] ?? 'superadmin');
 
             if ($new_status === 'block') {
-                $this->syncBlockListOnBlock($id_number, $operator, $reason, $ip);
-                $reasonText = !empty($reason) ? $reason : 'Restricted by Super Admin';
-                $details = "Blocked User: {$targetName} | Blocked By: {$operator} | Reason: {$reasonText}";
+                $this->syncBlockListOnBlock($id_number, $opUsername, $reason, $ip);
+                $reasonText = !empty($reason) ? $reason : 'Restricted by ' . ucfirst($opRole);
+                $details = "Blocked User: {$targetName} | Blocked By: {$opUsername} | Reason: {$reasonText}";
                 if (!empty($ip)) $details .= " | IP Address: {$ip}";
-                $this->logAuditAction($opId, $operator, $opRole, 'Block User', $details);
+                $this->logAuditAction($opId, $opUsername, $opRole, 'Block User', $details);
             } else {
                 $uName = $targetUser['username'] ?? $id_number;
                 $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number OR username = :username")->execute([':id_number' => $id_number, ':username' => $uName]);
                 $details = "Unblocked user {$targetName}.";
-                $this->logAuditAction($opId, $operator, $opRole, 'Unblock User', $details);
+                $this->logAuditAction($opId, $opUsername, $opRole, 'Unblock User', $details);
             }
         }
         return $res;
