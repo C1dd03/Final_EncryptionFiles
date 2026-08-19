@@ -1,4 +1,4 @@
-<form class="register-form" action="index.php?action=registerUser" method="post" onsubmit="return handleSubmit(this)" novalidate <?php if (!empty($showOtpStep)) echo 'style="display:none;"'; ?>>
+<form class="register-form" action="index.php?action=registerUser" method="post" onsubmit="return handleSubmit(this)" novalidate <?php if (!empty($showSuccessModal)) echo 'style="display:none;"'; ?>>
   <?php if (!empty($error)): ?>
     <p style="color:red; margin-bottom:10px;"><?php echo $error; ?></p>
   <?php endif; ?>
@@ -354,151 +354,18 @@
   </p>
 </form>
 
-<!-- OTP Verification Step (shown after the account is created) -->
-<div class="otp-verify-step" id="registerOtpStep" style="<?php echo !empty($showOtpStep) ? 'display:block;' : 'display:none;'; ?>">
-  <h2>Verify Your Email</h2>
-  <p class="otp-info">We sent a 6-digit code to<br /><strong><?php echo htmlspecialchars($otpMaskedEmail ?? ''); ?></strong></p>
-
-  <?php if (!empty($otpIssueError)): ?>
-    <p class="message-error" style="visibility:visible;"><?php echo htmlspecialchars($otpIssueError); ?></p>
-  <?php endif; ?>
-
-  <div class="form-field" style="margin-bottom: 10px;">
-    <div class="input-field">
-      <input type="text" name="otp" id="registerOtpInput" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" placeholder=" " />
-      <label>OTP Code</label>
-    </div>
-    <div class="field-error" id="register-otp-error" role="alert" style="display:none; color:#dc3545; font-size:12px; text-align:center;"></div>
-  </div>
-
-  <button class="btn_submit" id="verifyRegisterOtpBtn" type="button">Verify Email</button>
-
-  <p class="otp-timer" id="registerOtpExpiry" style="text-align:center; font-size:12px; color:#6b7280; margin-top:6px;"></p>
-  <p class="otp-timer" id="registerOtpResendTimer" style="text-align:center; font-size:12px; color:#6b7280;"></p>
-  <div class="field-error" id="register-otp-message" role="alert" style="display:none; color:#dc3545; font-size:12px; text-align:center; margin-top:4px;"></div>
-  <p class="otp-resend" style="text-align:center; font-size:13px; margin-top:8px;">
-    Didn't receive the code? <a href="javascript:void(0)" id="registerResendOtp" style="display:none;">Resend OTP</a>
-  </p>
-  <div class="dev-otp-banner" id="registerOtpDevBanner" style="display:none; background:#fef9c3; color:#854d0e; font-size:12px; text-align:center; padding:8px; border-radius:6px; margin-top:8px;"></div>
-  <p class="toggle-link" style="margin-top: 12px;">
-    <a href="index.php?action=register">← Back to Registration</a>
-  </p>
-</div>
-
 <!-- Success Modal -->
-<div class="success-modal" id="successModal">
+<div class="success-modal <?php if (!empty($showSuccessModal)) echo 'show'; ?>" id="successModal">
   <div class="success-modal-content">
     <div class="success-icon">
       <i class="fas fa-check-circle"></i>
     </div>
     <h2 class="success-title">SUCCESS</h2>
-    <p class="success-message">Congratulations, your account<br>has been successfully created.</p>
-    <p class="success-id">Your ID: <strong id="userIdDisplay"></strong></p>
+    <p class="success-message">Congratulations, your registration<br>has been submitted for administrator approval.</p>
+    <p class="success-id">Your ID: <strong id="userIdDisplay"><?php echo htmlspecialchars($registeredId ?? ''); ?></strong></p>
     <button class="success-btn" onclick="goToLogin()">Go to Login Form</button>
   </div>
 </div>
-
-<?php if (!empty($showOtpStep)): ?>
-  <script>
-    window.addEventListener('DOMContentLoaded', function () {
-    (function () {
-      const otpInput = document.getElementById('registerOtpInput');
-      const otpError = document.getElementById('register-otp-error');
-      const otpMessage = document.getElementById('register-otp-message');
-      const otpExpiryEl = document.getElementById('registerOtpExpiry');
-      const otpResendTimerEl = document.getElementById('registerOtpResendTimer');
-      const otpResendLink = document.getElementById('registerResendOtp');
-      const otpDevBanner = document.getElementById('registerOtpDevBanner');
-      const verifyBtn = document.getElementById('verifyRegisterOtpBtn');
-      let otpTimers = [];
-
-      function setError(text) {
-        otpError.textContent = text;
-        otpError.style.display = text ? 'block' : 'none';
-      }
-
-      function setMessage(text) {
-        otpMessage.textContent = text;
-        otpMessage.style.display = text ? 'block' : 'none';
-      }
-
-      // Countdowns + dev banner
-      otpTimers.push(otpStartExpiryTimer(<?php echo (int)($otpExpiresIn ?? 300); ?>, otpExpiryEl));
-      otpTimers.push(otpStartResendTimer(<?php echo (int)($otpCooldown ?? 60); ?>, otpResendLink, otpResendTimerEl));
-      otpShowDevBanner(otpDevBanner, <?php echo json_encode($devOtp ?? null); ?>);
-      if (otpInput) otpInput.focus();
-
-      function verifyOtp() {
-        const code = otpInput.value.trim();
-        setError('');
-        setMessage('');
-        if (!/^\d{6}$/.test(code)) {
-          setError('Please enter the 6-digit code.');
-          return;
-        }
-        otpSetButtonLoading(verifyBtn, true, 'Verifying...', 'Verify Email');
-        otpPost('index.php?action=verifyRegisterOtp', { otp: code })
-          .then((data) => {
-            if (data.success) {
-              otpTimers.forEach((t) => clearInterval(t));
-              const modal = document.getElementById('successModal');
-              const userIdDisplay = document.getElementById('userIdDisplay');
-              if (userIdDisplay) userIdDisplay.textContent = data.id_number || '';
-              if (modal) modal.classList.add('show');
-            } else {
-              otpSetButtonLoading(verifyBtn, false, '', 'Verify Email');
-              setError(data.message || 'Invalid code. Please try again.');
-              otpInput.value = '';
-              otpInput.focus();
-            }
-          })
-          .catch((err) => {
-            console.error('OTP verify error:', err);
-            otpSetButtonLoading(verifyBtn, false, '', 'Verify Email');
-            setMessage('An error occurred. Please try again.');
-          });
-      }
-
-      function resendOtp() {
-        setError('');
-        setMessage('');
-        otpResendLink.style.display = 'none';
-        otpPost('index.php?action=resendOtp', {})
-          .then((data) => {
-            otpShowDevBanner(otpDevBanner, data.dev_otp);
-            if (data.success) {
-              setMessage(data.message || 'A new code has been sent.');
-              otpTimers.push(otpStartExpiryTimer(data.expires_in || 300, otpExpiryEl));
-              otpTimers.push(otpStartResendTimer(data.cooldown || 60, otpResendLink, otpResendTimerEl));
-              otpInput.value = '';
-              otpInput.focus();
-            } else {
-              setMessage(data.message || 'Could not resend the code.');
-              otpTimers.push(otpStartResendTimer(data.cooldown || 60, otpResendLink, otpResendTimerEl));
-            }
-          })
-          .catch((err) => {
-            console.error('OTP resend error:', err);
-            setMessage('An error occurred. Please try again.');
-            otpResendLink.style.display = 'inline';
-          });
-      }
-
-      verifyBtn.addEventListener('click', verifyOtp);
-      otpInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          verifyOtp();
-        }
-      });
-      otpResendLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        resendOtp();
-      });
-    })();
-    });
-  </script>
-<?php endif; ?>
 
 <script>
   function goToLogin() {

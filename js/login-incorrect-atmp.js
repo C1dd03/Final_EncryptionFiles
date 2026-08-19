@@ -287,16 +287,17 @@ document.addEventListener("DOMContentLoaded", function () {
           const target = data.redirect || "/Final_EncryptionFiles/public/dashboard.php";
           window.location.href = target;
         } else {
-          // Blocked / unverified / no-email accounts: show the message and skip the attempt/lock flow
+          // Blocked / pending approval / unverified accounts: show the message and skip the attempt/lock flow
           if (
             data.errorType === "accountBlocked" ||
             data.errorType === "accountPending" ||
+            data.errorType === "accountPendingApproval" ||
             data.errorType === "noEmail" ||
             data.errorType === "otpSendFailed"
           ) {
             setMessage(
               data.message ||
-                "Your account has been blocked. Please contact the Super Admin.",
+                "Your account cannot log in at this time.",
               "error"
             );
             return;

@@ -265,33 +265,14 @@ class UserController
                 'username'    => $username,
                 'email'       => $email,
                 'password'    => $password, // hashed once in User::insertUser
-                'status'      => 'pending' // account activates after email OTP verification
+                'status'      => 'pending_approval' // registration submitted, awaiting administrator approval
             ];
 
-            // --- INSERT INTO DATABASE (account starts as 'pending' until the email OTP is verified) ---
+            // --- INSERT INTO DATABASE ---
             $result = $this->userModel->insertUser($data);
             if ($result) {
-                $registeredId = $result; // This is the generated ID number
-
-                // Send the 6-digit verification code to the registered email
-                $otp = new Otp();
-                $issue = $otp->issue($data['email'], $result, 'register');
-
-                if (session_status() === PHP_SESSION_NONE) {
-                    session_start();
-                }
-                $_SESSION['otp_pending'] = [
-                    'purpose'   => 'register',
-                    'email'     => $data['email'],
-                    'id_number' => $result
-                ];
-
-                $showOtpStep    = true;
-                $otpMaskedEmail = $otp->maskEmail($data['email']);
-                $otpIssueError  = $issue['success'] ? null : $issue['message'];
-                $devOtp         = $issue['dev_otp'] ?? null;
-                $otpExpiresIn   = $issue['expires_in'] ?? Otp::CODE_LIFETIME;
-                $otpCooldown    = $issue['cooldown'] ?? Otp::RESEND_COOLDOWN;
+                $registeredId = $result; // Generated ID number
+                $showSuccessModal = true;
 
                 $formView = "register.php";
                 require __DIR__ . '/../php/auth/auth.php';
@@ -517,48 +498,48 @@ class UserController
                 return;
             }
 
-            // No email on file -> cannot deliver an OTP
-            if (empty($user['email'])) {
-                echo json_encode(['success' => false, 'message' => 'No email address is linked to this account. Please contact the Super Admin.', 'errorType' => 'noEmail']);
-                return;
+            // Credentials are valid and account is active -> establish session directly
+            $_SESSION['user_id'] = $user['id_number'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = strtolower($user['role'] ?? 'user');
+            $_SESSION['session_version'] = (int)($user['session_version'] ?? 0);
+
+            // Record Login Audit Log — always use Philippine local time
+            date_default_timezone_set('Asia/Manila');
+            $loginTime = date('Y-m-d H:i:s');
+
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '::1';
+            if ($ip === '127.0.0.1') $ip = '::1';
+            $host = gethostname() ?: 'DESKTOP-SYSTEM';
+            $agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Browser';
+            $device = 'Microsoft Edge';
+            if (strpos($agent, 'Chrome') !== false && strpos($agent, 'Edg') === false) {
+                $device = 'Google Chrome';
+            } elseif (strpos($agent, 'Firefox') !== false) {
+                $device = 'Mozilla Firefox';
             }
 
-            // Credentials are valid -> require a 6-digit OTP before creating the session
-            $otp = new Otp();
-            $issue = $otp->issue($user['email'], $user['id_number'], 'login');
-            if (!$issue['success']) {
-                echo json_encode([
-                    'success'   => false,
-                    'message'   => $issue['message'],
-                    'errorType' => 'otpSendFailed',
-                    'cooldown'  => $issue['cooldown'] ?? null,
-                    'dev_otp'   => $issue['dev_otp'] ?? null
-                ]);
-                return;
+            $details = "Login successful. IP: {$ip} | Host: {$host} | Device: {$device}";
+            $auditId = $this->userModel->logAuditAction(
+                $user['id_number'],
+                $user['username'],
+                strtolower($user['role'] ?? 'user'),
+                'Login',
+                $details,
+                $loginTime,
+                null
+            );
+            $_SESSION['audit_log_id'] = $auditId;
+
+            $redirectUrl = 'index.php?action=dashboard';
+            if ($_SESSION['role'] === 'superadmin') {
+                $redirectUrl = '../super_admin/dashboard.php';
+            } elseif ($_SESSION['role'] === 'admin') {
+                $redirectUrl = '../admin/dashboard.php';
             }
 
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
-            }
-            $_SESSION['otp_pending'] = [
-                'purpose'         => 'login',
-                'email'           => $user['email'],
-                'id_number'       => $user['id_number'],
-                'username'        => $user['username'],
-                'role'            => $user['role'] ?? 'user',
-                'session_version' => (int)($user['session_version'] ?? 0)
-            ];
-
-            echo json_encode([
-                'success'    => true,
-                'needOtp'    => true,
-                'email'      => $otp->maskEmail($user['email']),
-                'expires_in' => $issue['expires_in'] ?? Otp::CODE_LIFETIME,
-                'cooldown'   => $issue['cooldown'] ?? Otp::RESEND_COOLDOWN,
-                'dev_otp'    => $issue['dev_otp'] ?? null
-            ]);
+            echo json_encode(['success' => true, 'redirect' => $redirectUrl]);
             return;
-
         }
 
         echo json_encode(['success' => false, 'message' => 'Invalid request method.', 'errorType' => 'invalidMethod']);
