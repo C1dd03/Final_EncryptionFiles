@@ -280,10 +280,93 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  let currentUserStep = 1;
+  const userModalCard = document.getElementById("userModalCard");
+
+  function updateUserStepperIndicators(stepNum) {
+    const numbers = document.querySelectorAll("#userModalStepper .modal-step-number");
+    const lines = document.querySelectorAll("#userModalStepper .modal-step-line");
+    const titles = document.querySelectorAll("#userModalStepper .modal-step-title");
+
+    numbers.forEach((num, idx) => {
+      const stepVal = idx + 1;
+      num.classList.remove("active", "completed");
+      if (stepVal < stepNum) {
+        num.classList.add("completed");
+      } else if (stepVal === stepNum) {
+        num.classList.add("active");
+      }
+    });
+
+    lines.forEach((line, idx) => {
+      const lineStep = idx + 1;
+      if (lineStep < stepNum) {
+        line.classList.add("active");
+      } else {
+        line.classList.remove("active");
+      }
+    });
+
+    titles.forEach((title, idx) => {
+      const titleStep = idx + 1;
+      title.classList.toggle("active", titleStep === stepNum);
+    });
+  }
+
+  function showUserStep(stepNum) {
+    currentUserStep = stepNum;
+    const panes = document.querySelectorAll("#userForm .modal-step-pane");
+    panes.forEach((pane) => {
+      const paneStep = parseInt(pane.getAttribute("data-step"), 10);
+      if (paneStep === stepNum) {
+        pane.classList.add("active");
+      } else {
+        pane.classList.remove("active");
+      }
+    });
+    updateUserStepperIndicators(stepNum);
+  }
+
+  function validateUserStep(stepNum) {
+    const pane = document.getElementById(`userStep${stepNum}`);
+    if (!pane) return true;
+
+    let isValid = true;
+    let firstInvalid = null;
+
+    pane.querySelectorAll("input, select").forEach((input) => {
+      validateField(input);
+      if (input.classList.contains("invalid")) {
+        if (!firstInvalid) firstInvalid = input;
+        isValid = false;
+      }
+    });
+
+    if (!isValid && firstInvalid) {
+      firstInvalid.focus();
+    }
+    return isValid;
+  }
+
+  window.nextUserStep = function (currentStep) {
+    if (validateUserStep(currentStep)) {
+      showUserStep(Math.min(currentStep + 1, 4));
+    }
+  };
+
+  window.prevUserStep = function (currentStep) {
+    showUserStep(Math.max(currentStep - 1, 1));
+  };
+
   function openAddModal() {
     if (userForm) userForm.reset();
     clearAllModalErrors();
     setVal("formMode", "add");
+
+    if (userModalCard) userModalCard.classList.remove("edit-mode");
+
+    const profileHdr = document.getElementById("editUserProfileHeader");
+    if (profileHdr) profileHdr.style.display = "none";
 
     const idEl = document.getElementById("formIdNumber");
     if (idEl) {
@@ -293,8 +376,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const secTitle = document.getElementById("securitySectionTitle");
     const secGrid = document.getElementById("securitySectionGrid");
-    if (secTitle) secTitle.style.display = "flex";
-    if (secGrid) secGrid.style.display = "grid";
+    if (secTitle) secTitle.style.display = "";
+    if (secGrid) secGrid.style.display = "";
     ["formSecQ1", "formSecA1", "formSecQ2", "formSecA2", "formSecQ3", "formSecA3"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.required = true;
@@ -304,11 +387,18 @@ document.addEventListener("DOMContentLoaded", function () {
     const confGrp = document.getElementById("confirmPasswordGroup");
     const passInp = document.getElementById("formPassword");
     const confInp = document.getElementById("formConfirmPassword");
+    const passLbl = document.getElementById("formPasswordLabel");
 
-    if (passGrp) passGrp.style.display = "block";
-    if (confGrp) confGrp.style.display = "block";
-    if (passInp) passInp.required = true;
+    if (passGrp) passGrp.style.display = "";
+    if (confGrp) confGrp.style.display = "";
+    if (passInp) {
+      passInp.required = true;
+      passInp.placeholder = "Enter password";
+    }
     if (confInp) confInp.required = true;
+    if (passLbl) passLbl.textContent = "Password *";
+
+    showUserStep(1);
 
     if (userModalTitle) userModalTitle.textContent = "Add New User";
     if (userModal) userModal.classList.add("show");
@@ -331,6 +421,35 @@ document.addEventListener("DOMContentLoaded", function () {
         clearAllModalErrors();
         setVal("formMode", "edit");
 
+        if (userModalCard) userModalCard.classList.add("edit-mode");
+
+        // Populate dynamic profile summary banner in edit mode
+        const profileHdr = document.getElementById("editUserProfileHeader");
+        if (profileHdr) {
+          profileHdr.style.display = "flex";
+          const fullName = [user.first_name, user.middle_name, user.last_name, user.extension].filter(Boolean).join(" ");
+          const initial = (user.first_name ? user.first_name.charAt(0) : "U").toUpperCase();
+          const avatarEl = document.getElementById("editUserAvatar");
+          const nameEl = document.getElementById("editUserDisplayName");
+          const idEl = document.getElementById("editUserIdNumber");
+          const userEl = document.getElementById("editUserUsername");
+          const emailEl = document.getElementById("editUserEmail");
+          const statusBadge = document.getElementById("editUserStatusBadge");
+          const statusText = document.getElementById("editUserStatusText");
+
+          if (avatarEl) avatarEl.textContent = initial;
+          if (nameEl) nameEl.textContent = fullName || user.username || "User Account";
+          if (idEl) idEl.textContent = user.id_number || "-";
+          if (userEl) userEl.textContent = user.username ? `@${user.username}` : "-";
+          if (emailEl) emailEl.textContent = user.email || "-";
+
+          if (statusBadge && statusText) {
+            const isBlocked = user.status === "block";
+            statusBadge.className = isBlocked ? "edit-status-badge blocked" : "edit-status-badge active";
+            statusText.textContent = isBlocked ? "Blocked" : "Active";
+          }
+        }
+
         const idEl = document.getElementById("formIdNumber");
         if (idEl) {
           idEl.value = user.id_number || "";
@@ -352,10 +471,6 @@ document.addEventListener("DOMContentLoaded", function () {
         setVal("formCountry", user.country);
         setVal("formZip", user.zip);
 
-        const secTitle = document.getElementById("securitySectionTitle");
-        const secGrid = document.getElementById("securitySectionGrid");
-        if (secTitle) secTitle.style.display = "none";
-        if (secGrid) secGrid.style.display = "none";
         ["formSecQ1", "formSecA1", "formSecQ2", "formSecA2", "formSecQ3", "formSecA3"].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.required = false;
@@ -369,11 +484,16 @@ document.addEventListener("DOMContentLoaded", function () {
         const confGrp = document.getElementById("confirmPasswordGroup");
         const passInp = document.getElementById("formPassword");
         const confInp = document.getElementById("formConfirmPassword");
+        const passLbl = document.getElementById("formPasswordLabel");
 
-        if (passGrp) passGrp.style.display = "block";
+        if (passGrp) passGrp.style.display = "";
         if (confGrp) confGrp.style.display = "none";
-        if (passInp) passInp.required = false;
+        if (passInp) {
+          passInp.required = false;
+          passInp.placeholder = "Leave blank to keep unchanged";
+        }
         if (confInp) confInp.required = false;
+        if (passLbl) passLbl.textContent = "New Password (Optional)";
 
         if (userModalTitle) userModalTitle.textContent = "Edit User Account";
         if (userModal) userModal.classList.add("show");
@@ -387,12 +507,48 @@ document.addEventListener("DOMContentLoaded", function () {
   function closeUserModal() {
     userModal.classList.remove("show");
     clearAllModalErrors();
+    if (userModalCard) userModalCard.classList.remove("edit-mode");
+    const profileHdr = document.getElementById("editUserProfileHeader");
+    if (profileHdr) profileHdr.style.display = "none";
   }
 
   function handleUserFormSubmit(e) {
     e.preventDefault();
 
     const mode = document.getElementById("formMode").value;
+    let firstInvalidInput = null;
+    let hasError = false;
+
+    clearAllModalErrors();
+
+    if (mode === "add") {
+      // Validate all steps in add mode
+      for (let s = 1; s <= 4; s++) {
+        if (!validateUserStep(s)) {
+          showUserStep(s);
+          return;
+        }
+      }
+    } else {
+      // In edit mode: validate all visible fields in edit frame
+      userForm.querySelectorAll("input:not([type=hidden]), select").forEach((input) => {
+        if (input.offsetParent !== null) {
+          validateField(input);
+          if (input.classList.contains("invalid")) {
+            if (!firstInvalidInput) firstInvalidInput = input;
+            hasError = true;
+          }
+        }
+      });
+
+      if (hasError) {
+        if (firstInvalidInput) {
+          firstInvalidInput.focus();
+        }
+        return;
+      }
+    }
+
     const formData = new FormData(userForm);
     const isEdit = mode !== "add";
     const userName = (formData.get("first_name") || "") + " " + (formData.get("last_name") || "");
@@ -421,22 +577,22 @@ document.addEventListener("DOMContentLoaded", function () {
             window.location.reload();
           } else if (res.fieldErrors) {
             const fieldMap = {
-              first_name:         "formFirstName",
-              middle_name:        "formMiddleName",
-              last_name:          "formLastName",
-              extension:          "formExtension",
-              birthdate:          "formBirthdate",
-              gender:             "formGender",
-              street:             "formStreet",
-              barangay:           "formBarangay",
-              city:               "formCity",
-              province:           "formProvince",
-              country:            "formCountry",
-              zip:                "formZip",
-              username:           "formUsername",
-              email:              "formEmail",
-              password:           "formPassword",
-              confirm_password:   "formConfirmPassword",
+              first_name: "formFirstName",
+              middle_name: "formMiddleName",
+              last_name: "formLastName",
+              extension: "formExtension",
+              birthdate: "formBirthdate",
+              gender: "formGender",
+              street: "formStreet",
+              barangay: "formBarangay",
+              city: "formCity",
+              province: "formProvince",
+              country: "formCountry",
+              zip: "formZip",
+              username: "formUsername",
+              email: "formEmail",
+              password: "formPassword",
+              confirm_password: "formConfirmPassword",
             };
             Object.entries(res.fieldErrors).forEach(([field, msg]) => {
               const elId = fieldMap[field];
@@ -485,11 +641,10 @@ document.addEventListener("DOMContentLoaded", function () {
     confirmModalTitle.textContent = `${actionName} User Account`;
     confirmModalMessage.innerHTML = `Are you sure you want to <strong>${actionName.toLowerCase()}</strong> user account <strong>${escapeHtml(
       row.name
-    )}</strong> (<code>${escapeHtml(row.id_number)}</code>)?${
-      isBlocking
+    )}</strong> (<code>${escapeHtml(row.id_number)}</code>)?${isBlocking
         ? `<br><br><label for="blockReasonInput" style="font-size: 0.85rem; display: block; margin-bottom: 6px;">Reason:</label><input type="text" id="blockReasonInput" class="form-control" style="width: 100%;" placeholder="e.g. Violation of system policy" />`
         : ""
-    }`;
+      }`;
 
     confirmModalBtn.className = isBlocking ? "btn-danger" : "btn-primary";
     confirmModalBtn.textContent = `${actionName} User`;
@@ -666,7 +821,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (data && data.message) {
           showToast(data.message, data.type || "success");
         }
-      } catch (e) {}
+      } catch (e) { }
       sessionStorage.removeItem("flash_toast");
     }
   }

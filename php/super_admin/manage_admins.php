@@ -314,217 +314,314 @@ function e($text)
 
   <!-- Add / Edit Admin Modal -->
   <div class="modal-overlay" id="adminModal">
-    <div class="modal-card modal-card-lg">
+    <div class="modal-card modal-card-lg" id="adminModalCard">
       <div class="modal-header">
         <h3 id="adminModalTitle">Add New Admin</h3>
         <button type="button" class="modal-close" id="closeModalBtn">&times;</button>
       </div>
-      <form id="adminForm">
-        <div class="modal-body">
-          <input type="hidden" id="formMode" value="add" />
 
-          <!-- Personal Information Section -->
-          <div class="form-section-title">
-            <i class="fa-solid fa-user"></i> Personal Information
+      <!-- Edit Mode Admin Profile Header Banner -->
+      <div class="edit-profile-header" id="editAdminProfileHeader" style="display: none;">
+        <div class="edit-avatar" id="editAdminAvatar"><i class="fa-solid fa-user-shield"></i></div>
+        <div class="edit-profile-info">
+          <div class="edit-profile-top">
+            <h4 id="editAdminDisplayName">Admin Name</h4>
+            <span class="edit-role-badge admin"><i class="fa-solid fa-shield-halved"></i> <span id="editAdminRoleText">Admin</span></span>
+            <span class="edit-status-badge active" id="editAdminStatusBadge"><i class="fa-solid fa-circle"></i> <span id="editAdminStatusText">Active</span></span>
           </div>
-          <div class="form-grid">
-            <div class="form-group full-width">
-              <label for="formIdNumber">ID No (Optional - Auto-generated if blank)</label>
-              <input type="text" id="formIdNumber" name="id_number" class="form-control" placeholder="e.g. 2026-0002" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formFirstName">First Name *</label>
-              <input type="text" id="formFirstName" name="first_name" class="form-control" placeholder="First Name" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formMiddleName">Middle Name</label>
-              <input type="text" id="formMiddleName" name="middle_name" class="form-control" placeholder="Middle Name (Optional)" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formLastName">Last Name *</label>
-              <input type="text" id="formLastName" name="last_name" class="form-control" placeholder="Last Name" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formExtension">Name Extension</label>
-              <input type="text" id="formExtension" name="extension" class="form-control" placeholder="Jr., Sr., I, II, etc." pattern="^(Jr\.?|Sr\.?|I|II|III|IV|V|VI|VII|VIII|IX|X)$" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formBirthdate">Birthdate *</label>
-              <input type="date" id="formBirthdate" name="birthdate" class="form-control" max="<?= date('Y-m-d', strtotime('-18 years')) ?>" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formAge">Age</label>
-              <input type="text" id="formAge" name="age" class="form-control" readonly placeholder="Auto-calculated" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group full-width">
-              <label for="formGender">Gender *</label>
-              <select id="formGender" name="gender" class="form-control">
-                <option value="" disabled selected hidden>Select Gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-              </select>
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
+          <div class="edit-profile-sub">
+            <span class="edit-meta-chip"><i class="fa-solid fa-id-card"></i> <span id="editAdminIdNumber">-</span></span>
+            <span class="edit-meta-chip"><i class="fa-solid fa-at"></i> <span id="editAdminUsername">-</span></span>
+            <span class="edit-meta-chip"><i class="fa-solid fa-envelope"></i> <span id="editAdminEmail">-</span></span>
           </div>
+        </div>
+      </div>
 
-          <!-- Address Information Section -->
-          <div class="form-section-title">
-            <i class="fa-solid fa-location-dot"></i> Address Information
-          </div>
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="formStreet">Purok / Street *</label>
-              <input type="text" id="formStreet" name="street" class="form-control" placeholder="Purok / Street" />
-              <div class="input-error-container" aria-live="polite"></div>
+      <!-- Stepper Progress Bar (for Add Mode) -->
+      <div class="modal-stepper-wrapper" id="adminModalStepper">
+        <div class="modal-stepper-indicators">
+          <div class="stepper-line2"></div>
+          <div class="modal-step-number active" data-step="1">1</div>
+          <div class="modal-step-line" data-line="1"></div>
+          <div class="modal-step-number" data-step="2">2</div>
+          <div class="modal-step-line" data-line="2"></div>
+          <div class="modal-step-number" data-step="3">3</div>
+          <div class="modal-step-line" data-line="3"></div>
+          <div class="modal-step-number" data-step="4">4</div>
+          <div class="stepper-line2"></div>
+        </div>
+        <div class="modal-stepper-titles">
+          <div class="modal-step-title active" data-step="1">Personal Information</div>
+          <div class="modal-step-title-spacer"></div>
+          <div class="modal-step-title" data-step="2">Address Information</div>
+          <div class="modal-step-title-spacer"></div>
+          <div class="modal-step-title" data-step="3">Security Questions</div>
+          <div class="modal-step-title-spacer"></div>
+          <div class="modal-step-title" data-step="4">Account Information</div>
+        </div>
+      </div>
+
+      <form id="adminForm" novalidate>
+        <input type="hidden" id="formMode" value="add" />
+
+        <div class="modal-body" id="adminModalBody">
+          <!-- Step 1: Personal Information -->
+          <div class="modal-step-pane active" id="adminStep1" data-step="1">
+            <div class="form-section-title">
+              <i class="fa-solid fa-user"></i> Personal Information
+            </div>
+            <div class="form-grid modal-two-col-grid">
+              <div class="form-col">
+                <div class="form-group">
+                  <label for="formIdNumber">ID Number (Optional - Auto-generated)</label>
+                  <input type="text" id="formIdNumber" name="id_number" class="form-control" placeholder="e.g. 2026-0002" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formFirstName">First Name *</label>
+                  <input type="text" id="formFirstName" name="first_name" class="form-control" placeholder="First Name" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formMiddleName">Middle Name (Optional)</label>
+                  <input type="text" id="formMiddleName" name="middle_name" class="form-control" placeholder="Middle Name" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formLastName">Last Name *</label>
+                  <input type="text" id="formLastName" name="last_name" class="form-control" placeholder="Last Name" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+              </div>
+
+              <div class="form-col">
+                <div class="form-group">
+                  <label for="formExtension">Name Extension (Optional)</label>
+                  <input type="text" id="formExtension" name="extension" class="form-control" placeholder="Jr., Sr., I, II, etc." pattern="^(Jr\.?|Sr\.?|I|II|III|IV|V|VI|VII|VIII|IX|X)$" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formBirthdate">Birthdate *</label>
+                  <input type="date" id="formBirthdate" name="birthdate" class="form-control" max="<?= date('Y-m-d', strtotime('-18 years')) ?>" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formAge">Age</label>
+                  <input type="text" id="formAge" name="age" class="form-control" readonly placeholder="Auto-calculated" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formGender">Gender *</label>
+                  <select id="formGender" name="gender" class="form-control">
+                    <option value="" disabled selected hidden>Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+              </div>
             </div>
 
-            <div class="form-group">
-              <label for="formBarangay">Barangay *</label>
-              <input type="text" id="formBarangay" name="barangay" class="form-control" placeholder="Barangay" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formCity">Municipal / City *</label>
-              <input type="text" id="formCity" name="city" class="form-control" placeholder="Municipal / City" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formProvince">Province *</label>
-              <input type="text" id="formProvince" name="province" class="form-control" placeholder="Province" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formCountry">Country *</label>
-              <input type="text" id="formCountry" name="country" class="form-control" placeholder="Country" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formZip">Zip Code *</label>
-              <input type="number" id="formZip" name="zip" class="form-control" placeholder="Zip Code" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-          </div>
-
-          <!-- Security Questions Section -->
-          <div class="form-section-title" id="securitySectionTitle">
-            <i class="fa-solid fa-shield-halved"></i> Security Questions
-          </div>
-          <div class="form-grid" id="securitySectionGrid">
-            <div class="form-group">
-              <label for="formSecQ1">Question 1 *</label>
-              <select id="formSecQ1" name="security_question_1" class="form-control">
-                <option value="" disabled selected hidden>Select Question 1</option>
-                <option value="1">Who is your best friend in elementary?</option>
-                <option value="2">What is the name of your favorite pet?</option>
-                <option value="3">Who is your favorite teacher in high school?</option>
-              </select>
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-            <div class="form-group">
-              <label for="formSecA1">Answer 1 *</label>
-              <input type="password" id="formSecA1" name="security_q1" class="form-control" placeholder="Answer 1" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formSecQ2">Question 2 *</label>
-              <select id="formSecQ2" name="security_question_2" class="form-control">
-                <option value="" disabled selected hidden>Select Question 2</option>
-                <option value="4">What is your mother's maiden name?</option>
-                <option value="5">What city were you born in?</option>
-                <option value="6">What is your favorite color?</option>
-              </select>
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-            <div class="form-group">
-              <label for="formSecA2">Answer 2 *</label>
-              <input type="password" id="formSecA2" name="security_q2" class="form-control" placeholder="Answer 2" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formSecQ3">Question 3 *</label>
-              <select id="formSecQ3" name="security_question_3" class="form-control">
-                <option value="" disabled selected hidden>Select Question 3</option>
-                <option value="7">What is your favorite food?</option>
-                <option value="8">What was the name of your first school?</option>
-                <option value="9">What is your father's middle name?</option>
-              </select>
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-            <div class="form-group">
-              <label for="formSecA3">Answer 3 *</label>
-              <input type="password" id="formSecA3" name="security_q3" class="form-control" placeholder="Answer 3" />
-              <div class="input-error-container" aria-live="polite"></div>
+            <div class="step-nav-footer">
+              <span class="step-nav-hint">Click Next to Continue</span>
+              <button type="button" class="btn-step-nav btn-primary" onclick="nextAdminStep(1)">Next &gt;</button>
             </div>
           </div>
 
-          <!-- Account Information Section -->
-          <div class="form-section-title">
-            <i class="fa-solid fa-lock"></i> Account Information
+          <!-- Step 2: Address Information -->
+          <div class="modal-step-pane" id="adminStep2" data-step="2">
+            <div class="form-section-title">
+              <i class="fa-solid fa-location-dot"></i> Address Information
+            </div>
+            <div class="form-grid modal-two-col-grid">
+              <div class="form-col">
+                <div class="form-group">
+                  <label for="formStreet">Purok / Street *</label>
+                  <input type="text" id="formStreet" name="street" class="form-control" placeholder="Purok / Street" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formBarangay">Barangay *</label>
+                  <input type="text" id="formBarangay" name="barangay" class="form-control" placeholder="Barangay" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formCity">Municipal / City *</label>
+                  <input type="text" id="formCity" name="city" class="form-control" placeholder="Municipal / City" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+              </div>
+
+              <div class="form-col">
+                <div class="form-group">
+                  <label for="formProvince">Province *</label>
+                  <input type="text" id="formProvince" name="province" class="form-control" placeholder="Province" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formCountry">Country *</label>
+                  <input type="text" id="formCountry" name="country" class="form-control" placeholder="Country" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formZip">Zip Code *</label>
+                  <input type="number" id="formZip" name="zip" class="form-control" placeholder="Zip Code" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="step-nav-footer">
+              <button type="button" class="btn-step-nav btn-secondary" onclick="prevAdminStep(2)">&lt; Prev</button>
+              <button type="button" class="btn-step-nav btn-primary" onclick="nextAdminStep(2)">Next &gt;</button>
+            </div>
           </div>
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="formUsername">Username *</label>
-              <input type="text" id="formUsername" name="username" class="form-control" placeholder="admin.username" />
-              <div class="input-error-container" aria-live="polite"></div>
+
+          <!-- Step 3: Security Questions -->
+          <div class="modal-step-pane" id="adminStep3" data-step="3">
+            <div class="form-section-title" id="securitySectionTitle">
+              <i class="fa-solid fa-shield-halved"></i> Security Questions
+            </div>
+            <div class="form-grid modal-two-col-grid" id="securitySectionGrid">
+              <div class="form-col">
+                <div class="form-group">
+                  <label for="formSecQ1">Question 1 *</label>
+                  <select id="formSecQ1" name="security_question_1" class="form-control">
+                    <option value="" disabled selected hidden>Select Question 1</option>
+                    <option value="1">Who is your best friend in elementary?</option>
+                    <option value="2">What is the name of your favorite pet?</option>
+                    <option value="3">Who is your favorite teacher in high school?</option>
+                  </select>
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formSecQ2">Question 2 *</label>
+                  <select id="formSecQ2" name="security_question_2" class="form-control">
+                    <option value="" disabled selected hidden>Select Question 2</option>
+                    <option value="4">What is your mother's maiden name?</option>
+                    <option value="5">What city were you born in?</option>
+                    <option value="6">What is your favorite color?</option>
+                  </select>
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formSecQ3">Question 3 *</label>
+                  <select id="formSecQ3" name="security_question_3" class="form-control">
+                    <option value="" disabled selected hidden>Select Question 3</option>
+                    <option value="7">What is your favorite food?</option>
+                    <option value="8">What was the name of your first school?</option>
+                    <option value="9">What is your father's middle name?</option>
+                  </select>
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+              </div>
+
+              <div class="form-col">
+                <div class="form-group">
+                  <label for="formSecA1">Answer 1 *</label>
+                  <input type="password" id="formSecA1" name="security_q1" class="form-control" placeholder="Answer 1" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formSecA2">Answer 2 *</label>
+                  <input type="password" id="formSecA2" name="security_q2" class="form-control" placeholder="Answer 2" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formSecA3">Answer 3 *</label>
+                  <input type="password" id="formSecA3" name="security_q3" class="form-control" placeholder="Answer 3" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+              </div>
             </div>
 
-            <div class="form-group">
-              <label for="formEmail">Email Address *</label>
-              <input type="email" id="formEmail" name="email" class="form-control" placeholder="admin@example.com" />
-              <div class="input-error-container" aria-live="polite"></div>
+            <div class="step-nav-footer">
+              <button type="button" class="btn-step-nav btn-secondary" onclick="prevAdminStep(3)">&lt; Prev</button>
+              <button type="button" class="btn-step-nav btn-primary" onclick="nextAdminStep(3)">Next &gt;</button>
+            </div>
+          </div>
+
+          <!-- Step 4: Account Information -->
+          <div class="modal-step-pane" id="adminStep4" data-step="4">
+            <div class="form-section-title">
+              <i class="fa-solid fa-lock"></i> Account Information
+            </div>
+            <div class="form-grid modal-two-col-grid">
+              <div class="form-col">
+                <div class="form-group">
+                  <label for="formUsername">Username *</label>
+                  <input type="text" id="formUsername" name="username" class="form-control" placeholder="admin.username" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formEmail">Email Address *</label>
+                  <input type="email" id="formEmail" name="email" class="form-control" placeholder="admin@example.com" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formRole">Role</label>
+                  <input type="text" id="formRole" name="role" class="form-control" value="admin" readonly />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+              </div>
+
+              <div class="form-col">
+                <div class="form-group" id="passwordGroup">
+                  <label for="formPassword" id="formPasswordLabel">Password *</label>
+                  <input type="password" id="formPassword" name="password" class="form-control" placeholder="Enter password" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group" id="confirmPasswordGroup">
+                  <label for="formConfirmPassword">Confirm Password *</label>
+                  <input type="password" id="formConfirmPassword" name="confirm_password" class="form-control" placeholder="Confirm password" />
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+
+                <div class="form-group">
+                  <label for="formStatus">Status</label>
+                  <select id="formStatus" name="status" class="form-control">
+                    <option value="active" selected>Active</option>
+                    <option value="block">Blocked</option>
+                  </select>
+                  <div class="input-error-container" aria-live="polite"></div>
+                </div>
+              </div>
             </div>
 
-            <div class="form-group">
-              <label for="formRole">Role</label>
-              <input type="text" id="formRole" name="role" class="form-control" value="admin" readonly />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group">
-              <label for="formStatus">Status</label>
-              <select id="formStatus" name="status" class="form-control">
-                <option value="active" selected>Active</option>
-                <option value="block">Blocked</option>
-              </select>
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group full-width" id="passwordGroup">
-              <label for="formPassword">Password *</label>
-              <input type="password" id="formPassword" name="password" class="form-control" placeholder="Enter password" />
-              <div class="input-error-container" aria-live="polite"></div>
-            </div>
-
-            <div class="form-group full-width" id="confirmPasswordGroup">
-              <label for="formConfirmPassword">Confirm Password *</label>
-              <input type="password" id="formConfirmPassword" name="confirm_password" class="form-control" placeholder="Confirm password" />
-              <div class="input-error-container" aria-live="polite"></div>
+            <div class="step-nav-footer">
+              <button type="button" class="btn-step-nav btn-secondary" onclick="prevAdminStep(4)">&lt; Prev</button>
+              <button type="submit" class="btn-step-nav btn-primary" id="saveAdminBtn">Add Admin</button>
             </div>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn-secondary" id="cancelModalBtn">Cancel</button>
-          <button type="submit" class="btn-primary" id="saveAdminBtn">Save Admin</button>
+
+        <!-- Footer used only in Edit Mode -->
+        <div class="modal-footer modal-footer-edit">
+          <div class="edit-footer-hint">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Privileged administrator updates are logged and audited.</span>
+          </div>
+          <div class="edit-footer-actions">
+            <button type="button" class="btn-secondary" id="cancelModalBtn">Cancel</button>
+            <button type="submit" class="btn-primary" id="saveChangesBtn"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+          </div>
         </div>
       </form>
     </div>

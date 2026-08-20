@@ -383,10 +383,96 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  let currentAdminStep = 1;
+  const adminModalCard = document.getElementById("adminModalCard");
+
+  function updateAdminStepperIndicators(stepNum) {
+    const numbers = document.querySelectorAll("#adminModalStepper .modal-step-number");
+    const lines = document.querySelectorAll("#adminModalStepper .modal-step-line");
+    const titles = document.querySelectorAll("#adminModalStepper .modal-step-title");
+
+    numbers.forEach((num, idx) => {
+      const stepVal = idx + 1;
+      num.classList.remove("active", "completed");
+      if (stepVal < stepNum) {
+        num.classList.add("completed");
+      } else if (stepVal === stepNum) {
+        num.classList.add("active");
+      }
+    });
+
+    lines.forEach((line, idx) => {
+      const lineStep = idx + 1;
+      if (lineStep < stepNum) {
+        line.classList.add("active");
+      } else {
+        line.classList.remove("active");
+      }
+    });
+
+    titles.forEach((title, idx) => {
+      const titleStep = idx + 1;
+      title.classList.toggle("active", titleStep === stepNum);
+    });
+  }
+
+  function showAdminStep(stepNum) {
+    currentAdminStep = stepNum;
+    const panes = document.querySelectorAll("#adminForm .modal-step-pane");
+    panes.forEach((pane) => {
+      const paneStep = parseInt(pane.getAttribute("data-step"), 10);
+      if (paneStep === stepNum) {
+        pane.classList.add("active");
+      } else {
+        pane.classList.remove("active");
+      }
+    });
+    updateAdminStepperIndicators(stepNum);
+  }
+
+  function validateAdminStep(stepNum) {
+    const pane = document.getElementById(`adminStep${stepNum}`);
+    if (!pane) return true;
+
+    let isValid = true;
+    let firstInvalid = null;
+
+    pane.querySelectorAll("input, select").forEach((input) => {
+      const err = validateField(input);
+      if (err) {
+        setFieldError(input, err);
+        if (!firstInvalid) firstInvalid = input;
+        isValid = false;
+      } else {
+        clearFieldError(input);
+      }
+    });
+
+    if (!isValid && firstInvalid) {
+      firstInvalid.focus();
+    }
+    return isValid;
+  }
+
+  window.nextAdminStep = function (currentStep) {
+    if (validateAdminStep(currentStep)) {
+      showAdminStep(Math.min(currentStep + 1, 4));
+    }
+  };
+
+  window.prevAdminStep = function (currentStep) {
+    showAdminStep(Math.max(currentStep - 1, 1));
+  };
+
   function openAddModal() {
     if (adminForm) adminForm.reset();
     clearAllModalErrors();
     setVal("formMode", "add");
+
+    if (adminModalCard) adminModalCard.classList.remove("edit-mode");
+
+    const profileHdr = document.getElementById("editAdminProfileHeader");
+    if (profileHdr) profileHdr.style.display = "none";
 
     const idEl = document.getElementById("formIdNumber");
     if (idEl) {
@@ -396,8 +482,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const secTitle = document.getElementById("securitySectionTitle");
     const secGrid = document.getElementById("securitySectionGrid");
-    if (secTitle) secTitle.style.display = "flex";
-    if (secGrid) secGrid.style.display = "grid";
+    if (secTitle) secTitle.style.display = "";
+    if (secGrid) secGrid.style.display = "";
     ["formSecQ1", "formSecA1", "formSecQ2", "formSecA2", "formSecQ3", "formSecA3"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.required = true;
@@ -407,11 +493,15 @@ document.addEventListener("DOMContentLoaded", function () {
     const confGrp = document.getElementById("confirmPasswordGroup");
     const passInp = document.getElementById("formPassword");
     const confInp = document.getElementById("formConfirmPassword");
+    const passLbl = document.getElementById("formPasswordLabel");
 
-    if (passGrp) passGrp.style.display = "block";
-    if (confGrp) confGrp.style.display = "block";
+    if (passGrp) passGrp.style.display = "";
+    if (confGrp) confGrp.style.display = "";
     if (passInp) passInp.required = true;
     if (confInp) confInp.required = true;
+    if (passLbl) passLbl.textContent = "Password *";
+
+    showAdminStep(1);
 
     if (adminModalTitle) adminModalTitle.textContent = "Add New Admin";
     if (adminModal) adminModal.classList.add("show");
@@ -434,6 +524,35 @@ document.addEventListener("DOMContentLoaded", function () {
         clearAllModalErrors();
         setVal("formMode", "edit");
 
+        if (adminModalCard) adminModalCard.classList.add("edit-mode");
+
+        // Populate dynamic profile summary banner in edit mode
+        const profileHdr = document.getElementById("editAdminProfileHeader");
+        if (profileHdr) {
+          profileHdr.style.display = "flex";
+          const fullName = [admin.first_name, admin.middle_name, admin.last_name, admin.extension].filter(Boolean).join(" ");
+          const initial = (admin.first_name ? admin.first_name.charAt(0) : "A").toUpperCase();
+          const avatarEl = document.getElementById("editAdminAvatar");
+          const nameEl = document.getElementById("editAdminDisplayName");
+          const idEl = document.getElementById("editAdminIdNumber");
+          const userEl = document.getElementById("editAdminUsername");
+          const emailEl = document.getElementById("editAdminEmail");
+          const statusBadge = document.getElementById("editAdminStatusBadge");
+          const statusText = document.getElementById("editAdminStatusText");
+
+          if (avatarEl) avatarEl.textContent = initial;
+          if (nameEl) nameEl.textContent = fullName || admin.username || "Administrator Account";
+          if (idEl) idEl.textContent = admin.id_number || "-";
+          if (userEl) userEl.textContent = admin.username ? `@${admin.username}` : "-";
+          if (emailEl) emailEl.textContent = admin.email || "-";
+
+          if (statusBadge && statusText) {
+            const isBlocked = admin.status === "block";
+            statusBadge.className = isBlocked ? "edit-status-badge blocked" : "edit-status-badge active";
+            statusText.textContent = isBlocked ? "Blocked" : "Active";
+          }
+        }
+
         const idEl = document.getElementById("formIdNumber");
         if (idEl) {
           idEl.value = admin.id_number || "";
@@ -455,10 +574,6 @@ document.addEventListener("DOMContentLoaded", function () {
         setVal("formCountry", admin.country);
         setVal("formZip", admin.zip);
 
-        const secTitle = document.getElementById("securitySectionTitle");
-        const secGrid = document.getElementById("securitySectionGrid");
-        if (secTitle) secTitle.style.display = "none";
-        if (secGrid) secGrid.style.display = "none";
         ["formSecQ1", "formSecA1", "formSecQ2", "formSecA2", "formSecQ3", "formSecA3"].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.required = false;
@@ -472,11 +587,16 @@ document.addEventListener("DOMContentLoaded", function () {
         const confGrp = document.getElementById("confirmPasswordGroup");
         const passInp = document.getElementById("formPassword");
         const confInp = document.getElementById("formConfirmPassword");
+        const passLbl = document.getElementById("formPasswordLabel");
 
-        if (passGrp) passGrp.style.display = "block";
+        if (passGrp) passGrp.style.display = "";
         if (confGrp) confGrp.style.display = "none";
-        if (passInp) passInp.required = false;
+        if (passInp) {
+          passInp.required = false;
+          passInp.placeholder = "Leave blank to keep unchanged";
+        }
         if (confInp) confInp.required = false;
+        if (passLbl) passLbl.textContent = "New Password (Optional)";
 
         if (adminModalTitle) adminModalTitle.textContent = "Edit Admin Account";
         if (adminModal) adminModal.classList.add("show");
@@ -490,34 +610,48 @@ document.addEventListener("DOMContentLoaded", function () {
   function closeAdminModal() {
     clearAllModalErrors();
     adminModal.classList.remove("show");
+    if (adminModalCard) adminModalCard.classList.remove("edit-mode");
+    const profileHdr = document.getElementById("editAdminProfileHeader");
+    if (profileHdr) profileHdr.style.display = "none";
   }
 
   function handleAdminFormSubmit(e) {
     e.preventDefault();
 
+    const mode = document.getElementById("formMode").value;
     let firstInvalidInput = null;
     let hasError = false;
 
     clearAllModalErrors();
 
-    adminForm.querySelectorAll("input, select").forEach((input) => {
-      const err = validateField(input);
-      if (err) {
-        setFieldError(input, err);
-        if (!firstInvalidInput) firstInvalidInput = input;
-        hasError = true;
+    if (mode === "add") {
+      // Validate all steps in add mode
+      for (let s = 1; s <= 4; s++) {
+        if (!validateAdminStep(s)) {
+          showAdminStep(s);
+          return;
+        }
       }
-    });
+    } else {
+      // In edit mode: validate all visible fields in edit frame
+      adminForm.querySelectorAll("input:not([type=hidden]), select").forEach((input) => {
+        if (input.offsetParent !== null) {
+          const err = validateField(input);
+          if (err) {
+            setFieldError(input, err);
+            if (!firstInvalidInput) firstInvalidInput = input;
+            hasError = true;
+          }
+        }
+      });
 
-    if (hasError) {
-      if (firstInvalidInput) {
-        firstInvalidInput.scrollIntoView({ behavior: "smooth", block: "center" });
-        firstInvalidInput.focus();
+      if (hasError) {
+        if (firstInvalidInput) {
+          firstInvalidInput.focus();
+        }
+        return;
       }
-      return;
     }
-
-    const mode = document.getElementById("formMode").value;
     const formData = new FormData(adminForm);
     const isEdit = mode !== "add";
     const adminName = (formData.get("first_name") || "") + " " + (formData.get("last_name") || "");
@@ -602,11 +736,10 @@ document.addEventListener("DOMContentLoaded", function () {
     confirmModalTitle.textContent = `${actionName} Admin Account`;
     confirmModalMessage.innerHTML = `Are you sure you want to <strong>${actionName.toLowerCase()}</strong> admin account <strong>${escapeHtml(
       row.name
-    )}</strong> (<code>${escapeHtml(row.id_number)}</code>)?${
-      isBlocking
+    )}</strong> (<code>${escapeHtml(row.id_number)}</code>)?${isBlocking
         ? `<br><br><label for="blockReasonInput" style="font-size: 0.85rem; display: block; margin-bottom: 6px;">Reason:</label><input type="text" id="blockReasonInput" class="form-control" style="width: 100%;" placeholder="e.g. Violation of system policy" />`
         : ""
-    }`;
+      }`;
 
     confirmModalBtn.className = isBlocking ? "btn-danger" : "btn-primary";
     confirmModalBtn.textContent = `${actionName} Admin`;
@@ -731,8 +864,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // ── Bind custom dropdown UI ──────────────────────────────────────────
   document.querySelectorAll(".role-dropdown").forEach((dropdown) => {
-    const btn    = dropdown.querySelector(".role-dropdown-btn");
-    const menu   = dropdown.querySelector(".role-dropdown-menu");
+    const btn = dropdown.querySelector(".role-dropdown-btn");
+    const menu = dropdown.querySelector(".role-dropdown-menu");
     const select = dropdown.querySelector(".role-select");
 
     if (select) setRoleSelectCurrent(select);
@@ -772,7 +905,7 @@ document.addEventListener("DOMContentLoaded", function () {
     setRoleSelectCurrent(select);
 
     select.addEventListener("change", function () {
-      const newRole      = this.value;
+      const newRole = this.value;
       const previousRole = this.dataset.currentRole || "admin";
 
       this.value = previousRole; // revert until confirmed
@@ -780,16 +913,16 @@ document.addEventListener("DOMContentLoaded", function () {
       if (newRole === previousRole) return;
 
       pendingRoleChange = {
-        id_number:    this.dataset.id_number || "",
-        username:     this.dataset.username  || "",
-        name:         this.dataset.name      || "",
-        newRole:      newRole,
+        id_number: this.dataset.id_number || "",
+        username: this.dataset.username || "",
+        name: this.dataset.name || "",
+        newRole: newRole,
         previousRole: previousRole,
-        confirmSelf:  false,
+        confirmSelf: false,
       };
 
       const fromText = roleLabels[previousRole] || previousRole;
-      const toText   = roleLabels[newRole]       || newRole;
+      const toText = roleLabels[newRole] || newRole;
 
       roleConfirmMessage.innerHTML = `Are you sure you want to change this user from <strong>${escapeHtml(fromText)} → ${escapeHtml(toText)}</strong>?`;
       confirmRoleChangeBtn.textContent = "Confirm";
@@ -1027,7 +1160,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (data && data.message) {
           showToast(data.message, data.type || "success");
         }
-      } catch (e) {}
+      } catch (e) { }
       sessionStorage.removeItem("flash_toast");
     }
   }
