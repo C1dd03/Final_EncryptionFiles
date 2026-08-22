@@ -4,8 +4,8 @@ require_once __DIR__ . '/../auth/session_protect.php';
 // Only Super Admin can access this page
 $role = strtolower($_SESSION['role'] ?? '');
 if ($role !== 'superadmin') {
-    header("Location: ../auth/index.php?action=login");
-    exit();
+  header("Location: ../auth/index.php?action=login");
+  exit();
 }
 
 $pageTitle = 'Delete Requests';
@@ -23,6 +23,19 @@ $activePage = 'delete_requests';
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" />
   <style>
+    :root {
+      --farm-bg: #dae5cf;
+      --farm-card-1: #588157;
+      --farm-card-2: #6c8a5d;
+      --farm-card-3: #7e9b65;
+      --farm-card-4: #a3b18a;
+      --farm-card-5: #dad7cd;
+      --farm-text: #2f3f33;
+      --farm-border: #9aa68e;
+      --farm-muted: #6c7a63;
+      --farm-white: #f6f3e8;
+    }
+
     .badge-status-pending {
       background: #fef3c7;
       color: #92400e;
@@ -34,6 +47,7 @@ $activePage = 'delete_requests';
       align-items: center;
       gap: 4px;
     }
+
     .badge-status-approved {
       background: #dcfce7;
       color: #166534;
@@ -45,6 +59,7 @@ $activePage = 'delete_requests';
       align-items: center;
       gap: 4px;
     }
+
     .badge-status-rejected {
       background: #fee2e2;
       color: #991b1b;
@@ -56,6 +71,7 @@ $activePage = 'delete_requests';
       align-items: center;
       gap: 4px;
     }
+
     .reason-box {
       max-width: 250px;
       white-space: nowrap;
@@ -64,83 +80,160 @@ $activePage = 'delete_requests';
       font-size: 13px;
       color: #475569;
     }
-    .action-btn-group {
-      display: flex;
-      gap: 6px;
-    }
-    .btn-approve-del {
-      background: #ef4444;
-      color: #fff;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      transition: background 0.2s;
-    }
-    .btn-approve-del:hover {
-      background: #dc2626;
-    }
-    .btn-reject-req {
-      background: #64748b;
-      color: #fff;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      transition: background 0.2s;
-    }
-    .btn-reject-req:hover {
-      background: #475569;
-    }
-    .btn-view-req {
-      background: #3b82f6;
-      color: #fff;
-      border: none;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .btn-view-req:hover {
-      background: #2563eb;
-    }
+
     .detail-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 12px;
       margin-top: 10px;
     }
+
     .detail-item {
       background: #f8fafc;
       padding: 10px 14px;
       border-radius: 6px;
       border: 1px solid #e2e8f0;
     }
+
     .detail-label {
       font-size: 11px;
       color: #64748b;
       text-transform: uppercase;
       font-weight: 600;
     }
+
     .detail-val {
       font-size: 13px;
       font-weight: 500;
       color: #1e293b;
       margin-top: 2px;
+    }
+
+    /* ── Action Dropdown (Options Button) ── */
+    .action-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .action-dropdown-btn {
+      background: linear-gradient(135deg, var(--farm-card-1), var(--farm-card-3));
+      color: #ffffff;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 0.86rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      box-shadow: 0 2px 6px rgba(88, 129, 87, 0.25);
+      transition: all 0.2s ease;
+      min-width: 100px;
+      font-family: inherit;
+    }
+
+    .action-dropdown-btn:hover,
+    .action-dropdown-btn.active {
+      background: linear-gradient(135deg, var(--farm-card-1), var(--farm-card-3));
+      box-shadow: 0 4px 10px rgba(88, 129, 87, 0.35);
+    }
+
+    .action-dropdown-btn .dropdown-chevron {
+      font-size: 11px;
+      transition: transform 0.2s ease;
+    }
+
+    .action-dropdown-btn.active .dropdown-chevron {
+      transform: rotate(180deg);
+    }
+
+    .action-dropdown-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+      min-width: 180px;
+      z-index: 1050;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-6px) scale(0.97);
+      transform-origin: top right;
+      transition: all 0.18s ease;
+      padding: 6px;
+    }
+
+    .action-dropdown-menu.open {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+    }
+
+    .action-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      font-size: 0.86rem;
+      font-weight: 500;
+      color: #334155;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s ease, color 0.15s ease;
+      font-family: inherit;
+    }
+
+    .action-menu-item i {
+      width: 16px;
+      text-align: center;
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .action-menu-item:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .action-menu-item.view i {
+      color: #0284c7;
+    }
+
+    .action-menu-item.view:hover {
+      background: #f0f9ff;
+      color: #0369a1;
+    }
+
+    .action-menu-item.delete i {
+      color: #ef4444;
+    }
+
+    .action-menu-item.delete:hover {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+
+    .action-menu-item.reject-req i {
+      color: #64748b;
+    }
+
+    .action-menu-item.reject-req:hover {
+      background: #f1f5f9;
+      color: #334155;
+    }
+
+    .action-menu-divider {
+      height: 1px;
+      background: #f1f5f9;
+      margin: 4px 0;
     }
   </style>
 </head>
@@ -247,7 +340,7 @@ $activePage = 'delete_requests';
     <div class="modal-dialog" style="background:#fff; border-radius:12px; max-width:480px; width:90%; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);">
       <h3 id="confirmModalTitle" style="font-size:18px; font-weight:700; color:#1e293b; margin:0 0 10px 0;"></h3>
       <p id="confirmModalMsg" style="font-size:14px; color:#475569; margin:0 0 16px 0;"></p>
-      
+
       <div id="rejectNotesGroup" style="display:none; margin-bottom:16px;">
         <label for="rejectNotesInput" style="display:block; font-size:13px; font-weight:600; color:#334155; margin-bottom:4px;">Rejection Notes / Reason:</label>
         <textarea id="rejectNotesInput" rows="3" style="width:100%; border:1px solid #cbd5e1; border-radius:6px; padding:8px; font-size:13px;" placeholder="Enter note explaining why deletion was rejected..."></textarea>

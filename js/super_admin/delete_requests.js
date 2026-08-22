@@ -124,19 +124,16 @@ document.addEventListener("DOMContentLoaded", function () {
         statusBadge = `<span class="badge-status-rejected"><i class="fa-solid fa-xmark"></i> Rejected</span>`;
       }
 
-      let actionsHtml = `<button type="button" class="btn-view-req" onclick="viewRequestDetails(${reqId})" title="View Details">
-        <i class="fa-solid fa-eye"></i> Details
-      </button>`;
-
+      let pendingItems = "";
       if (status === "pending") {
-        actionsHtml += `
-          <button type="button" class="btn-approve-del" onclick="confirmApproveDelete(${reqId}, '${targetName}')" title="Approve & Permanently Delete">
-            <i class="fa-solid fa-trash-can"></i> Delete
-          </button>
-          <button type="button" class="btn-reject-req" onclick="confirmRejectRequest(${reqId}, '${targetName}')" title="Reject Deletion Request">
-            <i class="fa-solid fa-ban"></i> Reject
-          </button>
-        `;
+        pendingItems = `
+              <div class="action-menu-divider"></div>
+              <button type="button" class="action-menu-item delete" onclick="confirmApproveDelete(${reqId}, '${targetName}')">
+                <i class="fa-solid fa-trash-can"></i> Approve & Delete
+              </button>
+              <button type="button" class="action-menu-item reject-req" onclick="confirmRejectRequest(${reqId}, '${targetName}')">
+                <i class="fa-solid fa-ban"></i> Reject Request
+              </button>`;
       }
 
       html += `<tr>
@@ -147,12 +144,44 @@ document.addEventListener("DOMContentLoaded", function () {
         <td><div class="reason-box" title="${reason}">${reason}</div></td>
         <td>${requestedAt}</td>
         <td>${statusBadge}</td>
-        <td><div class="action-btn-group">${actionsHtml}</div></td>
+        <td>
+          <div class="action-dropdown">
+            <button type="button" class="action-dropdown-btn" onclick="toggleActionDropdown(this)">
+              Options <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
+            </button>
+            <div class="action-dropdown-menu">
+              <button type="button" class="action-menu-item view" onclick="viewRequestDetails(${reqId})">
+                <i class="fa-solid fa-eye"></i> View Details
+              </button>${pendingItems}
+            </div>
+          </div>
+        </td>
       </tr>`;
     });
 
     tableBody.innerHTML = html;
   }
+
+  /* ── Dropdown Toggle Logic ── */
+  window.toggleActionDropdown = function (btn) {
+    const menu = btn.nextElementSibling;
+    const isOpen = menu.classList.contains("open");
+
+    document.querySelectorAll(".action-dropdown-menu.open").forEach((m) => m.classList.remove("open"));
+    document.querySelectorAll(".action-dropdown-btn.active").forEach((b) => b.classList.remove("active"));
+
+    if (!isOpen) {
+      menu.classList.add("open");
+      btn.classList.add("active");
+    }
+  };
+
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".action-dropdown")) {
+      document.querySelectorAll(".action-dropdown-menu.open").forEach((m) => m.classList.remove("open"));
+      document.querySelectorAll(".action-dropdown-btn.active").forEach((b) => b.classList.remove("active"));
+    }
+  });
 
   function renderPagination(totalRecords, totalPages, curPage, limit) {
     const start = totalRecords > 0 ? (curPage - 1) * limit + 1 : 0;

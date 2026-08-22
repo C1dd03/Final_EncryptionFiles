@@ -332,6 +332,8 @@ button {
 
 .superadmin-content {
   padding: 24px;
+  padding-bottom: 120px;
+  /* height: 100%; */
 }
 
 .cards-grid {

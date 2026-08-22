@@ -134,16 +134,22 @@ document.addEventListener("DOMContentLoaded", function () {
         <td>${createdAt}</td>
         <td><span class="badge-pending"><i class="fa-regular fa-clock"></i> Pending</span></td>
         <td>
-          <div class="action-btn-group">
-            <button type="button" class="btn-view-details" onclick="viewUserDetails('${idNo}')" title="View Full Details">
-              <i class="fa-solid fa-eye"></i>
+          <div class="action-dropdown">
+            <button type="button" class="action-dropdown-btn" onclick="toggleActionDropdown(this)">
+              Options <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
             </button>
-            <button type="button" class="btn-approve" onclick="confirmApprove('${idNo}', '${fullName}')" title="Approve Registration">
-              <i class="fa-solid fa-check"></i> Approve
-            </button>
-            <button type="button" class="btn-reject" onclick="confirmReject('${idNo}', '${fullName}')" title="Reject Registration">
-              <i class="fa-solid fa-xmark"></i> Reject
-            </button>
+            <div class="action-dropdown-menu">
+              <button type="button" class="action-menu-item view" onclick="viewUserDetails('${idNo}')">
+                <i class="fa-solid fa-eye"></i> View Details
+              </button>
+              <div class="action-menu-divider"></div>
+              <button type="button" class="action-menu-item approve" onclick="confirmApprove('${idNo}', '${fullName}')">
+                <i class="fa-solid fa-check"></i> Approve
+              </button>
+              <button type="button" class="action-menu-item reject" onclick="confirmReject('${idNo}', '${fullName}')">
+                <i class="fa-solid fa-xmark"></i> Reject
+              </button>
+            </div>
           </div>
         </td>
       </tr>`;
@@ -151,6 +157,27 @@ document.addEventListener("DOMContentLoaded", function () {
 
     tableBody.innerHTML = html;
   }
+
+  /* ── Dropdown Toggle Logic ── */
+  window.toggleActionDropdown = function (btn) {
+    const menu = btn.nextElementSibling;
+    const isOpen = menu.classList.contains("open");
+
+    document.querySelectorAll(".action-dropdown-menu.open").forEach((m) => m.classList.remove("open"));
+    document.querySelectorAll(".action-dropdown-btn.active").forEach((b) => b.classList.remove("active"));
+
+    if (!isOpen) {
+      menu.classList.add("open");
+      btn.classList.add("active");
+    }
+  };
+
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".action-dropdown")) {
+      document.querySelectorAll(".action-dropdown-menu.open").forEach((m) => m.classList.remove("open"));
+      document.querySelectorAll(".action-dropdown-btn.active").forEach((b) => b.classList.remove("active"));
+    }
+  });
 
   function renderPagination(totalRecords, totalPages, curPage, limit) {
     const start = totalRecords > 0 ? (curPage - 1) * limit + 1 : 0;

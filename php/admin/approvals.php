@@ -41,60 +41,6 @@ $activePage = 'approvals';
       align-items: center;
       gap: 4px;
     }
-    .action-btn-group {
-      display: flex;
-      gap: 6px;
-    }
-    .btn-approve {
-      background: #10b981;
-      color: #fff;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      transition: background 0.2s;
-    }
-    .btn-approve:hover {
-      background: #059669;
-    }
-    .btn-reject {
-      background: #ef4444;
-      color: #fff;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      transition: background 0.2s;
-    }
-    .btn-reject:hover {
-      background: #dc2626;
-    }
-    .btn-view-details {
-      background: #3b82f6;
-      color: #fff;
-      border: none;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .btn-view-details:hover {
-      background: #2563eb;
-    }
     .filter-group-flex {
       display: flex;
       gap: 8px;
@@ -124,6 +70,102 @@ $activePage = 'approvals';
       font-weight: 500;
       color: #1e293b;
       margin-top: 2px;
+    }
+
+    /* ── Action Dropdown (Options Button) ── */
+    .action-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    .action-dropdown-btn {
+      background: linear-gradient(135deg, var(--farm-card-1), var(--farm-card-3));
+      color: #ffffff;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 0.86rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      box-shadow: 0 2px 6px rgba(88, 129, 87, 0.25);
+      transition: all 0.2s ease;
+      min-width: 100px;
+      font-family: inherit;
+    }
+    .action-dropdown-btn:hover,
+    .action-dropdown-btn.active {
+      background: linear-gradient(135deg, var(--farm-card-1), var(--farm-card-3));
+      box-shadow: 0 4px 10px rgba(88, 129, 87, 0.35);
+    }
+    .action-dropdown-btn .dropdown-chevron {
+      font-size: 11px;
+      transition: transform 0.2s ease;
+    }
+    .action-dropdown-btn.active .dropdown-chevron {
+      transform: rotate(180deg);
+    }
+    .action-dropdown-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+      min-width: 180px;
+      z-index: 1050;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-6px) scale(0.97);
+      transform-origin: top right;
+      transition: all 0.18s ease;
+      padding: 6px;
+    }
+    .action-dropdown-menu.open {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+    }
+    .action-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      font-size: 0.86rem;
+      font-weight: 500;
+      color: #334155;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s ease, color 0.15s ease;
+      font-family: inherit;
+    }
+    .action-menu-item i {
+      width: 16px;
+      text-align: center;
+      font-size: 13px;
+      color: #64748b;
+    }
+    .action-menu-item:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+    .action-menu-item.view i { color: #0284c7; }
+    .action-menu-item.view:hover { background: #f0f9ff; color: #0369a1; }
+    .action-menu-item.approve i { color: #10b981; }
+    .action-menu-item.approve:hover { background: #ecfdf5; color: #047857; }
+    .action-menu-item.reject i { color: #ef4444; }
+    .action-menu-item.reject:hover { background: #fef2f2; color: #b91c1c; }
+    .action-menu-divider {
+      height: 1px;
+      background: #f1f5f9;
+      margin: 4px 0;
     }
   </style>
 </head>
