@@ -5,8 +5,8 @@ require_once __DIR__ . '/../../models/User.php';
 // Only Admin can access this page
 $role = strtolower($_SESSION['role'] ?? '');
 if ($role !== 'admin') {
-    header("Location: ../auth/index.php?action=login");
-    exit();
+  header("Location: ../auth/index.php?action=login");
+  exit();
 }
 
 $currentUsername = $_SESSION['username'] ?? 'Admin';
@@ -41,30 +41,35 @@ $activePage = 'approvals';
       align-items: center;
       gap: 4px;
     }
+
     .filter-group-flex {
       display: flex;
       gap: 8px;
       align-items: center;
       flex-wrap: wrap;
     }
+
     .detail-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 12px;
       margin-top: 10px;
     }
+
     .detail-item {
       background: #f8fafc;
       padding: 10px 14px;
       border-radius: 6px;
       border: 1px solid #e2e8f0;
     }
+
     .detail-label {
       font-size: 11px;
       color: #64748b;
       text-transform: uppercase;
       font-weight: 600;
     }
+
     .detail-val {
       font-size: 13px;
       font-weight: 500;
@@ -77,6 +82,7 @@ $activePage = 'approvals';
       position: relative;
       display: inline-block;
     }
+
     .action-dropdown-btn {
       background: linear-gradient(135deg, var(--farm-card-1), var(--farm-card-3));
       color: #ffffff;
@@ -95,18 +101,22 @@ $activePage = 'approvals';
       min-width: 100px;
       font-family: inherit;
     }
+
     .action-dropdown-btn:hover,
     .action-dropdown-btn.active {
       background: linear-gradient(135deg, var(--farm-card-1), var(--farm-card-3));
       box-shadow: 0 4px 10px rgba(88, 129, 87, 0.35);
     }
+
     .action-dropdown-btn .dropdown-chevron {
       font-size: 11px;
       transition: transform 0.2s ease;
     }
+
     .action-dropdown-btn.active .dropdown-chevron {
       transform: rotate(180deg);
     }
+
     .action-dropdown-menu {
       position: absolute;
       right: 0;
@@ -124,11 +134,13 @@ $activePage = 'approvals';
       transition: all 0.18s ease;
       padding: 6px;
     }
+
     .action-dropdown-menu.open {
       opacity: 1;
       visibility: visible;
       transform: translateY(0) scale(1);
     }
+
     .action-menu-item {
       display: flex;
       align-items: center;
@@ -146,22 +158,46 @@ $activePage = 'approvals';
       transition: background 0.15s ease, color 0.15s ease;
       font-family: inherit;
     }
+
     .action-menu-item i {
       width: 16px;
       text-align: center;
       font-size: 13px;
       color: #64748b;
     }
+
     .action-menu-item:hover {
       background: #f1f5f9;
       color: #0f172a;
     }
-    .action-menu-item.view i { color: #0284c7; }
-    .action-menu-item.view:hover { background: #f0f9ff; color: #0369a1; }
-    .action-menu-item.approve i { color: #10b981; }
-    .action-menu-item.approve:hover { background: #ecfdf5; color: #047857; }
-    .action-menu-item.reject i { color: #ef4444; }
-    .action-menu-item.reject:hover { background: #fef2f2; color: #b91c1c; }
+
+    .action-menu-item.view i {
+      color: #0284c7;
+    }
+
+    .action-menu-item.view:hover {
+      background: #f0f9ff;
+      color: #0369a1;
+    }
+
+    .action-menu-item.approve i {
+      color: #10b981;
+    }
+
+    .action-menu-item.approve:hover {
+      background: #ecfdf5;
+      color: #047857;
+    }
+
+    .action-menu-item.reject i {
+      color: #ef4444;
+    }
+
+    .action-menu-item.reject:hover {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+
     .action-menu-divider {
       height: 1px;
       background: #f1f5f9;
@@ -223,9 +259,20 @@ $activePage = 'approvals';
                 <i class="fa-solid fa-xmark"></i> Clear
               </button>
             </div>
+            <div class="control-right">
+              <div class="entries-select-wrapper">
+                <label for="entriesSelect">Show Entries:</label>
+                <select id="entriesSelect" class="filter-select">
+                  <option value="10" selected>10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+            </div>
           </div>
 
-          <div class="control-right">
+          <!-- <div class="control-right">
             <div class="entries-select-wrapper">
               <label for="entriesSelect">Show Entries:</label>
               <select id="entriesSelect" class="filter-select">
@@ -235,7 +282,7 @@ $activePage = 'approvals';
                 <option value="100">100</option>
               </select>
             </div>
-          </div>
+          </div> -->
         </div>
 
         <!-- Pending Registrations Table -->
@@ -296,7 +343,7 @@ $activePage = 'approvals';
     <div class="modal-dialog" style="background:#fff; border-radius:12px; max-width:480px; width:90%; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);">
       <h3 id="confirmModalTitle" style="font-size:18px; font-weight:700; color:#1e293b; margin:0 0 10px 0;"></h3>
       <p id="confirmModalMsg" style="font-size:14px; color:#475569; margin:0 0 16px 0;"></p>
-      
+
       <div id="rejectReasonGroup" style="display:none; margin-bottom:16px;">
         <label for="rejectReasonInput" style="display:block; font-size:13px; font-weight:600; color:#334155; margin-bottom:4px;">Reason for Rejection:</label>
         <textarea id="rejectReasonInput" rows="3" style="width:100%; border:1px solid #cbd5e1; border-radius:6px; padding:8px; font-size:13px;" placeholder="Enter reason for rejecting this registration..."></textarea>

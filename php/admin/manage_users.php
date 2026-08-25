@@ -92,32 +92,43 @@ function e($text)
                         <p><?= $canViewUsers ? 'Review, create, edit, block/unblock, and manage standard user accounts.' : 'View and manage user accounts. Note: You can only manage users with the "user" role.' ?></p>
                     </div>
                     <?php if ($canViewUsers && $canEditUsers): ?>
-                    <button type="button" class="btn-primary" id="openAddUserBtn">
-                        <i class="fa-solid fa-user-plus"></i> Add User
-                    </button>
+                        <button type="button" class="btn-primary" id="openAddUserBtn">
+                            <i class="fa-solid fa-user-plus"></i> Add User
+                        </button>
                     <?php endif; ?>
                 </div>
 
                 <?php if ($canViewUsers): ?>
-                <form method="GET" class="control-card" id="controlForm">
-                    <div class="control-left">
-                        <div class="search-box">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="searchInput" name="search" placeholder="Search ID No, Name, Username, Email..." value="<?= e($search) ?>" />
+                    <form method="GET" class="control-card" id="controlForm">
+                        <div class="control-left">
+                            <div class="search-box">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="searchInput" name="search" placeholder="Search ID No, Name, Username, Email..." value="<?= e($search) ?>" />
+                            </div>
+
+                            <select id="statusFilter" name="status" class="filter-select" aria-label="Status Filter">
+                                <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>Status: All</option>
+                                <option value="active" <?= $status === 'active' ? 'selected' : '' ?>>Active</option>
+                                <option value="blocked" <?= $status === 'blocked' ? 'selected' : '' ?>>Blocked</option>
+                            </select>
+
+                            <select id="roleFilter" class="filter-select" disabled aria-label="Role Filter">
+                                <option value="user" selected>Role: User</option>
+                            </select>
+                            <div class="control-right">
+                                <div class="entries-select-wrapper">
+                                    <label for="entriesSelect">Show Entries:</label>
+                                    <select id="entriesSelect" name="limit" class="filter-select">
+                                        <option value="10" <?= $limit === 10 ? 'selected' : '' ?>>10</option>
+                                        <option value="25" <?= $limit === 25 ? 'selected' : '' ?>>25</option>
+                                        <option value="50" <?= $limit === 50 ? 'selected' : '' ?>>50</option>
+                                        <option value="100" <?= $limit === 100 ? 'selected' : '' ?>>100</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
 
-                        <select id="statusFilter" name="status" class="filter-select" aria-label="Status Filter">
-                            <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>Status: All</option>
-                            <option value="active" <?= $status === 'active' ? 'selected' : '' ?>>Active</option>
-                            <option value="blocked" <?= $status === 'blocked' ? 'selected' : '' ?>>Blocked</option>
-                        </select>
-
-                        <select id="roleFilter" class="filter-select" disabled aria-label="Role Filter">
-                            <option value="user" selected>Role: User</option>
-                        </select>
-                    </div>
-
-                    <div class="control-right">
+                        <!-- <div class="control-right">
                         <div class="entries-select-wrapper">
                             <label for="entriesSelect">Show Entries:</label>
                             <select id="entriesSelect" name="limit" class="filter-select">
@@ -127,153 +138,153 @@ function e($text)
                                 <option value="100" <?= $limit === 100 ? 'selected' : '' ?>>100</option>
                             </select>
                         </div>
-                    </div>
-                </form>
+                    </div> -->
+                    </form>
 
-                <div class="table-card">
-                    <div class="table-responsive">
-                        <table class="user-table" id="userTable">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>ID No</th>
-                                    <th>Name</th>
-                                    <th>Username</th>
-                                    <th>Email</th>
-                                    <th>Role</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="userTableBody">
-                                <?php if (!empty($users)): ?>
-                                    <?php foreach ($users as $index => $user):
-                                        $rowId = $startIdx + $index;
-                                        $isBlocked = $user['status'] === 'block' || $user['status'] === 'blocked';
-                                        $userName = trim(($user['first_name'] ?? '') . ' ' . ($user['middle_name'] ?? '') . ' ' . ($user['last_name'] ?? '') . ' ' . ($user['extension'] ?? ''));
-                                        $dataName = $user['name'] ?? $userName;
-                                        $dataEmail = $user['email'] ?? '';
-                                    ?>
-                                        <tr
-                                            data-id_number="<?= e($user['id_number']) ?>"
-                                            data-name="<?= e($dataName) ?>"
-                                            data-username="<?= e($user['username']) ?>"
-                                            data-email="<?= e($dataEmail) ?>"
-                                            data-status="<?= e($user['status']) ?>"
-                                            data-role="user"
-                                            data-created="<?= e($user['created_at'] ?? '') ?>">
-                                            <td><strong>#<?= $rowId ?></strong></td>
-                                            <td><code><?= e($user['id_number']) ?></code></td>
-                                            <td><strong><?= e($dataName) ?></strong></td>
-                                            <td>@<?= e($user['username']) ?></td>
-                                            <td><?= $dataEmail !== '' ? e($dataEmail) : 'N/A' ?></td>
-                                            <td><span class="badge-role-user">User</span></td>
-                                            <td>
-                                                <?php if ($isBlocked): ?>
-                                                    <span class="badge-status badge-blocked">Blocked</span>
-                                                <?php else: ?>
-                                                    <span class="badge-status badge-active">Active</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <div class="action-dropdown">
-                                                    <button type="button" class="action-dropdown-btn" onclick="toggleActionDropdown(this)" aria-expanded="false" aria-label="Action options">
-                                                        <span>Options</span>
-                                                        <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
-                                                    </button>
-                                                    <div class="action-dropdown-menu">
-                                                        <?php if ($canViewUsers): ?>
-                                                        <button type="button" class="action-menu-item view" onclick="viewUser(this)">
-                                                            <i class="fa-solid fa-eye"></i>
-                                                            <span>View Details</span>
+                    <div class="table-card">
+                        <div class="table-responsive">
+                            <table class="user-table" id="userTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>ID No</th>
+                                        <th>Name</th>
+                                        <th>Username</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="userTableBody">
+                                    <?php if (!empty($users)): ?>
+                                        <?php foreach ($users as $index => $user):
+                                            $rowId = $startIdx + $index;
+                                            $isBlocked = $user['status'] === 'block' || $user['status'] === 'blocked';
+                                            $userName = trim(($user['first_name'] ?? '') . ' ' . ($user['middle_name'] ?? '') . ' ' . ($user['last_name'] ?? '') . ' ' . ($user['extension'] ?? ''));
+                                            $dataName = $user['name'] ?? $userName;
+                                            $dataEmail = $user['email'] ?? '';
+                                        ?>
+                                            <tr
+                                                data-id_number="<?= e($user['id_number']) ?>"
+                                                data-name="<?= e($dataName) ?>"
+                                                data-username="<?= e($user['username']) ?>"
+                                                data-email="<?= e($dataEmail) ?>"
+                                                data-status="<?= e($user['status']) ?>"
+                                                data-role="user"
+                                                data-created="<?= e($user['created_at'] ?? '') ?>">
+                                                <td><strong>#<?= $rowId ?></strong></td>
+                                                <td><code><?= e($user['id_number']) ?></code></td>
+                                                <td><strong><?= e($dataName) ?></strong></td>
+                                                <td>@<?= e($user['username']) ?></td>
+                                                <td><?= $dataEmail !== '' ? e($dataEmail) : 'N/A' ?></td>
+                                                <td><span class="badge-role-user">User</span></td>
+                                                <td>
+                                                    <?php if ($isBlocked): ?>
+                                                        <span class="badge-status badge-blocked">Blocked</span>
+                                                    <?php else: ?>
+                                                        <span class="badge-status badge-active">Active</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <div class="action-dropdown">
+                                                        <button type="button" class="action-dropdown-btn" onclick="toggleActionDropdown(this)" aria-expanded="false" aria-label="Action options">
+                                                            <span>Options</span>
+                                                            <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
                                                         </button>
-                                                        <?php endif; ?>
-                                                        <?php if ($canEditUsers): ?>
-                                                        <button type="button" class="action-menu-item edit" onclick="editUser(this)">
-                                                            <i class="fa-solid fa-pen"></i>
-                                                            <span>Edit</span>
-                                                        </button>
-                                                        <?php endif; ?>
-                                                        <?php if ($canBlockUsers): ?>
-                                                        <button type="button" class="action-menu-item <?= $isBlocked ? 'unblock' : 'block' ?>" onclick="confirmToggleBlock(this)">
-                                                            <i class="fa-solid <?= $isBlocked ? 'fa-unlock' : 'fa-ban' ?>"></i>
-                                                            <span><?= $isBlocked ? 'Unblock' : 'Block' ?></span>
-                                                        </button>
-                                                        <?php endif; ?>
-                                                        <?php if ($canDeleteUsers): ?>
-                                                        <div class="action-menu-divider"></div>
-                                                        <button type="button" class="action-menu-item delete" onclick="confirmDeleteUser(this)">
-                                                            <i class="fa-solid fa-trash"></i>
-                                                            <span>Delete</span>
-                                                        </button>
-                                                        <?php endif; ?>
+                                                        <div class="action-dropdown-menu">
+                                                            <?php if ($canViewUsers): ?>
+                                                                <button type="button" class="action-menu-item view" onclick="viewUser(this)">
+                                                                    <i class="fa-solid fa-eye"></i>
+                                                                    <span>View Details</span>
+                                                                </button>
+                                                            <?php endif; ?>
+                                                            <?php if ($canEditUsers): ?>
+                                                                <button type="button" class="action-menu-item edit" onclick="editUser(this)">
+                                                                    <i class="fa-solid fa-pen"></i>
+                                                                    <span>Edit</span>
+                                                                </button>
+                                                            <?php endif; ?>
+                                                            <?php if ($canBlockUsers): ?>
+                                                                <button type="button" class="action-menu-item <?= $isBlocked ? 'unblock' : 'block' ?>" onclick="confirmToggleBlock(this)">
+                                                                    <i class="fa-solid <?= $isBlocked ? 'fa-unlock' : 'fa-ban' ?>"></i>
+                                                                    <span><?= $isBlocked ? 'Unblock' : 'Block' ?></span>
+                                                                </button>
+                                                            <?php endif; ?>
+                                                            <?php if ($canDeleteUsers): ?>
+                                                                <div class="action-menu-divider"></div>
+                                                                <button type="button" class="action-menu-item delete" onclick="confirmDeleteUser(this)">
+                                                                    <i class="fa-solid fa-trash"></i>
+                                                                    <span>Delete</span>
+                                                                </button>
+                                                            <?php endif; ?>
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <tr>
+                                            <td colspan="8" class="empty-state">
+                                                <i class="fa-solid fa-user-slash"></i>
+                                                <p>No user accounts found.</p>
                                             </td>
                                         </tr>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <tr>
-                                        <td colspan="8" class="empty-state">
-                                            <i class="fa-solid fa-user-slash"></i>
-                                            <p>No user accounts found.</p>
-                                        </td>
-                                    </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
 
-                    <div class="table-footer">
-                        <div class="pagination-info" id="paginationInfo">
-                            <?php if ($totalRecords > 0): ?>
-                                Showing <?= $startIdx ?> to <?= $endIdx ?> of <?= $totalRecords ?> entries
-                            <?php else: ?>
-                                Showing 0 entries
-                            <?php endif; ?>
-                        </div>
-                        <div class="pagination-controls" id="paginationControls">
-                            <?php if ($totalRecords > 0):
-                                $queryBase = function ($p) use ($search, $status, $limit) {
-                                    $qs = http_build_query([
-                                        'search' => $search,
-                                        'status' => $status,
-                                        'limit'  => $limit,
-                                        'page'   => $p
-                                    ]);
-                                    return '?' . $qs;
-                                };
-                            ?>
-                                <a class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" href="<?= $page <= 1 ? '#' : $queryBase($page - 1) ?>">
-                                    <i class="fa-solid fa-chevron-left"></i>
-                                </a>
-                                <?php for ($i = 1; $i <= $totalPages; $i++):
-                                    $show = $i === 1 || $i === $totalPages || ($i >= $page - 1 && $i <= $page + 1);
-                                    $ellipsisBefore = $i === $page - 2 && $i > 2;
-                                    $ellipsisAfter  = $i === $page + 2 && $i < $totalPages - 1;
+                        <div class="table-footer">
+                            <div class="pagination-info" id="paginationInfo">
+                                <?php if ($totalRecords > 0): ?>
+                                    Showing <?= $startIdx ?> to <?= $endIdx ?> of <?= $totalRecords ?> entries
+                                <?php else: ?>
+                                    Showing 0 entries
+                                <?php endif; ?>
+                            </div>
+                            <div class="pagination-controls" id="paginationControls">
+                                <?php if ($totalRecords > 0):
+                                    $queryBase = function ($p) use ($search, $status, $limit) {
+                                        $qs = http_build_query([
+                                            'search' => $search,
+                                            'status' => $status,
+                                            'limit'  => $limit,
+                                            'page'   => $p
+                                        ]);
+                                        return '?' . $qs;
+                                    };
                                 ?>
-                                    <?php if ($ellipsisBefore || $ellipsisAfter): ?>
-                                        <span style="padding: 0 4px; color: var(--farm-muted);">...</span>
-                                    <?php endif; ?>
-                                    <?php if ($show): ?>
-                                        <a class="page-btn <?= $i === $page ? 'active' : '' ?>" href="<?= $queryBase($i) ?>"><?= $i ?></a>
-                                    <?php endif; ?>
-                                <?php endfor; ?>
-                                <a class="page-btn <?= $page >= $totalPages ? 'disabled' : '' ?>" href="<?= $page >= $totalPages ? '#' : $queryBase($page + 1) ?>">
-                                    <i class="fa-solid fa-chevron-right"></i>
-                                </a>
-                            <?php endif; ?>
+                                    <a class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" href="<?= $page <= 1 ? '#' : $queryBase($page - 1) ?>">
+                                        <i class="fa-solid fa-chevron-left"></i>
+                                    </a>
+                                    <?php for ($i = 1; $i <= $totalPages; $i++):
+                                        $show = $i === 1 || $i === $totalPages || ($i >= $page - 1 && $i <= $page + 1);
+                                        $ellipsisBefore = $i === $page - 2 && $i > 2;
+                                        $ellipsisAfter  = $i === $page + 2 && $i < $totalPages - 1;
+                                    ?>
+                                        <?php if ($ellipsisBefore || $ellipsisAfter): ?>
+                                            <span style="padding: 0 4px; color: var(--farm-muted);">...</span>
+                                        <?php endif; ?>
+                                        <?php if ($show): ?>
+                                            <a class="page-btn <?= $i === $page ? 'active' : '' ?>" href="<?= $queryBase($i) ?>"><?= $i ?></a>
+                                        <?php endif; ?>
+                                    <?php endfor; ?>
+                                    <a class="page-btn <?= $page >= $totalPages ? 'disabled' : '' ?>" href="<?= $page >= $totalPages ? '#' : $queryBase($page + 1) ?>">
+                                        <i class="fa-solid fa-chevron-right"></i>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
-                </div>
                 <?php else: ?>
-                <div class="table-card">
-                    <div class="restricted-state">
-                        <i class="fa-solid fa-user-lock"></i>
-                        <h3>Access Restricted</h3>
-                        <p>You do not have the required "View Users" privilege to load this list.</p>
+                    <div class="table-card">
+                        <div class="restricted-state">
+                            <i class="fa-solid fa-user-lock"></i>
+                            <h3>Access Restricted</h3>
+                            <p>You do not have the required "View Users" privilege to load this list.</p>
+                        </div>
                     </div>
-                </div>
                 <?php endif; ?>
 
             </main>
