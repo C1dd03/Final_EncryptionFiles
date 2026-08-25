@@ -84,6 +84,17 @@ $blockedDisplay = $canViewUsers ? number_format($stats['blocked_users']) : 'N/A'
               <p>Restricted access</p>
             </div>
           </div>
+
+          <a href="approvals.php" class="stat-card stat-card-approval" id="adminApprovalCard">
+            <div class="stat-icon">
+              <i class="fa-solid fa-clipboard-check"></i>
+            </div>
+            <div>
+              <h3>Pending Approvals</h3>
+              <div class="stat-value" id="adminPendingCount">0</div>
+              <p>User registrations</p>
+            </div>
+          </a>
         </div>
 
       </main>
@@ -92,6 +103,21 @@ $blockedDisplay = $canViewUsers ? number_format($stats['blocked_users']) : 'N/A'
 
   <script src="../../js/admin/admin.js"></script>
   <script src="../../js/admin/dashboard.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      fetch('../../php/auth/index.php?action=getDashboardCounts')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            const countEl = document.getElementById('adminPendingCount');
+            if (countEl) {
+              countEl.textContent = data.pending_approvals || 0;
+            }
+          }
+        })
+        .catch((err) => console.error('Failed to load dashboard counts:', err));
+    });
+  </script>
 </body>
 
 </html>

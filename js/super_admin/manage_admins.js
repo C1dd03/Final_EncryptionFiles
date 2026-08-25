@@ -141,7 +141,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const value = rawValue.trim();
     const mode = document.getElementById("formMode")?.value || "add";
 
-    if (input.required && value === "") {
+    if (value === "" && input.required) {
       const labels = {
         first_name: "First Name",
         last_name: "Last Name",
@@ -166,6 +166,22 @@ document.addEventListener("DOMContentLoaded", function () {
       };
       const label = labels[name] || name.replace(/_/g, " ");
       return `${label} is required.`;
+    }
+
+    if (value === "") {
+      if (["first_name", "middle_name", "last_name"].includes(name)) {
+        return null;
+      }
+      if (["street", "barangay", "city", "province", "country"].includes(name)) {
+        return null;
+      }
+      if (name === "zip" || name === "birthdate" || name === "gender") {
+        return null;
+      }
+      if (name.startsWith("security_")) {
+        return null;
+      }
+      return null;
     }
 
     if (["first_name", "middle_name", "last_name"].includes(name)) {
@@ -329,11 +345,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (adminForm) {
     adminForm.querySelectorAll("input, select").forEach((input) => {
-      ["input", "blur", "change"].forEach((evtType) => {
-        input.addEventListener(evtType, function () {
+      const tag = input.tagName.toLowerCase();
+      if (tag === "select") {
+        input.addEventListener("change", function () {
           const err = validateField(this);
           setFieldError(this, err);
-
           if (this.name === "password") {
             const confInp = document.getElementById("formConfirmPassword");
             if (confInp && (confInp.value || mode === "add")) {
@@ -341,7 +357,18 @@ document.addEventListener("DOMContentLoaded", function () {
             }
           }
         });
-      });
+      } else {
+        input.addEventListener("blur", function () {
+          const err = validateField(this);
+          setFieldError(this, err);
+          if (this.name === "password") {
+            const confInp = document.getElementById("formConfirmPassword");
+            if (confInp && (confInp.value || mode === "add")) {
+              setFieldError(confInp, validateField(confInp));
+            }
+          }
+        });
+      }
     });
 
     const extInput = document.getElementById("formExtension");
@@ -489,6 +516,11 @@ document.addEventListener("DOMContentLoaded", function () {
       if (el) el.required = true;
     });
 
+    ["formFirstName", "formLastName", "formBirthdate", "formGender", "formStreet", "formBarangay", "formCity", "formProvince", "formCountry", "formZip"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.required = true;
+    });
+
     const passGrp = document.getElementById("passwordGroup");
     const confGrp = document.getElementById("confirmPasswordGroup");
     const passInp = document.getElementById("formPassword");
@@ -505,6 +537,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (adminModalTitle) adminModalTitle.textContent = "Add New Admin";
     if (adminModal) adminModal.classList.add("show");
+
+    fetch("../../php/auth/index.php?action=getNextIds&type=admin")
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success && res.admin_id && idEl) {
+          idEl.value = res.admin_id;
+        }
+      })
+      .catch((err) => console.error("Failed to fetch next admin ID:", err));
   }
 
   window.editAdmin = function (btnEl) {
@@ -710,15 +751,44 @@ document.addEventListener("DOMContentLoaded", function () {
     const row = getRowData(btnEl);
     if (!row) return;
 
-    document.getElementById("viewIdNumber").textContent = row.id_number;
-    document.getElementById("viewName").textContent = row.name;
-    document.getElementById("viewUsername").textContent = "@" + row.username;
-    document.getElementById("viewEmail").textContent = row.email || "N/A";
-    document.getElementById("viewRole").textContent = (row.role || "admin").toUpperCase();
-    document.getElementById("viewStatus").textContent = (row.status || "active").toUpperCase();
-    document.getElementById("viewCreated").textContent = row.created || "N/A";
+    fetch(`../../php/auth/index.php?action=getAdminDetail&id_number=${encodeURIComponent(row.id_number)}`)
+      .then((res) => res.json())
+      .then((res) => {
+        if (!res.success) {
+          showToast(res.message || "Could not fetch admin details.", "error");
+          return;
+        }
 
-    viewModal.classList.add("show");
+        const admin = res.data;
+        document.getElementById("viewIdNumber").textContent = admin.id_number || "-";
+        document.getElementById("viewFirstName").textContent = admin.first_name || "-";
+        document.getElementById("viewMiddleName").textContent = admin.middle_name || "N/A";
+        document.getElementById("viewLastName").textContent = admin.last_name || "-";
+        document.getElementById("viewExtension").textContent = admin.extension || "N/A";
+        document.getElementById("viewName").textContent = admin.name || "-";
+        document.getElementById("viewUsername").textContent = "@" + (admin.username || "-");
+        document.getElementById("viewEmail").textContent = admin.email || "N/A";
+        document.getElementById("viewContact").textContent = admin.contact_number || "N/A";
+        document.getElementById("viewRole").textContent = (admin.role || "admin").toUpperCase();
+        document.getElementById("viewStatus").textContent = (admin.status || "active").toUpperCase();
+        document.getElementById("viewApproval").textContent = (admin.status === "pending_approval" ? "Pending Approval" : (admin.status === "active" ? "Approved" : admin.status)).toUpperCase();
+        document.getElementById("viewGender").textContent = (admin.gender || "-").toUpperCase();
+        document.getElementById("viewBirthdate").textContent = admin.birthdate || "-";
+        document.getElementById("viewAge").textContent = admin.age || "-";
+
+        const address = [admin.street, admin.barangay, admin.city, admin.province, admin.country, admin.zip].filter(Boolean).join(", ");
+        document.getElementById("viewAddress").textContent = address || "N/A";
+
+        document.getElementById("viewCreated").textContent = admin.created_at || "N/A";
+        document.getElementById("viewUpdated").textContent = admin.updated_at || "N/A";
+        document.getElementById("viewLastLogin").textContent = admin.last_login || "N/A";
+
+        viewModal.classList.add("show");
+      })
+      .catch((err) => {
+        console.error(err);
+        showToast("An error occurred while fetching admin details.", "error");
+      });
   };
 
   function closeViewModal() {
@@ -955,12 +1025,18 @@ document.addEventListener("DOMContentLoaded", function () {
         .then((res) => res.json())
         .then((res) => {
           if (res.success) {
+            if (res.auto_logout) {
+              setFlashToast("Super Admin role transferred. You have been logged out.", "info");
+              setTimeout(() => {
+                window.location.href = res.logout_redirect || '../../php/auth/index.php?action=login&reason=role_transferred';
+              }, 1500);
+              return;
+            }
             setFlashToast("Role successfully changed.", "success");
             window.location.reload();
             return;
           }
           if (res.confirmation) {
-            // Deliberate security confirmation required (self-demotion)
             pendingRoleChange.confirmSelf = true;
             roleConfirmMessage.innerHTML = escapeHtml(
               res.message || "This change removes your own Super Admin access. Confirm to continue."

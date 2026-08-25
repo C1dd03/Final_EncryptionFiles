@@ -380,7 +380,7 @@ function e($text)
 
                 <div class="form-group">
                   <label for="formFirstName">First Name *</label>
-                  <input type="text" id="formFirstName" name="first_name" class="form-control" placeholder="First Name" />
+                  <input type="text" id="formFirstName" name="first_name" class="form-control" placeholder="First Name" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
 
@@ -392,7 +392,7 @@ function e($text)
 
                 <div class="form-group">
                   <label for="formLastName">Last Name *</label>
-                  <input type="text" id="formLastName" name="last_name" class="form-control" placeholder="Last Name" />
+                  <input type="text" id="formLastName" name="last_name" class="form-control" placeholder="Last Name" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
               </div>
@@ -406,7 +406,7 @@ function e($text)
 
                 <div class="form-group">
                   <label for="formBirthdate">Birthdate *</label>
-                  <input type="date" id="formBirthdate" name="birthdate" class="form-control" max="<?= date('Y-m-d', strtotime('-18 years')) ?>" />
+                  <input type="date" id="formBirthdate" name="birthdate" class="form-control" max="<?= date('Y-m-d', strtotime('-18 years')) ?>" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
 
@@ -418,7 +418,7 @@ function e($text)
 
                 <div class="form-group">
                   <label for="formGender">Gender *</label>
-                  <select id="formGender" name="gender" class="form-control">
+                  <select id="formGender" name="gender" class="form-control" required>
                     <option value="" disabled selected hidden>Select Gender</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
@@ -443,19 +443,19 @@ function e($text)
               <div class="form-col">
                 <div class="form-group">
                   <label for="formStreet">Purok / Street *</label>
-                  <input type="text" id="formStreet" name="street" class="form-control" placeholder="Purok / Street" />
+                  <input type="text" id="formStreet" name="street" class="form-control" placeholder="Purok / Street" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                   <label for="formBarangay">Barangay *</label>
-                  <input type="text" id="formBarangay" name="barangay" class="form-control" placeholder="Barangay" />
+                  <input type="text" id="formBarangay" name="barangay" class="form-control" placeholder="Barangay" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                   <label for="formCity">Municipal / City *</label>
-                  <input type="text" id="formCity" name="city" class="form-control" placeholder="Municipal / City" />
+                  <input type="text" id="formCity" name="city" class="form-control" placeholder="Municipal / City" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
               </div>
@@ -463,19 +463,19 @@ function e($text)
               <div class="form-col">
                 <div class="form-group">
                   <label for="formProvince">Province *</label>
-                  <input type="text" id="formProvince" name="province" class="form-control" placeholder="Province" />
+                  <input type="text" id="formProvince" name="province" class="form-control" placeholder="Province" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                   <label for="formCountry">Country *</label>
-                  <input type="text" id="formCountry" name="country" class="form-control" placeholder="Country" />
+                  <input type="text" id="formCountry" name="country" class="form-control" placeholder="Country" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                   <label for="formZip">Zip Code *</label>
-                  <input type="number" id="formZip" name="zip" class="form-control" placeholder="Zip Code" />
+                  <input type="number" id="formZip" name="zip" class="form-control" placeholder="Zip Code" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
               </div>
@@ -564,13 +564,13 @@ function e($text)
               <div class="form-col">
                 <div class="form-group">
                   <label for="formUsername">Username *</label>
-                  <input type="text" id="formUsername" name="username" class="form-control" placeholder="admin.username" />
+                  <input type="text" id="formUsername" name="username" class="form-control" placeholder="admin.username" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                   <label for="formEmail">Email Address *</label>
-                  <input type="email" id="formEmail" name="email" class="form-control" placeholder="admin@example.com" />
+                  <input type="email" id="formEmail" name="email" class="form-control" placeholder="admin@example.com" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
 
@@ -584,13 +584,13 @@ function e($text)
               <div class="form-col">
                 <div class="form-group" id="passwordGroup">
                   <label for="formPassword" id="formPasswordLabel">Password *</label>
-                  <input type="password" id="formPassword" name="password" class="form-control" placeholder="Enter password" />
+                  <input type="password" id="formPassword" name="password" class="form-control" placeholder="Enter password" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group" id="confirmPasswordGroup">
                   <label for="formConfirmPassword">Confirm Password *</label>
-                  <input type="password" id="formConfirmPassword" name="confirm_password" class="form-control" placeholder="Confirm password" />
+                  <input type="password" id="formConfirmPassword" name="confirm_password" class="form-control" placeholder="Confirm password" required />
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>
 
@@ -629,7 +629,7 @@ function e($text)
 
   <!-- View Admin Modal -->
   <div class="modal-overlay" id="viewModal">
-    <div class="modal-card">
+    <div class="modal-card modal-card-lg">
       <div class="modal-header">
         <h3>Admin Details</h3>
         <button type="button" class="modal-close" id="closeViewModalBtn">&times;</button>
@@ -637,8 +637,24 @@ function e($text)
       <div class="modal-body">
         <div class="detail-list">
           <div class="detail-item">
-            <label>ID Number</label>
+            <label>Admin ID</label>
             <span id="viewIdNumber">-</span>
+          </div>
+          <div class="detail-item">
+            <label>First Name</label>
+            <span id="viewFirstName">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Middle Name</label>
+            <span id="viewMiddleName">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Last Name</label>
+            <span id="viewLastName">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Extension</label>
+            <span id="viewExtension">-</span>
           </div>
           <div class="detail-item">
             <label>Full Name</label>
@@ -649,20 +665,52 @@ function e($text)
             <span id="viewUsername">-</span>
           </div>
           <div class="detail-item">
-            <label>Email</label>
+            <label>Email Address</label>
             <span id="viewEmail">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Contact Number</label>
+            <span id="viewContact">-</span>
           </div>
           <div class="detail-item">
             <label>Role</label>
             <span id="viewRole">-</span>
           </div>
           <div class="detail-item">
-            <label>Status</label>
+            <label>Account Status</label>
             <span id="viewStatus">-</span>
           </div>
+          <div class="detail-item">
+            <label>Approval Status</label>
+            <span id="viewApproval">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Gender</label>
+            <span id="viewGender">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Birthdate</label>
+            <span id="viewBirthdate">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Age</label>
+            <span id="viewAge">-</span>
+          </div>
           <div class="detail-item" style="grid-column: span 2;">
-            <label>Date Registered</label>
+            <label>Address</label>
+            <span id="viewAddress">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Date Created</label>
             <span id="viewCreated">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Last Updated</label>
+            <span id="viewUpdated">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Last Login</label>
+            <span id="viewLastLogin">-</span>
           </div>
         </div>
       </div>

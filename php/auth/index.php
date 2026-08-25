@@ -194,6 +194,14 @@ switch ($action) {
         $userController->saveAdminPrivileges();
         break;
 
+    /* ========================== ID GENERATION & DASHBOARD COUNTS ======================== */
+    case 'getNextIds':
+        $userController->getNextIds();
+        break;
+    case 'getDashboardCounts':
+        $userController->getDashboardCounts();
+        break;
+
     /* ========================== ADMIN: MANAGE USERS ROUTES ======================== */
     case 'adminGetUserDetail':
         $adminController->getAdminUserDetail();

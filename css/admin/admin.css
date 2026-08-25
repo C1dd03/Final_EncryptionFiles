@@ -426,6 +426,26 @@ button {
   color: var(--farm-muted);
 }
 
+.stat-card-approval {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.stat-card-approval:hover {
+  transform: translateY(-2px);
+  box-shadow: 4px 4px 14px 2px rgba(47, 63, 51, 0.45);
+}
+
+.stat-card-approval .stat-icon {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+}
+
+.stat-card-approval .stat-value {
+  color: #4f46e5;
+}
+
 .stat-updating .stat-value {
   opacity: 0.5;
   transition: opacity 0.15s ease;

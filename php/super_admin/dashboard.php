@@ -69,12 +69,36 @@ $stats = $userModel->getDashboardStats();
               <p>Restricted access</p>
             </div>
           </div>
+
+          <a href="approvals.php" class="stat-card stat-card-approval" id="superAdminApprovalCard">
+            <div class="stat-icon"><i class="fa-solid fa-clipboard-check"></i></div>
+            <div>
+              <h3>Pending Approvals</h3>
+              <div class="stat-value" id="superAdminPendingCount">0</div>
+              <p>Registrations & delete requests</p>
+            </div>
+          </a>
         </div>
 
       </main>
     </div>
   </div>
   <script src="../../js/super_admin/superadmin.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      fetch('../../php/auth/index.php?action=getDashboardCounts')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            const countEl = document.getElementById('superAdminPendingCount');
+            if (countEl) {
+              countEl.textContent = data.pending_approvals || 0;
+            }
+          }
+        })
+        .catch((err) => console.error('Failed to load dashboard counts:', err));
+    });
+  </script>
 </body>
 
 </html>

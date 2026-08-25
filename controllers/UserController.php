@@ -1298,6 +1298,17 @@ class UserController
 
         $fieldErrors = [];
 
+        // ✅ Admin ID format validation (ADMIN-####)
+        // If the client sent an id_number, it must match the strict format; otherwise
+        // a fresh ADMIN-#### is generated server-side.
+        if ($id_number === '') {
+            $id_number = $this->userModel->generateAdminIdNumber();
+        } elseif (!User::isValidAdminIdFormat($id_number)) {
+            $fieldErrors['id_number'] = "Admin ID must follow the format ADMIN-#### (4 digits). Examples: ADMIN-0001, ADMIN-1222, ADMIN-2026.";
+        } elseif ($this->userModel->findById($id_number)) {
+            $fieldErrors['id_number'] = "This Admin ID is already in use. Please use a different one.";
+        }
+
         // Validate Names
         $nameValidations = [
             'first_name'  => ['val' => $firstName, 'label' => 'First Name', 'req' => true],
@@ -1483,9 +1494,65 @@ class UserController
             ]);
 
             echo json_encode(['success' => true, 'message' => 'Admin account created successfully.', 'id_number' => $newId]);
-            $this->userModel->logAuditAction($_SESSION['user_id'] ?? null, $_SESSION['username'] ?? 'superadmin', 'superadmin', 'Create Admin', "Created Admin: {$username}");
+            $this->userModel->logAuditAction($_SESSION['user_id'] ?? null, $_SESSION['username'] ?? 'superadmin', 'superadmin', 'Create Admin', "Created Admin: {$username} (ID: {$newId})");
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Failed to create admin: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    /**
+     * Returns the next available ID numbers for the admin/user creation forms.
+     * Both ADMIN-#### and YYYY-#### are auto-generated server-side.
+     */
+    public function getNextIds()
+    {
+        $this->validateLiveSession(['superadmin', 'admin']);
+        header('Content-Type: application/json; charset=utf-8');
+
+        $type = strtolower(trim($_GET['type'] ?? $_POST['type'] ?? 'all'));
+
+        $payload = ['success' => true];
+        if ($type === 'admin' || $type === 'all') {
+            $payload['admin_id'] = $this->userModel->generateAdminIdNumber();
+        }
+        if ($type === 'user' || $type === 'standard' || $type === 'all') {
+            $payload['standard_id'] = $this->userModel->generateIdNumber();
+        }
+        echo json_encode($payload);
+        exit;
+    }
+
+    /**
+     * Returns the dashboard counts needed by the cards on the Super Admin or
+     * Admin dashboard. Includes the pending approvals count.
+     */
+    public function getDashboardCounts()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['superadmin', 'admin']);
+
+        if (strtolower($authState['role']) === 'superadmin') {
+            $stats = $this->userModel->getDashboardStats();
+            echo json_encode([
+                'success'           => true,
+                'role'              => 'superadmin',
+                'total_accounts'    => $stats['total_accounts'],
+                'active_admins'     => $stats['active_admins'],
+                'active_users'      => $stats['active_users'],
+                'blocked_accounts'  => $stats['blocked_accounts'],
+                'pending_approvals' => $this->userModel->getSuperAdminPendingApprovalCount()
+            ]);
+        } else {
+            $stats = $this->userModel->getAdminDashboardStats();
+            echo json_encode([
+                'success'           => true,
+                'role'              => 'admin',
+                'total_users'       => $stats['total_users'],
+                'active_users'      => $stats['active_users'],
+                'blocked_users'     => $stats['blocked_users'],
+                'pending_approvals' => $this->userModel->getAdminPendingApprovalCount($authState['id_number'])
+            ]);
         }
         exit;
     }
@@ -2773,6 +2840,39 @@ class UserController
             $_SESSION['user_id'],
             $_SESSION['username'] ?? 'superadmin'
         );
+
+        // If the change resulted in the operator losing Super Admin privileges,
+        // destroy their session so they are forced to log in again. This is the
+        // "auto-logout" requirement when an Admin is promoted to Super Admin.
+        if (!empty($result['auto_logout']) && $result['auto_logout'] === true) {
+            // Record the logout in the audit log
+            $this->userModel->updateActiveLoginToLogout(
+                $_SESSION['username'] ?? null,
+                $_SESSION['user_id'] ?? null,
+                null,
+                'Auto-logged out: Super Admin role was transferred to another account.'
+            );
+
+            // Destroy the session
+            $_SESSION = [];
+            if (ini_get('session.use_cookies')) {
+                $params = session_get_cookie_params();
+                setcookie(
+                    session_name(),
+                    '',
+                    time() - 42000,
+                    $params['path'],
+                    $params['domain'],
+                    $params['secure'],
+                    $params['httponly']
+                );
+            }
+            session_unset();
+            session_destroy();
+
+            $result['auto_logout'] = true;
+            $result['logout_redirect'] = '../../php/auth/index.php?action=login&reason=role_transferred';
+        }
 
         echo json_encode($result);
         exit;

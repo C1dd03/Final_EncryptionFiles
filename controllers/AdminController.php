@@ -247,6 +247,16 @@ class AdminController
 
         $fieldErrors = [];
 
+        // ✅ Auto-generate the next available YYYY-#### User ID if blank,
+        // and validate the format (4-digit year + dash + 4 digits) when provided.
+        if ($id_number === '') {
+            $id_number = $this->userModel->generateIdNumber();
+        } elseif (!preg_match('/^\d{4}-\d{4}$/', $id_number)) {
+            $fieldErrors['id_number'] = 'User ID must follow the format YYYY-#### (4 digits). Example: 2026-0001.';
+        } elseif ($this->userModel->findById($id_number)) {
+            $fieldErrors['id_number'] = 'This User ID is already in use. Please use a different one.';
+        }
+
         $nameValidations = [
             'first_name'  => ['val' => $firstName, 'label' => 'First Name', 'req' => true],
             'middle_name' => ['val' => $middleName, 'label' => 'Middle Name', 'req' => false],

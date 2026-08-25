@@ -15,6 +15,7 @@ class User
         $this->ensureBlockListSchema();
         $this->ensurePrivilegeSchema();
         $this->ensureDeleteRequestsAndApprovalSchema();
+        $this->ensureViewDetailsSchema();
     }
 
     public function insertUser(array $data)
@@ -117,31 +118,96 @@ class User
         return $today->diff($dob)->y;
     }
 
-    public function generateIdNumber()
+    /**
+     * Generate the next available ID number for the current year in YYYY-#### format.
+     * Falls back to the latest numeric ID across all years if no current-year IDs exist.
+     * This is the canonical, race-safe ID generator for both users and admins
+     * (when not using the ADMIN-#### custom format).
+     */
+    public function generateIdNumber(): string
     {
         $year = date("Y");
 
-        // ✅ Get the last inserted ID for the current year only
+        // ✅ First try current-year IDs
         $stmt = $this->conn->prepare("
-            SELECT id_number 
-            FROM users 
-            WHERE id_number LIKE :yearPrefix 
-            ORDER BY id_number DESC 
+            SELECT id_number
+            FROM users
+            WHERE id_number LIKE :yearPrefix
+            ORDER BY id_number DESC
             LIMIT 1
         ");
         $stmt->execute([':yearPrefix' => $year . '-%']);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($row && preg_match('/^' . $year . '-(\d{4})$/', $row['id_number'], $matches)) {
-            // ✅ Increment the last 4 digits
             $lastNum = (int)$matches[1];
             $nextNum = str_pad($lastNum + 1, 4, '0', STR_PAD_LEFT);
-        } else {
-            // ✅ Start fresh if no ID exists for this year
-            $nextNum = '0001';
+            return $year . '-' . $nextNum;
         }
 
-        return $year . '-' . $nextNum;
+        // ✅ Otherwise look at any historical YYYY-#### IDs
+        $stmt = $this->conn->prepare("
+            SELECT id_number
+            FROM users
+            WHERE id_number REGEXP '^[0-9]{4}-[0-9]{4}$'
+            ORDER BY id_number DESC
+            LIMIT 1
+        ");
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row && preg_match('/^(\d{4})-(\d{4})$/', $row['id_number'], $matches)) {
+            $nextNum = str_pad(((int)$matches[2]) + 1, 4, '0', STR_PAD_LEFT);
+            return $matches[1] . '-' . $nextNum;
+        }
+
+        return $year . '-0001';
+    }
+
+    /**
+     * Validates that the supplied Admin ID follows the ADMIN-#### format
+     * (literal "ADMIN-" prefix + exactly four digits, no other characters).
+     */
+    public static function isValidAdminIdFormat(string $id): bool
+    {
+        return (bool)preg_match('/^ADMIN-\d{4}$/', $id);
+    }
+
+    /**
+     * Generate a unique ADMIN-#### ID by inspecting existing admin IDs and
+     * incrementing the highest 4-digit suffix. This runs server-side so
+     * duplicate IDs are impossible.
+     */
+    public function generateAdminIdNumber(): string
+    {
+        $stmt = $this->conn->prepare("
+            SELECT id_number
+            FROM users
+            WHERE id_number REGEXP '^ADMIN-[0-9]{4}$'
+            ORDER BY CAST(SUBSTRING(id_number, 7) AS UNSIGNED) DESC
+            LIMIT 1
+        ");
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row && preg_match('/^ADMIN-(\d{4})$/', $row['id_number'], $matches)) {
+            $next = (int)$matches[1] + 1;
+        } else {
+            $next = 1;
+        }
+        return 'ADMIN-' . str_pad($next, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Returns both the next admin ID (ADMIN-####) and next standard user ID
+     * (YYYY-####) so the frontend can populate the form on open.
+     */
+    public function getNextIdsForForms(): array
+    {
+        return [
+            'admin_id'      => $this->generateAdminIdNumber(),
+            'standard_id'   => $this->generateIdNumber()
+        ];
     }
 
 
@@ -971,11 +1037,17 @@ class User
      * Changes the role of an account while keeping role, privileges,
      * session invalidation and audit logs synchronized.
      *
+     * Special behaviour when a Super Admin promotes an Admin to Super Admin:
+     *   - The previous Super Admin is downgraded to role = 'admin' and
+     *     status = 'block' (Blocked) and their session_version is bumped so
+     *     their existing session cannot continue using Super Admin privileges.
+     *   - The promoted account becomes the new Super Admin.
+     *
      * @param string $targetId            id_number of the account to change
      * @param string $newRole             user | admin | superadmin
      * @param string $performedById       id_number of the super admin performing the change
      * @param string $performedByUsername username of the performing super admin
-     * @return array ['success' => bool, 'message' => string]
+     * @return array ['success' => bool, 'message' => string, 'auto_logout' => bool]
      */
     public function changeRole(string $targetId, string $newRole, string $performedById, string $performedByUsername): array
     {
@@ -994,34 +1066,117 @@ class User
             return ['success' => false, 'message' => 'Role is already set to ' . $newRole . '.'];
         }
 
+        $autoLogout = false;
+
         try {
             $this->conn->beginTransaction();
 
-            // 1. Update the role and bump session version (invalidates existing sessions)
-            $stmt = $this->conn->prepare("UPDATE users SET role = :role, session_version = session_version + 1 WHERE id_number = :id_number");
-            $stmt->execute([':role' => $newRole, ':id_number' => $targetId]);
+            // Special case: A Super Admin is being demoted because a new Super Admin is being promoted.
+            // This happens when the operator is a Super Admin and the new role for the target is 'superadmin'.
+            $isPromotingNewSuperAdmin = ($newRole === 'superadmin' && $performedById !== $targetId);
+            if ($isPromotingNewSuperAdmin) {
+                // 1. Downgrade the previous Super Admin to 'admin' and mark them as Blocked
+                $this->conn->prepare(
+                    "UPDATE users SET role = 'admin', status = 'block', session_version = session_version + 1
+                     WHERE id_number = :id_number AND role = 'superadmin'"
+                )->execute([':id_number' => $performedById]);
 
-            // 2. Keep block_list role in sync (if a record exists)
+                // Sync block_list entry for the previous Super Admin
+                $this->syncBlockListOnBlock(
+                    $performedById,
+                    'System',
+                    'Auto-blocked: Super Admin role transferred to another account',
+                    $_SERVER['REMOTE_ADDR'] ?? ''
+                );
+
+                // The previous Super Admin can no longer hold admin privileges either,
+                // since their status is now Blocked.
+                $this->removeAllPrivileges($performedById);
+
+                $this->logAuditAction(
+                    $performedById,
+                    $performedByUsername,
+                    'superadmin',
+                    'Self Demotion',
+                    "Auto demoted to Admin and Blocked after transferring Super Admin role to {$target['username']} (ID: {$targetId})"
+                );
+
+                $autoLogout = true;
+            }
+
+            // 2. Update the target account role and bump session version (invalidates its existing sessions)
+            $this->conn->prepare("UPDATE users SET role = :role, session_version = session_version + 1 WHERE id_number = :id_number")
+                ->execute([':role' => $newRole, ':id_number' => $targetId]);
+
+            // 3. Keep block_list role in sync (if a record exists)
             $this->conn->prepare("UPDATE block_list SET role = :role WHERE id_number = :id_number")
                 ->execute([':role' => $newRole, ':id_number' => $targetId]);
 
-            // 3. Non-admin roles must never retain admin privileges
+            // 4. Non-admin roles must never retain admin privileges
             if ($newRole !== 'admin') {
-                $this->conn->prepare("DELETE FROM admin_privileges WHERE id_number = :id_number")
-                    ->execute([':id_number' => $targetId]);
+                $this->removeAllPrivileges($targetId);
             }
 
-            // 4. Audit log the role change
+            // 5. Audit log the role change
             $details = "Changed By: {$performedByUsername} | Target User: {$target['username']} | Old Role: {$oldRole} | New Role: {$newRole}";
+            if ($autoLogout) {
+                $details .= ' | Note: previous Super Admin automatically demoted & blocked';
+            }
             $this->logAuditAction($performedById, $performedByUsername, 'superadmin', 'Change Role', $details);
 
             $this->conn->commit();
-            return ['success' => true, 'message' => 'Role updated to ' . $newRole . '.'];
+
+            return [
+                'success' => true,
+                'message' => 'Role updated to ' . $newRole . '.',
+                'auto_logout' => $autoLogout
+            ];
         } catch (Exception $e) {
             $this->conn->rollBack();
             error_log("Failed to change role: " . $e->getMessage());
             return ['success' => false, 'message' => 'Failed to update role.'];
         }
+    }
+
+    /**
+     * Counts pending approval items the Super Admin needs to act on.
+     * Used by the Super Admin dashboard approval card.
+     */
+    public function getSuperAdminPendingApprovalCount(): int
+    {
+        $total = 0;
+        try {
+            // Pending user registrations
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE status = 'pending_approval'");
+            $total += (int)$stmt->fetchColumn();
+
+            // Pending delete requests
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM delete_requests WHERE status = 'pending'");
+            $total += (int)$stmt->fetchColumn();
+        } catch (Exception $e) {
+            error_log("Pending approval count failed: " . $e->getMessage());
+        }
+        return $total;
+    }
+
+    /**
+     * Counts pending approval items that an Admin is allowed to handle.
+     * Admins typically only see pending user registrations.
+     */
+    public function getAdminPendingApprovalCount(string $adminIdNumber): int
+    {
+        $total = 0;
+        try {
+            $hasApprove = $this->hasAdminPrivilege($adminIdNumber, 'approve_registrations')
+                || $this->hasAdminPrivilege($adminIdNumber, 'view_users');
+            if ($hasApprove) {
+                $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE status = 'pending_approval'");
+                $total += (int)$stmt->fetchColumn();
+            }
+        } catch (Exception $e) {
+            error_log("Admin pending approval count failed: " . $e->getMessage());
+        }
+        return $total;
     }
 
     public function logAuditAction(?string $id_number, string $username, string $role, string $action, string $details, ?string $timeIn = null, ?string $timeOut = null): int
@@ -1384,6 +1539,29 @@ class User
         }
     }
 
+    /**
+      * Ensures view-detail columns exist on the users table.
+      */
+    public function ensureViewDetailsSchema(): void
+    {
+        try {
+            $colsToAdd = [
+                'contact_number' => "ALTER TABLE users ADD COLUMN IF NOT EXISTS contact_number VARCHAR(20) DEFAULT NULL AFTER email",
+                'updated_at'     => "ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NULL DEFAULT NULL AFTER created_at",
+                'last_login'     => "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP NULL DEFAULT NULL AFTER updated_at",
+            ];
+
+            foreach ($colsToAdd as $col => $sql) {
+                $stmt = $this->conn->query("SHOW COLUMNS FROM users LIKE '{$col}'");
+                if (!$stmt->fetch()) {
+                    $this->conn->exec($sql);
+                }
+            }
+        } catch (Exception $e) {
+            error_log("View details schema sync warning: " . $e->getMessage());
+        }
+    }
+
     public function setAccountStatus(string $id_number, string $status): bool
     {
         $stmt = $this->conn->prepare("UPDATE users SET status = :status WHERE id_number = :id_number");
@@ -1634,11 +1812,22 @@ class User
 
         $targetId = $request['user_id_number'];
 
-        // Perform actual deletion
-        $deleted = $this->deleteStandardUser($targetId);
-        if (!$deleted) {
-            return ['success' => false, 'message' => 'Failed to delete target user account.'];
+        // Deactivate rather than permanently delete: status = 'block' (Inactive)
+        $deactivated = $this->setAccountStatus($targetId, 'block');
+        if (!$deactivated) {
+            return ['success' => false, 'message' => 'Failed to deactivate target user account.'];
         }
+
+        // Bump session_version so any active sessions for the target are invalidated
+        $this->bumpSessionVersion($targetId);
+
+        // Sync block_list entry
+        $this->syncBlockListOnBlock(
+            $targetId,
+            $superAdminUsername,
+            "Deactivation approved. Original reason: {$request['reason']}",
+            $_SERVER['REMOTE_ADDR'] ?? ''
+        );
 
         // Update request status
         $updateStmt = $this->conn->prepare(
@@ -1646,9 +1835,15 @@ class User
         );
         $updateStmt->execute([':reviewer' => $superAdminUsername, ':id' => $requestId]);
 
-        $this->logAuditAction($superAdminId, $superAdminUsername, 'superadmin', 'Approve Delete Request', "Super Admin approved deletion of user {$request['user_username']} (ID: {$targetId}) requested by Admin {$request['requested_by_username']}");
+        $this->logAuditAction(
+            $superAdminId,
+            $superAdminUsername,
+            'superadmin',
+            'Approve Delete Request',
+            "Super Admin approved deactivation of user {$request['user_username']} (ID: {$targetId}) requested by Admin {$request['requested_by_username']} | Reason: {$request['reason']}"
+        );
 
-        return ['success' => true, 'message' => 'Delete request approved and account has been permanently deleted.'];
+        return ['success' => true, 'message' => 'Account has been deactivated (status set to Inactive). Account record is preserved.'];
     }
 
     public function rejectDeleteRequest(int $requestId, string $notes, string $superAdminId, string $superAdminUsername): array

@@ -386,6 +386,26 @@ button {
   color: var(--farm-muted);
 }
 
+.stat-card-approval {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.stat-card-approval:hover {
+  transform: translateY(-3px);
+  box-shadow: 2px 4px 12px 1px #2f3f335e;
+}
+
+.stat-card-approval .stat-icon {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+}
+
+.stat-card-approval .stat-value {
+  color: #4f46e5;
+}
+
 @media (max-width: 1024px) {
   .cards-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

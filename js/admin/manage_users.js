@@ -238,7 +238,6 @@ document.addEventListener("DOMContentLoaded", function () {
       if (tag === "select") {
         input.addEventListener("change", () => validateField(input));
       } else {
-        input.addEventListener("input", () => validateField(input));
         input.addEventListener("blur", () => validateField(input));
       }
     });
@@ -383,6 +382,11 @@ document.addEventListener("DOMContentLoaded", function () {
       if (el) el.required = true;
     });
 
+    ["formFirstName", "formLastName", "formBirthdate", "formGender", "formStreet", "formBarangay", "formCity", "formProvince", "formCountry", "formZip"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.required = true;
+    });
+
     const passGrp = document.getElementById("passwordGroup");
     const confGrp = document.getElementById("confirmPasswordGroup");
     const passInp = document.getElementById("formPassword");
@@ -402,6 +406,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (userModalTitle) userModalTitle.textContent = "Add New User";
     if (userModal) userModal.classList.add("show");
+
+    fetch("../../php/auth/index.php?action=getNextIds&type=user")
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success && res.standard_id && idEl) {
+          idEl.value = res.standard_id;
+        }
+      })
+      .catch((err) => console.error("Failed to fetch next user ID:", err));
   }
 
   window.editUser = function (btnEl) {
@@ -615,15 +628,44 @@ document.addEventListener("DOMContentLoaded", function () {
     const row = getRowData(btnEl);
     if (!row) return;
 
-    document.getElementById("viewIdNumber").textContent = row.id_number;
-    document.getElementById("viewName").textContent = row.name;
-    document.getElementById("viewUsername").textContent = "@" + row.username;
-    document.getElementById("viewEmail").textContent = row.email || "N/A";
-    document.getElementById("viewRole").textContent = (row.role || "user").toUpperCase();
-    document.getElementById("viewStatus").textContent = (row.status || "active").toUpperCase();
-    document.getElementById("viewCreated").textContent = row.created || "N/A";
+    fetch(`../../php/auth/index.php?action=adminGetUserDetail&id_number=${encodeURIComponent(row.id_number)}`)
+      .then((res) => res.json())
+      .then((res) => {
+        if (!res.success) {
+          showToast(res.message || "Could not fetch user details.", "error");
+          return;
+        }
 
-    viewModal.classList.add("show");
+        const user = res.data;
+        document.getElementById("viewIdNumber").textContent = user.id_number || "-";
+        document.getElementById("viewFirstName").textContent = user.first_name || "-";
+        document.getElementById("viewMiddleName").textContent = user.middle_name || "N/A";
+        document.getElementById("viewLastName").textContent = user.last_name || "-";
+        document.getElementById("viewExtension").textContent = user.extension || "N/A";
+        document.getElementById("viewName").textContent = user.name || "-";
+        document.getElementById("viewUsername").textContent = "@" + (user.username || "-");
+        document.getElementById("viewEmail").textContent = user.email || "N/A";
+        document.getElementById("viewContact").textContent = user.contact_number || "N/A";
+        document.getElementById("viewRole").textContent = (user.role || "user").toUpperCase();
+        document.getElementById("viewStatus").textContent = (user.status || "active").toUpperCase();
+        document.getElementById("viewApproval").textContent = (user.status === "pending_approval" ? "Pending Approval" : (user.status === "active" ? "Approved" : user.status)).toUpperCase();
+        document.getElementById("viewGender").textContent = (user.gender || "-").toUpperCase();
+        document.getElementById("viewBirthdate").textContent = user.birthdate || "-";
+        document.getElementById("viewAge").textContent = user.age || "-";
+
+        const address = [user.street, user.barangay, user.city, user.province, user.country, user.zip].filter(Boolean).join(", ");
+        document.getElementById("viewAddress").textContent = address || "N/A";
+
+        document.getElementById("viewCreated").textContent = user.created_at || "N/A";
+        document.getElementById("viewUpdated").textContent = user.updated_at || "N/A";
+        document.getElementById("viewLastLogin").textContent = user.last_login || "N/A";
+
+        viewModal.classList.add("show");
+      })
+      .catch((err) => {
+        console.error(err);
+        showToast("An error occurred while fetching user details.", "error");
+      });
   };
 
   function closeViewModal() {
