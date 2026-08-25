@@ -292,6 +292,7 @@ document.addEventListener("DOMContentLoaded", function () {
             data.errorType === "accountBlocked" ||
             data.errorType === "accountPending" ||
             data.errorType === "accountPendingApproval" ||
+            data.errorType === "accountRejected" ||
             data.errorType === "noEmail" ||
             data.errorType === "otpSendFailed"
           ) {

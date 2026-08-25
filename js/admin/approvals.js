@@ -1,5 +1,6 @@
 document.addEventListener("DOMContentLoaded", function () {
   const searchInput = document.getElementById("searchInput");
+  const statusFilter = document.getElementById("statusFilter");
   const monthFilter = document.getElementById("monthFilter");
   const yearFilter = document.getElementById("yearFilter");
   const startDateInput = document.getElementById("startDateInput");
@@ -71,6 +72,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function fetchPendingRegistrations() {
     const search = searchInput ? searchInput.value.trim() : "";
+    const status = statusFilter ? statusFilter.value : "all";
     const month = monthFilter ? monthFilter.value : "all";
     const year = yearFilter ? yearFilter.value : "all";
     const startDate = startDateInput ? startDateInput.value : "";
@@ -81,7 +83,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const url = `../../php/auth/index.php?action=getPendingRegistrations&search=${encodeURIComponent(
       search
-    )}&month=${encodeURIComponent(month)}&year=${encodeURIComponent(
+    )}&status=${encodeURIComponent(status)}&month=${encodeURIComponent(month)}&year=${encodeURIComponent(
       year
     )}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(
       endDate
@@ -124,6 +126,22 @@ document.addEventListener("DOMContentLoaded", function () {
       const email = escapeHtml(user.email || "-");
       const genderAge = `${escapeHtml(user.gender || "")} (${escapeHtml(String(user.age || "-"))})`;
       const createdAt = escapeHtml(user.created_at || "-");
+      const regStatus = escapeHtml(user.status || "pending");
+
+      const isPending = regStatus === "pending";
+      const isApproved = regStatus === "approved";
+      const isRejected = regStatus === "rejected";
+
+      let statusBadge = "";
+      if (isPending) {
+        statusBadge = `<span class="badge-pending"><i class="fa-regular fa-clock"></i> Pending</span>`;
+      } else if (isApproved) {
+        statusBadge = `<span style="background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:9999px; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><i class="fa-solid fa-circle-check"></i> Approved</span>`;
+      } else if (isRejected) {
+        statusBadge = `<span style="background:#fee2e2; color:#991b1b; padding:4px 10px; border-radius:9999px; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><i class="fa-solid fa-circle-xmark"></i> Rejected</span>`;
+      } else {
+        statusBadge = `<span class="badge-pending"><i class="fa-regular fa-clock"></i> ${escapeHtml(regStatus)}</span>`;
+      }
 
       html += `<tr>
         <td><strong>${idNo}</strong></td>
@@ -132,7 +150,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <td>${email}</td>
         <td>${genderAge}</td>
         <td>${createdAt}</td>
-        <td><span class="badge-pending"><i class="fa-regular fa-clock"></i> Pending</span></td>
+        <td>${statusBadge}</td>
         <td>
           <div class="action-dropdown">
             <button type="button" class="action-dropdown-btn" onclick="toggleActionDropdown(this)">
@@ -142,13 +160,13 @@ document.addEventListener("DOMContentLoaded", function () {
               <button type="button" class="action-menu-item view" onclick="viewUserDetails('${idNo}')">
                 <i class="fa-solid fa-eye"></i> View Details
               </button>
-              <div class="action-menu-divider"></div>
+              ${isPending ? `<div class="action-menu-divider"></div>
               <button type="button" class="action-menu-item approve" onclick="confirmApprove('${idNo}', '${fullName}')">
                 <i class="fa-solid fa-check"></i> Approve
               </button>
               <button type="button" class="action-menu-item reject" onclick="confirmReject('${idNo}', '${fullName}')">
                 <i class="fa-solid fa-xmark"></i> Reject
-              </button>
+              </button>` : ""}
             </div>
           </div>
         </td>
@@ -237,7 +255,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="detail-item"><div class="detail-label">Gender</div><div class="detail-val">${escapeHtml(user.gender)}</div></div>
         <div class="detail-item" style="grid-column: 1 / -1;"><div class="detail-label">Address</div><div class="detail-val">${escapeHtml(address || "Not specified")}</div></div>
         <div class="detail-item"><div class="detail-label">Submitted On</div><div class="detail-val">${escapeHtml(user.created_at)}</div></div>
-        <div class="detail-item"><div class="detail-label">Status</div><div class="detail-val"><span class="badge-pending">Pending Approval</span></div></div>
+        <div class="detail-item"><div class="detail-label">Status</div><div class="detail-val">${escapeHtml(user.status || "pending") === "pending" ? '<span class="badge-pending"><i class="fa-regular fa-clock"></i> Pending</span>' : escapeHtml(user.status)}</div></div>
       </div>
     `;
     detailsModal.style.display = "flex";
@@ -264,11 +282,11 @@ document.addEventListener("DOMContentLoaded", function () {
     confirmModalTitle.textContent = "Reject Registration";
     confirmModalMsg.innerHTML = `Are you sure you want to reject the registration for <strong>${escapeHtml(
       name
-    )}</strong> (ID: ${escapeHtml(idNumber)})? This will remove the unapproved submission.`;
+    )}</strong> (ID: ${escapeHtml(idNumber)})? This will mark the registration as rejected.`;
     rejectReasonGroup.style.display = "block";
     rejectReasonInput.value = "";
     confirmModalSubmitBtn.style.background = "#ef4444";
-    confirmModalSubmitBtn.textContent = "Reject & Remove";
+    confirmModalSubmitBtn.textContent = "Reject Registration";
     confirmModal.style.display = "flex";
   };
 
@@ -357,6 +375,11 @@ document.addEventListener("DOMContentLoaded", function () {
     }, 300);
   });
 
+  statusFilter.addEventListener("change", function () {
+    currentPage = 1;
+    fetchPendingRegistrations();
+  });
+
   monthFilter.addEventListener("change", function () {
     currentPage = 1;
     fetchPendingRegistrations();
@@ -379,6 +402,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   btnClearDate.addEventListener("click", function () {
     searchInput.value = "";
+    statusFilter.value = "all";
     monthFilter.value = "all";
     yearFilter.value = "all";
     startDateInput.value = "";

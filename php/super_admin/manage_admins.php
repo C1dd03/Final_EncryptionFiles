@@ -119,7 +119,7 @@ function e($text)
               <tbody id="adminTableBody">
                 <?php if (!empty($admins)): ?>
                   <?php foreach ($admins as $index => $admin):
-                    $rowId = $startIdx + $index;
+                    $rowId = $totalRecords - $offset - $index;
                     $isBlocked = $admin['status'] === 'block' || $admin['status'] === 'blocked';
                     $adminName = trim(($admin['first_name'] ?? '') . ' ' . ($admin['middle_name'] ?? '') . ' ' . ($admin['last_name'] ?? '') . ' ' . ($admin['extension'] ?? ''));
                     $dataName = $admin['name'] ?? $adminName;

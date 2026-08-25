@@ -248,6 +248,11 @@ class UserController
                 return;
             }
 
+            $submittedIdNumber = trim($_POST['id_number'] ?? '');
+            if (!empty($submittedIdNumber) && ($this->userModel->findById($submittedIdNumber) || $this->userModel->pendingUserIdExists($submittedIdNumber))) {
+                $fieldErrors['id_number'] = "This User ID is already in use. Please use a different one.";
+            }
+
             $data = [
                 'first_name'  => trim($_POST['first_name'] ?? ''),
                 'middle_name' => trim($_POST['middle_name'] ?? null),
@@ -264,14 +269,21 @@ class UserController
                 'security_answers' => $securityAnswers,
                 'username'    => $username,
                 'email'       => $email,
-                'password'    => $password, // hashed once in User::insertUser
-                'status'      => 'pending_approval' // registration submitted, awaiting administrator approval
+                'password'    => $password, // hashed inside createPendingRegistration
+                'id_number'   => $submittedIdNumber
             ];
 
-            // --- INSERT INTO DATABASE ---
-            $result = $this->userModel->insertUser($data);
+            if (!empty($fieldErrors)) {
+                $error = implode("<br>", $fieldErrors);
+                $formView = "register.php";
+                require __DIR__ . '/../php/auth/auth.php';
+                return;
+            }
+
+            // --- INSERT INTO PENDING REGISTRATIONS ---
+            $result = $this->userModel->createPendingRegistration($data);
             if ($result) {
-                $registeredId = $result; // Generated ID number
+                $registeredId = $result;
                 $showSuccessModal = true;
 
                 $formView = "register.php";
@@ -467,8 +479,22 @@ class UserController
             //     return;
             // }
 
-            // Username wrong
+            // Username not found in users — check pending registrations
             if (!$user) {
+                $pending = $this->userModel->findPendingRegistrationByUsername($username)
+                    ?? $this->userModel->findPendingRegistrationByEmail($username);
+
+                if ($pending) {
+                    if ($pending['status'] === 'pending') {
+                        echo json_encode(['success' => false, 'message' => 'Your account is still waiting for administrator approval.', 'errorType' => 'accountPendingApproval']);
+                        return;
+                    }
+                    if ($pending['status'] === 'rejected') {
+                        echo json_encode(['success' => false, 'message' => 'Your registration has been rejected. Please contact the administrator.', 'errorType' => 'accountRejected']);
+                        return;
+                    }
+                }
+
                 echo json_encode(['success' => false, 'message' => 'Username does not exist.', 'errorType' => 'usernameWrong']);
                 return;
             }
@@ -1415,7 +1441,7 @@ class UserController
                 $fieldErrors['username'] = "Username cannot contain spaces.";
             } elseif (preg_match('/([a-zA-Z])\1\1/i', $username)) {
                 $fieldErrors['username'] = "Username cannot contain 3 identical letters in a row.";
-            } elseif ($this->userModel->usernameExists($username)) {
+            } elseif ($this->userModel->usernameExists($username) || $this->userModel->pendingUsernameExists($username)) {
                 $fieldErrors['username'] = "Username is already taken.";
             }
         }
@@ -1428,7 +1454,7 @@ class UserController
                 $fieldErrors['email'] = "Email cannot contain spaces.";
             } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 $fieldErrors['email'] = "Invalid email format.";
-            } elseif ($this->userModel->emailExists($email)) {
+            } elseif ($this->userModel->emailExists($email) || $this->userModel->pendingEmailExists($email)) {
                 $fieldErrors['email'] = "Email is already registered.";
             }
         }
@@ -2598,6 +2624,7 @@ class UserController
         }
 
         $search    = trim($_GET['search'] ?? '');
+        $status    = trim($_GET['status'] ?? 'pending');
         $startDate = trim($_GET['start_date'] ?? '');
         $endDate   = trim($_GET['end_date'] ?? '');
         $month     = trim($_GET['month'] ?? 'all');
@@ -2605,14 +2632,14 @@ class UserController
         $page      = max(1, (int)($_GET['page'] ?? 1));
         $limit     = in_array((int)($_GET['limit'] ?? 10), [10, 25, 50, 100], true) ? (int)$_GET['limit'] : 10;
 
-        $totalRecords = $this->userModel->getPendingRegistrationsCount($search, $startDate, $endDate, $month, $year);
+        $totalRecords = $this->userModel->getPendingRegistrationsCount($search, $startDate, $endDate, $month, $year, $status);
         $totalPages   = max(1, (int)ceil($totalRecords / $limit));
         if ($page > $totalPages && $totalPages > 0) {
             $page = $totalPages;
         }
         $offset = ($page - 1) * $limit;
 
-        $records = $this->userModel->getPendingRegistrations($search, $startDate, $endDate, $month, $year, $offset, $limit);
+        $records = $this->userModel->getPendingRegistrations($search, $startDate, $endDate, $month, $year, $status, $offset, $limit);
 
         echo json_encode([
             'success'      => true,
@@ -2649,18 +2676,14 @@ class UserController
             exit;
         }
 
-        $approved = $this->userModel->approveRegistration(
+        $result = $this->userModel->approveRegistration(
             $id_number,
             $authState['id_number'],
             $authState['username'],
             $authState['role']
         );
 
-        if ($approved) {
-            echo json_encode(['success' => true, 'message' => 'Registration approved successfully. Account is now active.']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to approve registration. Record may have already been approved or removed.']);
-        }
+        echo json_encode($result);
         exit;
     }
 
@@ -2698,7 +2721,7 @@ class UserController
         );
 
         if ($rejected) {
-            echo json_encode(['success' => true, 'message' => 'Registration rejected and removed.']);
+            echo json_encode(['success' => true, 'message' => 'Registration rejected successfully.']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to reject registration.']);
         }

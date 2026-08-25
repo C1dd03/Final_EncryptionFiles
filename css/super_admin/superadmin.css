@@ -399,11 +399,11 @@ button {
 }
 
 .stat-card-approval .stat-icon {
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  background: linear-gradient(135deg, var(--farm-card-1), var(--farm-card-3));
 }
 
 .stat-card-approval .stat-value {
-  color: #4f46e5;
+  color: var(--farm-card-1);
 }
 
 @media (max-width: 1024px) {

@@ -229,6 +229,13 @@ $activePage = 'approvals';
               <input type="text" id="searchInput" placeholder="Search ID No, Name, Username, Email..." />
             </div>
 
+            <select id="statusFilter" class="filter-select" aria-label="Status Filter">
+              <option value="all" selected>All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+
             <select id="monthFilter" class="filter-select" aria-label="Month Filter">
               <option value="all" selected>All Months</option>
               <option value="1">January</option>

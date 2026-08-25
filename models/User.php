@@ -16,6 +16,7 @@ class User
         $this->ensurePrivilegeSchema();
         $this->ensureDeleteRequestsAndApprovalSchema();
         $this->ensureViewDetailsSchema();
+        $this->ensurePendingRegistrationsSchema();
     }
 
     public function insertUser(array $data)
@@ -120,45 +121,51 @@ class User
 
     /**
      * Generate the next available ID number for the current year in YYYY-#### format.
-     * Falls back to the latest numeric ID across all years if no current-year IDs exist.
-     * This is the canonical, race-safe ID generator for both users and admins
-     * (when not using the ADMIN-#### custom format).
+     * Considers both `users` and `pending_registrations` to avoid collisions.
+     * Falls back to the latest numeric ID across all years in both tables if no
+     * current-year IDs exist.
      */
     public function generateIdNumber(): string
     {
         $year = date("Y");
 
-        // ✅ First try current-year IDs
-        $stmt = $this->conn->prepare("
-            SELECT id_number
-            FROM users
-            WHERE id_number LIKE :yearPrefix
-            ORDER BY id_number DESC
-            LIMIT 1
-        ");
-        $stmt->execute([':yearPrefix' => $year . '-%']);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $getMaxFromTables = function (string $yearPrefix): ?int {
+            $maxNum = null;
 
-        if ($row && preg_match('/^' . $year . '-(\d{4})$/', $row['id_number'], $matches)) {
-            $lastNum = (int)$matches[1];
-            $nextNum = str_pad($lastNum + 1, 4, '0', STR_PAD_LEFT);
-            return $year . '-' . $nextNum;
+            $stmt = $this->conn->prepare("
+                SELECT id_number FROM users WHERE id_number LIKE :yearPrefix
+                UNION
+                SELECT user_id FROM pending_registrations WHERE user_id LIKE :yearPrefix
+                ORDER BY 1 DESC LIMIT 1
+            ");
+            $stmt->execute([':yearPrefix' => $yearPrefix]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row && preg_match('/^' . $yearPrefix . '(\d{4})$/', $row[array_keys($row)[0]], $matches)) {
+                $maxNum = (int)$matches[1];
+            }
+
+            return $maxNum;
+        };
+
+        $nextNum = $getMaxFromTables($year . '-%');
+        if ($nextNum !== null) {
+            return $year . '-' . str_pad($nextNum + 1, 4, '0', STR_PAD_LEFT);
         }
 
-        // ✅ Otherwise look at any historical YYYY-#### IDs
         $stmt = $this->conn->prepare("
-            SELECT id_number
-            FROM users
-            WHERE id_number REGEXP '^[0-9]{4}-[0-9]{4}$'
-            ORDER BY id_number DESC
-            LIMIT 1
+            SELECT id_number FROM users WHERE id_number REGEXP '^[0-9]{4}-[0-9]{4}$'
+            UNION
+            SELECT user_id FROM pending_registrations WHERE user_id REGEXP '^[0-9]{4}-[0-9]{4}$'
+            ORDER BY 1 DESC LIMIT 1
         ");
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($row && preg_match('/^(\d{4})-(\d{4})$/', $row['id_number'], $matches)) {
-            $nextNum = str_pad(((int)$matches[2]) + 1, 4, '0', STR_PAD_LEFT);
-            return $matches[1] . '-' . $nextNum;
+        if ($row) {
+            $val = reset($row);
+            if (preg_match('/^(\d{4})-(\d{4})$/', $val, $matches)) {
+                $nextNum = str_pad(((int)$matches[2]) + 1, 4, '0', STR_PAD_LEFT);
+                return $matches[1] . '-' . $nextNum;
+            }
         }
 
         return $year . '-0001';
@@ -1146,11 +1153,9 @@ class User
     {
         $total = 0;
         try {
-            // Pending user registrations
-            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE status = 'pending_approval'");
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM pending_registrations WHERE status = 'pending'");
             $total += (int)$stmt->fetchColumn();
 
-            // Pending delete requests
             $stmt = $this->conn->query("SELECT COUNT(*) FROM delete_requests WHERE status = 'pending'");
             $total += (int)$stmt->fetchColumn();
         } catch (Exception $e) {
@@ -1170,7 +1175,7 @@ class User
             $hasApprove = $this->hasAdminPrivilege($adminIdNumber, 'approve_registrations')
                 || $this->hasAdminPrivilege($adminIdNumber, 'view_users');
             if ($hasApprove) {
-                $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE status = 'pending_approval'");
+                $stmt = $this->conn->query("SELECT COUNT(*) FROM pending_registrations WHERE status = 'pending'");
                 $total += (int)$stmt->fetchColumn();
             }
         } catch (Exception $e) {
@@ -1539,9 +1544,55 @@ class User
         }
     }
 
+    public function ensurePendingRegistrationsSchema(): void
+    {
+        try {
+            $stmt = $this->conn->query("SHOW TABLES LIKE 'pending_registrations'");
+            if (!$stmt->fetch()) {
+                $this->conn->exec(
+                    "CREATE TABLE pending_registrations (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id VARCHAR(20) NOT NULL,
+                        first_name VARCHAR(50) NOT NULL,
+                        middle_name VARCHAR(50) DEFAULT NULL,
+                        last_name VARCHAR(50) NOT NULL,
+                        extension VARCHAR(10) DEFAULT NULL,
+                        birthdate DATE DEFAULT NULL,
+                        gender ENUM('male','female') DEFAULT NULL,
+                        age INT DEFAULT NULL,
+                        username VARCHAR(50) NOT NULL,
+                        email VARCHAR(150) NOT NULL,
+                        password_hash VARCHAR(255) NOT NULL,
+                        role VARCHAR(20) NOT NULL DEFAULT 'user',
+                        status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+                        street VARCHAR(100) DEFAULT NULL,
+                        barangay VARCHAR(100) DEFAULT NULL,
+                        city_municipality VARCHAR(100) DEFAULT NULL,
+                        province VARCHAR(100) DEFAULT NULL,
+                        country VARCHAR(100) DEFAULT NULL,
+                        zip_code VARCHAR(10) DEFAULT NULL,
+                        security_answers JSON DEFAULT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        reviewed_at DATETIME DEFAULT NULL,
+                        reviewed_by VARCHAR(100) DEFAULT NULL,
+                        rejection_reason TEXT DEFAULT NULL,
+                        UNIQUE KEY uq_pr_user_id (user_id),
+                        UNIQUE KEY uq_pr_email (email),
+                        UNIQUE KEY uq_pr_username (username),
+                        KEY idx_pr_status (status),
+                        KEY idx_pr_created (created_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+                );
+            }
+        } catch (Exception $e) {
+            error_log("Pending registrations schema sync warning: " . $e->getMessage());
+        }
+    }
+
     /**
-      * Ensures view-detail columns exist on the users table.
-      */
+     * Ensures view-detail columns exist on the users table.
+     */
     public function ensureViewDetailsSchema(): void
     {
         try {
@@ -1568,49 +1619,160 @@ class User
         return $stmt->execute([':status' => $status, ':id_number' => $id_number]);
     }
 
-    /* ========================== REGISTRATION APPROVAL METHODS ======================== */
+    /* ========================== PENDING REGISTRATIONS METHODS ======================== */
 
-    public function getPendingRegistrations(string $search = '', string $startDate = '', string $endDate = '', string $month = 'all', string $year = 'all', int $offset = 0, int $limit = 10): array
+    public function createPendingRegistration(array $data): string|false
     {
-        $sql = "SELECT u.id_number, u.first_name, u.middle_name, u.last_name, u.extension,
-                       TRIM(CONCAT(COALESCE(u.first_name, ''),
-                            IF(u.middle_name IS NOT NULL AND u.middle_name != '', CONCAT(' ', u.middle_name), ''),
-                            IF(u.last_name IS NOT NULL AND u.last_name != '', CONCAT(' ', u.last_name), ''),
-                            IF(u.extension IS NOT NULL AND u.extension != '', CONCAT(' ', u.extension), '')
-                       )) AS full_name,
-                       u.birthdate, u.gender, u.age, u.username, u.email, u.role, u.status, u.created_at,
-                       a.purok_street, a.barangay, a.city_municipality, a.province, a.country, a.zip_code
-                FROM users u
-                LEFT JOIN addresses a ON a.id_number = u.id_number
-                WHERE u.status = 'pending_approval'";
+        try {
+            $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
+            $age = $this->calculateAge($data['birthdate']);
+            $id_number = !empty($data['id_number']) ? trim($data['id_number']) : $this->generateIdNumber();
+
+            $securityAnswersJson = null;
+            if (!empty($data['security_answers']) && is_array($data['security_answers'])) {
+                $answers = [];
+                foreach ($data['security_answers'] as $entry) {
+                    $qId = (int)($entry['question_id'] ?? 0);
+                    $ans = trim($entry['answer'] ?? '');
+                    if ($qId > 0 && $ans !== '') {
+                        $answers[] = [
+                            'question_id' => $qId,
+                            'answer_hash' => password_hash($ans, PASSWORD_BCRYPT)
+                        ];
+                    }
+                }
+                $securityAnswersJson = !empty($answers) ? json_encode($answers) : null;
+            }
+
+            $sql = "INSERT INTO pending_registrations
+                        (user_id, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status,
+                         street, barangay, city_municipality, province, country, zip_code, security_answers)
+                    VALUES
+                        (:user_id, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, 'user', 'pending',
+                         :street, :barangay, :city, :province, :country, :zip_code, :security_answers)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':user_id'      => $id_number,
+                ':first_name'   => $data['first_name'],
+                ':middle_name'  => $data['middle_name'] ?? null,
+                ':last_name'    => $data['last_name'],
+                ':extension'    => $data['extension'] ?? null,
+                ':birthdate'    => $data['birthdate'],
+                ':gender'       => $data['gender'],
+                ':age'          => $age,
+                ':username'     => $data['username'],
+                ':email'        => $data['email'] ?? null,
+                ':password_hash'=> $passwordHash,
+                ':street'       => $data['street'] ?? null,
+                ':barangay'     => $data['barangay'] ?? null,
+                ':city'         => $data['city'] ?? null,
+                ':province'     => $data['province'] ?? null,
+                ':country'      => $data['country'] ?? null,
+                ':zip_code'     => $data['zip'] ?? null,
+                ':security_answers' => $securityAnswersJson
+            ]);
+
+            return $id_number;
+        } catch (Exception $e) {
+            error_log("Failed to create pending registration: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function pendingUserIdExists(string $id_number): bool
+    {
+        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM pending_registrations WHERE user_id = :user_id");
+        $stmt->execute([':user_id' => $id_number]);
+        return $stmt->fetchColumn() > 0;
+    }
+
+    public function pendingUsernameExists(string $username): bool
+    {
+        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM pending_registrations WHERE username = :username");
+        $stmt->execute([':username' => $username]);
+        return $stmt->fetchColumn() > 0;
+    }
+
+    public function pendingEmailExists(string $email): bool
+    {
+        try {
+            $stmt = $this->conn->prepare("SELECT COUNT(*) FROM pending_registrations WHERE email = :email");
+            $stmt->execute([':email' => $email]);
+            return $stmt->fetchColumn() > 0;
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
+
+    public function findPendingRegistrationByUsername(string $username): ?array
+    {
+        $stmt = $this->conn->prepare("SELECT * FROM pending_registrations WHERE username = :username LIMIT 1");
+        $stmt->execute([':username' => $username]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function findPendingRegistrationByEmail(string $email): ?array
+    {
+        $stmt = $this->conn->prepare("SELECT * FROM pending_registrations WHERE email = :email LIMIT 1");
+        $stmt->execute([':email' => $email]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function getPendingRegistrationById(string $user_id): ?array
+    {
+        $stmt = $this->conn->prepare("SELECT * FROM pending_registrations WHERE user_id = :user_id LIMIT 1");
+        $stmt->execute([':user_id' => $user_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function getPendingRegistrations(string $search = '', string $startDate = '', string $endDate = '', string $month = 'all', string $year = 'all', string $status = 'pending', int $offset = 0, int $limit = 10): array
+    {
+        $sql = "SELECT p.user_id AS id_number,
+                        TRIM(CONCAT(COALESCE(p.first_name, ''),
+                             IF(p.middle_name IS NOT NULL AND p.middle_name != '', CONCAT(' ', p.middle_name), ''),
+                             IF(p.last_name IS NOT NULL AND p.last_name != '', CONCAT(' ', p.last_name), ''),
+                             IF(p.extension IS NOT NULL AND p.extension != '', CONCAT(' ', p.extension), '')
+                        )) AS full_name,
+                        p.birthdate, p.gender, p.age, p.username, p.email, p.role, p.status, p.created_at,
+                        p.street AS purok_street, p.barangay, p.city_municipality, p.province, p.country, p.zip_code
+                 FROM pending_registrations p
+                 WHERE 1=1";
         $params = [];
 
+        if (!empty($status) && $status !== 'all') {
+            $sql .= " AND p.status = :status";
+            $params[':status'] = $status;
+        }
+
         if (!empty($startDate)) {
-            $sql .= " AND DATE(u.created_at) >= :startDate";
+            $sql .= " AND DATE(p.created_at) >= :startDate";
             $params[':startDate'] = $startDate;
         }
 
         if (!empty($endDate)) {
-            $sql .= " AND DATE(u.created_at) <= :endDate";
+            $sql .= " AND DATE(p.created_at) <= :endDate";
             $params[':endDate'] = $endDate;
         }
 
         if (!empty($month) && $month !== 'all') {
-            $sql .= " AND MONTH(u.created_at) = :month";
+            $sql .= " AND MONTH(p.created_at) = :month";
             $params[':month'] = (int)$month;
         }
 
         if (!empty($year) && $year !== 'all') {
-            $sql .= " AND YEAR(u.created_at) = :year";
+            $sql .= " AND YEAR(p.created_at) = :year";
             $params[':year'] = (int)$year;
         }
 
         if (!empty($search)) {
-            $sql .= " AND (u.id_number LIKE :search OR u.first_name LIKE :search OR u.last_name LIKE :search OR u.username LIKE :search OR u.email LIKE :search)";
+            $sql .= " AND (p.user_id LIKE :search OR p.first_name LIKE :search OR p.last_name LIKE :search OR p.username LIKE :search OR p.email LIKE :search)";
             $params[':search'] = '%' . $search . '%';
         }
 
-        $sql .= " ORDER BY u.created_at DESC LIMIT :limit OFFSET :offset";
+        $sql .= " ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset";
 
         $stmt = $this->conn->prepare($sql);
         foreach ($params as $key => $val) {
@@ -1623,33 +1785,38 @@ class User
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getPendingRegistrationsCount(string $search = '', string $startDate = '', string $endDate = '', string $month = 'all', string $year = 'all'): int
+    public function getPendingRegistrationsCount(string $search = '', string $startDate = '', string $endDate = '', string $month = 'all', string $year = 'all', string $status = 'pending'): int
     {
-        $sql = "SELECT COUNT(*) FROM users u WHERE u.status = 'pending_approval'";
+        $sql = "SELECT COUNT(*) FROM pending_registrations p WHERE 1=1";
         $params = [];
 
+        if (!empty($status) && $status !== 'all') {
+            $sql .= " AND p.status = :status";
+            $params[':status'] = $status;
+        }
+
         if (!empty($startDate)) {
-            $sql .= " AND DATE(u.created_at) >= :startDate";
+            $sql .= " AND DATE(p.created_at) >= :startDate";
             $params[':startDate'] = $startDate;
         }
 
         if (!empty($endDate)) {
-            $sql .= " AND DATE(u.created_at) <= :endDate";
+            $sql .= " AND DATE(p.created_at) <= :endDate";
             $params[':endDate'] = $endDate;
         }
 
         if (!empty($month) && $month !== 'all') {
-            $sql .= " AND MONTH(u.created_at) = :month";
+            $sql .= " AND MONTH(p.created_at) = :month";
             $params[':month'] = (int)$month;
         }
 
         if (!empty($year) && $year !== 'all') {
-            $sql .= " AND YEAR(u.created_at) = :year";
+            $sql .= " AND YEAR(p.created_at) = :year";
             $params[':year'] = (int)$year;
         }
 
         if (!empty($search)) {
-            $sql .= " AND (u.id_number LIKE :search OR u.first_name LIKE :search OR u.last_name LIKE :search OR u.username LIKE :search OR u.email LIKE :search)";
+            $sql .= " AND (p.user_id LIKE :search OR p.first_name LIKE :search OR p.last_name LIKE :search OR p.username LIKE :search OR p.email LIKE :search)";
             $params[':search'] = '%' . $search . '%';
         }
 
@@ -1658,46 +1825,114 @@ class User
         return (int)$stmt->fetchColumn();
     }
 
-    public function approveRegistration(string $id_number, string $performedById, string $performedByUsername, string $performedByRole): bool
+    public function approveRegistration(string $user_id, string $performedById, string $performedByUsername, string $performedByRole): array
     {
         try {
-            $stmt = $this->conn->prepare("UPDATE users SET status = 'active' WHERE id_number = :id_number AND status = 'pending_approval'");
-            $success = $stmt->execute([':id_number' => $id_number]);
-            if ($success && $stmt->rowCount() > 0) {
-                $user = $this->getUserByIdNumber($id_number);
-                $name = $user ? $user['first_name'] . ' ' . $user['last_name'] : $id_number;
-                $this->logAuditAction($performedById, $performedByUsername, $performedByRole, 'Approve Registration', "Approved registration for {$name} (ID: {$id_number})");
-                return true;
+            $pending = $this->getPendingRegistrationById($user_id);
+            if (!$pending) {
+                return ['success' => false, 'message' => 'Pending registration not found.'];
             }
-            return false;
+
+            if ($pending['status'] !== 'pending') {
+                return ['success' => false, 'message' => 'This registration has already been processed.'];
+            }
+
+            $this->conn->beginTransaction();
+
+            $stmt = $this->conn->prepare("SELECT COUNT(*) FROM users WHERE id_number = :id_number OR username = :username OR email = :email");
+            $stmt->execute([
+                ':id_number' => $user_id,
+                ':username'  => $pending['username'],
+                ':email'     => $pending['email']
+            ]);
+            if ((int)$stmt->fetchColumn() > 0) {
+                $this->conn->rollBack();
+                return ['success' => false, 'message' => 'A user with this User ID, Username, or Email already exists in the system.'];
+            }
+
+            $sqlUser = "INSERT INTO users
+                            (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status, session_version, created_at)
+                        VALUES
+                            (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, 'user', 'active', 0, NOW())";
+            $stmt = $this->conn->prepare($sqlUser);
+            $stmt->execute([
+                ':id_number'     => $user_id,
+                ':first_name'    => $pending['first_name'],
+                ':middle_name'   => $pending['middle_name'],
+                ':last_name'     => $pending['last_name'],
+                ':extension'     => $pending['extension'],
+                ':birthdate'     => $pending['birthdate'],
+                ':gender'        => $pending['gender'],
+                ':age'           => $pending['age'],
+                ':username'      => $pending['username'],
+                ':email'         => $pending['email'],
+                ':password_hash' => $pending['password_hash']
+            ]);
+
+            $sqlAddress = "INSERT INTO addresses (id_number, purok_street, barangay, city_municipality, province, country, zip_code)
+                           VALUES (:id_number, :street, :barangay, :city, :province, :country, :zip)";
+            $stmt = $this->conn->prepare($sqlAddress);
+            $stmt->execute([
+                ':id_number' => $user_id,
+                ':street'    => $pending['street'],
+                ':barangay'  => $pending['barangay'],
+                ':city'      => $pending['city_municipality'],
+                ':province'  => $pending['province'],
+                ':country'   => $pending['country'],
+                ':zip'       => $pending['zip_code']
+            ]);
+
+            if (!empty($pending['security_answers'])) {
+                $securityAnswers = json_decode($pending['security_answers'], true);
+                if (is_array($securityAnswers)) {
+                    $sqlAuth = "INSERT INTO user_auth_answers (id_number, question_id, answer_hash) VALUES (:id_number, :question_id, :answer_hash)";
+                    $stmt = $this->conn->prepare($sqlAuth);
+                    foreach ($securityAnswers as $entry) {
+                        if (!empty($entry['question_id']) && !empty($entry['answer_hash'])) {
+                            $stmt->execute([
+                                ':id_number'   => $user_id,
+                                ':question_id' => (int)$entry['question_id'],
+                                ':answer_hash' => $entry['answer_hash']
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            $stmt = $this->conn->prepare("UPDATE pending_registrations SET status = 'approved', reviewed_at = NOW(), reviewed_by = :reviewed_by WHERE user_id = :user_id");
+            $stmt->execute([':reviewed_by' => $performedByUsername, ':user_id' => $user_id]);
+
+            $name = trim(($pending['first_name'] ?? '') . ' ' . ($pending['last_name'] ?? ''));
+            $this->logAuditAction($performedById, $performedByUsername, $performedByRole, 'Approve Registration', "Approved registration for {$name} (ID: {$user_id})");
+
+            $this->conn->commit();
+            return ['success' => true, 'message' => 'Registration approved successfully. The account can now log in.'];
         } catch (Exception $e) {
+            $this->conn->rollBack();
             error_log("Failed to approve registration: " . $e->getMessage());
-            return false;
+            return ['success' => false, 'message' => 'Failed to approve registration: ' . $e->getMessage()];
         }
     }
 
-    public function rejectRegistration(string $id_number, string $reason, string $performedById, string $performedByUsername, string $performedByRole): bool
+    public function rejectRegistration(string $user_id, string $reason, string $performedById, string $performedByUsername, string $performedByRole): bool
     {
         try {
-            $user = $this->getUserByIdNumber($id_number);
-            $name = $user ? $user['first_name'] . ' ' . $user['last_name'] : $id_number;
+            $pending = $this->getPendingRegistrationById($user_id);
+            if (!$pending) {
+                return false;
+            }
 
-            $this->conn->beginTransaction();
-            $stmt = $this->conn->prepare("DELETE FROM addresses WHERE id_number = :id_number");
-            $stmt->execute([':id_number' => $id_number]);
+            $name = trim(($pending['first_name'] ?? '') . ' ' . ($pending['last_name'] ?? ''));
 
-            $stmt = $this->conn->prepare("DELETE FROM user_auth_answers WHERE id_number = :id_number");
-            $stmt->execute([':id_number' => $id_number]);
+            $stmt = $this->conn->prepare("UPDATE pending_registrations SET status = 'rejected', rejection_reason = :reason, reviewed_at = NOW(), reviewed_by = :reviewed_by WHERE user_id = :user_id AND status = 'pending'");
+            $success = $stmt->execute([':reason' => $reason, ':reviewed_by' => $performedByUsername, ':user_id' => $user_id]);
 
-            $stmt = $this->conn->prepare("DELETE FROM users WHERE id_number = :id_number AND status = 'pending_approval'");
-            $stmt->execute([':id_number' => $id_number]);
+            if ($success) {
+                $this->logAuditAction($performedById, $performedByUsername, $performedByRole, 'Reject Registration', "Rejected registration for {$name} (ID: {$user_id}). Reason: {$reason}");
+            }
 
-            $this->conn->commit();
-
-            $this->logAuditAction($performedById, $performedByUsername, $performedByRole, 'Reject Registration', "Rejected registration for {$name} (ID: {$id_number}). Reason: {$reason}");
-            return true;
+            return $success;
         } catch (Exception $e) {
-            $this->conn->rollBack();
             error_log("Failed to reject registration: " . $e->getMessage());
             return false;
         }

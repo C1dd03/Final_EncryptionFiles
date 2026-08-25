@@ -361,7 +361,7 @@
       <i class="fas fa-check-circle"></i>
     </div>
     <h2 class="success-title">SUCCESS</h2>
-    <p class="success-message">Congratulations, your registration<br>has been submitted for administrator approval.</p>
+    <p class="success-message">Registration submitted successfully.<br>Your account is waiting for administrator approval before it can be activated.</p>
     <p class="success-id">Your ID: <strong id="userIdDisplay"><?php echo htmlspecialchars($registeredId ?? ''); ?></strong></p>
     <button class="success-btn" onclick="goToLogin()">Go to Login Form</button>
   </div>

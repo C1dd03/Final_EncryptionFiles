@@ -1162,9 +1162,9 @@ button {
 }
 
 .action-dropdown-btn {
-  background: #3b82f6;
+  background: linear-gradient(135deg, var(--farm-card-1), var(--farm-card-3));
   color: #ffffff;
-  border: 1px solid #2563eb;
+  border: none;
   padding: 7px 14px;
   border-radius: 8px;
   font-weight: 500;
@@ -1181,7 +1181,7 @@ button {
 
 .action-dropdown-btn:hover,
 .action-dropdown-btn.active {
-  background: #2563eb;
+  background: linear-gradient(135deg, var(--farm-card-1), var(--farm-card-3));
   box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
 }
 
@@ -2162,6 +2162,15 @@ button {
 }
 
 .modal-card.edit-mode .input-error-container {
+  font-size: 0.72rem;
+  min-height: 0;
+  margin-top: 2px;
+  line-height: 1.15;
+  color: #b91c1c;
+  font-weight: 500;
+}
+
+.input-error-container{
   font-size: 0.72rem;
   min-height: 0;
   margin-top: 2px;

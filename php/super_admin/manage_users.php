@@ -118,7 +118,7 @@ function e($text)
               <tbody id="userTableBody">
                 <?php if (!empty($users)): ?>
                   <?php foreach ($users as $index => $user):
-                    $rowId = $startIdx + $index;
+                    $rowId = $totalRecords - $offset - $index;
                     $isBlocked = $user['status'] === 'block' || $user['status'] === 'blocked';
                     $userName = trim(($user['first_name'] ?? '') . ' ' . ($user['middle_name'] ?? '') . ' ' . ($user['last_name'] ?? '') . ' ' . ($user['extension'] ?? ''));
                     $dataName = $user['name'] ?? $userName;
