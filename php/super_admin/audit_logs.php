@@ -4,8 +4,8 @@ require_once __DIR__ . '/../auth/session_protect.php';
 // Only Super Admin can access this page
 $role = strtolower($_SESSION['role'] ?? '');
 if ($role !== 'superadmin') {
-    header("Location: ../auth/index.php?action=login");
-    exit();
+  header("Location: ../auth/index.php?action=login");
+  exit();
 }
 
 $pageTitle = 'Audit Logs';
@@ -82,7 +82,7 @@ $activePage = 'audit_logs';
           </div>
 
           <div class="control-row">
-            <div class="date-filter-group" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+            <div class="date-filter-group">
               <label for="monthFilter"><i class="fa-regular fa-calendar"></i> Month:</label>
               <select id="monthFilter" class="filter-select" aria-label="Month Filter">
                 <option value="all" selected>All Months</option>

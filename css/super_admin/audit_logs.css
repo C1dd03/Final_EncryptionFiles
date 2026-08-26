@@ -357,3 +357,13 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+@media (max-width: 900px) {
+  .modal-card.edit-mode .modal-body {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "personal"
+      "address"
+      "account";
+  }}
+  
