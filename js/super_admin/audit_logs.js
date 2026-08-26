@@ -212,15 +212,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
       rowsHtml += `
         <tr>
-          <td><strong>${escapeHtml(idDisplay)}</strong></td>
-          <td>${escapeHtml(userIdDisplay)}</td>
-          <td><strong>${escapeHtml(fullNameDisplay)}</strong></td>
-          <td>${escapeHtml(usernameDisplay)}</td>
-          <td>${roleBadge}</td>
-          <td>${actionBadge}</td>
-          <td class="details-cell">${escapeHtml(detailsDisplay)}</td>
-          <td>${escapeHtml(timeInDisplay)}</td>
-          <td>${escapeHtml(timeOutDisplay)}</td>
+          <td data-label="ID"><strong>${escapeHtml(idDisplay)}</strong></td>
+          <td data-label="ID No">${escapeHtml(userIdDisplay)}</td>
+          <td data-label="Full Name"><strong>${escapeHtml(fullNameDisplay)}</strong></td>
+          <td data-label="Username">${escapeHtml(usernameDisplay)}</td>
+          <td data-label="Role">${roleBadge}</td>
+          <td data-label="Action">${actionBadge}</td>
+          <td data-label="Details" class="details-cell">${escapeHtml(detailsDisplay)}</td>
+          <td data-label="Time In">${escapeHtml(timeInDisplay)}</td>
+          <td data-label="Time Out">${escapeHtml(timeOutDisplay)}</td>
         </tr>
       `;
     });
