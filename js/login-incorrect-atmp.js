@@ -290,6 +290,8 @@ document.addEventListener("DOMContentLoaded", function () {
           // Blocked / pending approval / unverified accounts: show the message and skip the attempt/lock flow
           if (
             data.errorType === "accountBlocked" ||
+            data.errorType === "accountInactive" ||
+            data.errorType === "accountUnavailable" ||
             data.errorType === "accountPending" ||
             data.errorType === "accountPendingApproval" ||
             data.errorType === "accountRejected" ||

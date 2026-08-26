@@ -80,6 +80,8 @@ function e($text)
               <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>Status: All</option>
               <option value="active" <?= $status === 'active' ? 'selected' : '' ?>>Active</option>
               <option value="blocked" <?= $status === 'blocked' ? 'selected' : '' ?>>Blocked</option>
+              <option value="pending_deletion" <?= $status === 'pending_deletion' ? 'selected' : '' ?>>Pending Deletion</option>
+              <option value="inactive" <?= $status === 'inactive' ? 'selected' : '' ?>>Inactive</option>
             </select>
 
             <select id="roleFilter" class="filter-select" disabled aria-label="Role Filter">
@@ -121,6 +123,8 @@ function e($text)
                   <?php foreach ($admins as $index => $admin):
                     $rowId = $totalRecords - $offset - $index;
                     $isBlocked = $admin['status'] === 'block' || $admin['status'] === 'blocked';
+                    $isPendingDeletion = $admin['status'] === 'pending_deletion';
+                    $isInactive = $admin['status'] === 'inactive';
                     $adminName = trim(($admin['first_name'] ?? '') . ' ' . ($admin['middle_name'] ?? '') . ' ' . ($admin['last_name'] ?? '') . ' ' . ($admin['extension'] ?? ''));
                     $dataName = $admin['name'] ?? $adminName;
                     $dataEmail = $admin['email'] ?? '';
@@ -131,7 +135,7 @@ function e($text)
                       data-username="<?= e($admin['username']) ?>"
                       data-email="<?= e($dataEmail) ?>"
                       data-status="<?= e($admin['status']) ?>"
-                      data-role="admin"
+                      data-role="<?= e($admin['role']) ?>"
                       data-created="<?= e($admin['created_at'] ?? '') ?>">
                       <td><strong>#<?= $rowId ?></strong></td>
                       <td><code><?= e($admin['id_number']) ?></code></td>
@@ -210,7 +214,11 @@ function e($text)
                         </div>
                       </td>
                       <td>
-                        <?php if ($isBlocked): ?>
+                        <?php if ($isInactive): ?>
+                          <span class="badge-status badge-inactive">Inactive</span>
+                        <?php elseif ($isPendingDeletion): ?>
+                          <span class="badge-status badge-pending-deletion">Pending Deletion</span>
+                        <?php elseif ($isBlocked): ?>
                           <span class="badge-status badge-blocked">Blocked</span>
                         <?php else: ?>
                           <span class="badge-status badge-active">Active</span>
@@ -231,19 +239,25 @@ function e($text)
                               <i class="fa-solid fa-pen"></i>
                               <span>Edit</span>
                             </button>
+                            <?php if ($adminRole === 'admin'): ?>
                             <button type="button" class="action-menu-item privileges" onclick="openPrivilegesModal(this)">
                               <i class="fa-solid fa-shield-halved"></i>
                               <span>Privileges</span>
                             </button>
+                            <?php endif; ?>
+                            <?php if ($adminRole === 'admin' && !$isPendingDeletion && !$isInactive): ?>
                             <button type="button" class="action-menu-item <?= $isBlocked ? 'unblock' : 'block' ?>" onclick="confirmToggleBlock(this)">
                               <i class="fa-solid <?= $isBlocked ? 'fa-unlock' : 'fa-ban' ?>"></i>
                               <span><?= $isBlocked ? 'Unblock' : 'Block' ?></span>
                             </button>
+                            <?php endif; ?>
                             <div class="action-menu-divider"></div>
+                            <?php if (!$isInactive && $admin['id_number'] !== ($_SESSION['user_id'] ?? '')): ?>
                             <button type="button" class="action-menu-item delete" onclick="confirmDeleteAdmin(this)">
                               <i class="fa-solid fa-trash"></i>
-                              <span>Delete</span>
+                              <span>Deactivate</span>
                             </button>
+                            <?php endif; ?>
                           </div>
                         </div>
                       </td>
@@ -598,7 +612,9 @@ function e($text)
                   <label for="formStatus">Status</label>
                   <select id="formStatus" name="status" class="form-control">
                     <option value="active" selected>Active</option>
-                    <option value="block">Blocked</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="pending_deletion" disabled>Pending Deletion</option>
+                    <option value="inactive" disabled>Inactive</option>
                   </select>
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>

@@ -32,11 +32,13 @@ if (!$authState) {
     exit();
 }
 
-// 1. A blocked account must never be allowed to keep using an active session
-if ($authState['status'] !== 'active') {
+// Pending-deletion accounts remain usable until the request is approved.
+// Inactive and blocked accounts are denied immediately.
+if (!in_array($authState['status'], ['active', 'pending_deletion'], true)) {
     session_unset();
     session_destroy();
-    header("Location: ../auth/index.php?action=login&blocked=1");
+    $reason = $authState['status'] === 'inactive' ? 'inactive' : 'blocked';
+    header("Location: ../auth/index.php?action=login&{$reason}=1");
     exit();
 }
 

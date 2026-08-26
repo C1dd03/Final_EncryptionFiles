@@ -119,7 +119,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (status === "pending") {
         statusBadge = `<span class="badge-status-pending"><i class="fa-regular fa-clock"></i> Pending</span>`;
       } else if (status === "approved") {
-        statusBadge = `<span class="badge-status-approved"><i class="fa-solid fa-check"></i> Deleted</span>`;
+        statusBadge = `<span class="badge-status-approved"><i class="fa-solid fa-check"></i> Inactive</span>`;
       } else if (status === "rejected") {
         statusBadge = `<span class="badge-status-rejected"><i class="fa-solid fa-xmark"></i> Rejected</span>`;
       }
@@ -129,7 +129,7 @@ document.addEventListener("DOMContentLoaded", function () {
         pendingItems = `
               <div class="action-menu-divider"></div>
               <button type="button" class="action-menu-item delete" onclick="confirmApproveDelete(${reqId}, '${targetName}')">
-                <i class="fa-solid fa-trash-can"></i> Approve & Delete
+                <i class="fa-solid fa-user-slash"></i> Approve & Deactivate
               </button>
               <button type="button" class="action-menu-item reject-req" onclick="confirmRejectRequest(${reqId}, '${targetName}')">
                 <i class="fa-solid fa-ban"></i> Reject Request
@@ -270,13 +270,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   window.confirmApproveDelete = function (reqId, targetName) {
     pendingAction = { action: "approve", requestId: reqId, name: targetName };
-    confirmModalTitle.textContent = "Confirm & Execute User Deletion";
-    confirmModalMsg.innerHTML = `Are you sure you want to approve this request and <strong style="color:#ef4444;">permanently delete</strong> the account for <strong>${escapeHtml(
+    confirmModalTitle.textContent = "Approve Account Deactivation";
+    confirmModalMsg.innerHTML = `Approve this request and change the account from <strong>Pending Deletion</strong> to <strong style="color:#ef4444;">Inactive</strong> for <strong>${escapeHtml(
       targetName
-    )}</strong>? This action cannot be undone.`;
+    )}</strong>? Access will end immediately, but the account record will be preserved.`;
     rejectNotesGroup.style.display = "none";
     confirmModalSubmitBtn.style.background = "#ef4444";
-    confirmModalSubmitBtn.textContent = "Approve & Delete Account";
+    confirmModalSubmitBtn.textContent = "Approve & Deactivate Account";
     confirmModal.style.display = "flex";
   };
 

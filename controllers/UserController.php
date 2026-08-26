@@ -518,9 +518,19 @@ class UserController
                 return;
             }
 
-            // Blocked accounts cannot log in
-            if ($userStatus !== 'active') {
+            if ($userStatus === 'inactive') {
+                echo json_encode(['success' => false, 'message' => 'This account is inactive and can no longer access the system.', 'errorType' => 'accountInactive']);
+                return;
+            }
+
+            if ($userStatus === 'blocked') {
                 echo json_encode(['success' => false, 'message' => 'Your account has been blocked. Please contact the Super Admin.', 'errorType' => 'accountBlocked']);
+                return;
+            }
+
+            // Pending-deletion accounts remain usable until the Super Admin decides.
+            if (!in_array($userStatus, ['active', 'pending_deletion'], true)) {
+                echo json_encode(['success' => false, 'message' => 'This account is not currently active.', 'errorType' => 'accountUnavailable']);
                 return;
             }
 
@@ -597,11 +607,13 @@ class UserController
             exit;
         }
 
-        // Re-fetch the account: it must still exist and be active.
+        // Re-fetch the account: pending deletion remains usable until review.
         $user = $this->userModel->findByUsername($pending['username']);
-        if (!$user || ($user['status'] ?? 'active') !== 'active') {
+        $otpStatus = $user['status'] ?? '';
+        if (!$user || !in_array($otpStatus, ['active', 'pending_deletion'], true)) {
             unset($_SESSION['otp_pending']);
-            echo json_encode(['success' => false, 'message' => 'Your account is no longer active. Please contact the Super Admin.', 'errorType' => 'accountBlocked']);
+            $inactive = $otpStatus === 'inactive';
+            echo json_encode(['success' => false, 'message' => $inactive ? 'This account is inactive.' : 'Your account is not currently active.', 'errorType' => $inactive ? 'accountInactive' : 'accountUnavailable']);
             exit;
         }
 
@@ -677,8 +689,8 @@ class UserController
             exit;
         }
 
-        if (($user['status'] ?? 'active') === 'block') {
-            echo json_encode(['success' => false, 'message' => 'This account is blocked. Please contact the Super Admin.']);
+        if (!in_array(($user['status'] ?? ''), ['active', 'pending_deletion'], true)) {
+            echo json_encode(['success' => false, 'message' => ($user['status'] ?? '') === 'inactive' ? 'This account is inactive.' : 'This account cannot reset its password at this time.']);
             exit;
         }
 
@@ -739,8 +751,8 @@ class UserController
             exit;
         }
 
-        if (($user['status'] ?? 'active') === 'block') {
-            echo json_encode(['success' => false, 'message' => 'This account is blocked. Please contact the Super Admin.']);
+        if (!in_array(($user['status'] ?? ''), ['active', 'pending_deletion'], true)) {
+            echo json_encode(['success' => false, 'message' => ($user['status'] ?? '') === 'inactive' ? 'This account is inactive.' : 'This account cannot reset its password at this time.']);
             exit;
         }
 
@@ -1175,11 +1187,17 @@ class UserController
             exit;
         }
 
-        if ($authState['status'] !== 'active') {
+        if (!in_array($authState['status'], ['active', 'pending_deletion'], true)) {
             session_unset();
             session_destroy();
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['success' => false, 'message' => 'Your account has been blocked. Please contact the Super Admin.', 'accountBlocked' => true]);
+            $inactive = $authState['status'] === 'inactive';
+            echo json_encode([
+                'success' => false,
+                'message' => $inactive ? 'This account is inactive.' : 'Your account has been blocked. Please contact the Super Admin.',
+                'accountInactive' => $inactive,
+                'accountBlocked' => !$inactive
+            ]);
             exit;
         }
 
@@ -1808,7 +1826,7 @@ class UserController
         $ip         = $_SERVER['REMOTE_ADDR'] ?? '';
         $operator   = $_SESSION['username'] ?? 'superadmin';
 
-        if (empty($id_number) || !in_array($new_status, ['active', 'block'], true)) {
+        if (empty($id_number) || !in_array($new_status, ['active', 'blocked', 'block'], true)) {
             echo json_encode(['success' => false, 'message' => 'Invalid parameters provided.']);
             exit;
         }
@@ -1821,7 +1839,7 @@ class UserController
 
         $updated = $this->userModel->toggleAdminStatus($id_number, $new_status, $operator, $reason, $ip);
         if ($updated) {
-            $actionText = ($new_status === 'block') ? 'blocked' : 'unblocked';
+            $actionText = in_array($new_status, ['block', 'blocked'], true) ? 'blocked' : 'unblocked';
             echo json_encode(['success' => true, 'message' => "Admin account has been {$actionText}."]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to update admin status.']);
@@ -1840,12 +1858,30 @@ class UserController
             exit;
         }
 
-        $deleted = $this->userModel->deleteAdmin($id_number);
+        if ($id_number === ($_SESSION['user_id'] ?? '')) {
+            echo json_encode(['success' => false, 'message' => 'You cannot deactivate your own Super Admin account.']);
+            exit;
+        }
+
+        $target = $this->userModel->getUserOrAdminByIdNumber($id_number);
+        if (!$target || !in_array(strtolower($target['role'] ?? ''), ['admin', 'superadmin'], true)) {
+            echo json_encode(['success' => false, 'message' => 'Admin account not found.']);
+            exit;
+        }
+
+        $deleted = $this->userModel->deleteAdmin($id_number, $_SESSION['username'] ?? 'superadmin');
         if ($deleted) {
-            echo json_encode(['success' => true, 'message' => 'Admin account deleted successfully.']);
-            $this->userModel->logAuditAction($_SESSION['user_id'] ?? null, $_SESSION['username'] ?? 'superadmin', 'superadmin', 'Delete Admin', "Deleted Admin ID: {$id_number}");
+            $targetRole = strtolower($target['role']);
+            echo json_encode(['success' => true, 'message' => ucfirst($targetRole) . ' account is now Inactive. The record was preserved.']);
+            $this->userModel->logAuditAction(
+                $_SESSION['user_id'] ?? null,
+                $_SESSION['username'] ?? 'superadmin',
+                'superadmin',
+                $targetRole === 'superadmin' ? 'Deactivate Super Admin' : 'Deactivate Admin',
+                "Directly deactivated {$targetRole} {$target['username']} (ID: {$id_number}). Status changed to Inactive; record preserved."
+            );
         } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to delete admin account.']);
+            echo json_encode(['success' => false, 'message' => 'Failed to deactivate admin account or it is already inactive.']);
         }
         exit;
     }
@@ -2361,14 +2397,14 @@ class UserController
         $ip         = $_SERVER['REMOTE_ADDR'] ?? '';
         $operator   = $_SESSION['username'] ?? 'superadmin';
 
-        if (empty($id_number) || !in_array($new_status, ['active', 'block'], true)) {
+        if (empty($id_number) || !in_array($new_status, ['active', 'blocked', 'block'], true)) {
             echo json_encode(['success' => false, 'message' => 'Invalid parameters provided.']);
             exit;
         }
 
         $updated = $this->userModel->toggleStandardUserStatus($id_number, $new_status, $operator, $reason, $ip);
         if ($updated) {
-            $actionText = ($new_status === 'block') ? 'blocked' : 'unblocked';
+            $actionText = in_array($new_status, ['block', 'blocked'], true) ? 'blocked' : 'unblocked';
             echo json_encode(['success' => true, 'message' => "User account has been {$actionText}."]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to update user status.']);
@@ -2387,12 +2423,25 @@ class UserController
             exit;
         }
 
-        $deleted = $this->userModel->deleteStandardUser($id_number);
+
+        $target = $this->userModel->getUserOrAdminByIdNumber($id_number);
+        if (!$target || strtolower($target['role'] ?? '') !== 'user') {
+            echo json_encode(['success' => false, 'message' => 'User account not found.']);
+            exit;
+        }
+
+        $deleted = $this->userModel->deleteStandardUser($id_number, $_SESSION['username'] ?? 'superadmin');
         if ($deleted) {
-            echo json_encode(['success' => true, 'message' => 'User account deleted successfully.']);
-            $this->userModel->logAuditAction($_SESSION['user_id'] ?? null, $_SESSION['username'] ?? 'superadmin', 'superadmin', 'Delete User', "Deleted User ID: {$id_number}");
+            echo json_encode(['success' => true, 'message' => 'User account is now Inactive. The record was preserved.']);
+            $this->userModel->logAuditAction(
+                $_SESSION['user_id'] ?? null,
+                $_SESSION['username'] ?? 'superadmin',
+                'superadmin',
+                'Deactivate User',
+                "Directly deactivated user {$target['username']} (ID: {$id_number}). Status changed from {$target['status']} to Inactive; record preserved."
+            );
         } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to delete user account.']);
+            echo json_encode(['success' => false, 'message' => 'Failed to deactivate user account or it is already inactive.']);
         }
         exit;
     }

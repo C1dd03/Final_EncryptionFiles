@@ -457,9 +457,10 @@ document.addEventListener("DOMContentLoaded", function () {
           if (emailEl) emailEl.textContent = user.email || "-";
 
           if (statusBadge && statusText) {
-            const isBlocked = user.status === "block";
-            statusBadge.className = isBlocked ? "edit-status-badge blocked" : "edit-status-badge active";
-            statusText.textContent = isBlocked ? "Blocked" : "Active";
+            const status = user.status || "active";
+            const label = status === "pending_deletion" ? "Pending Deletion" : status.charAt(0).toUpperCase() + status.slice(1);
+            statusBadge.className = `edit-status-badge ${status.replace("_", "-")}`;
+            statusText.textContent = label;
           }
         }
 
@@ -491,7 +492,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         setVal("formUsername", user.username);
         setVal("formEmail", user.email);
-        setVal("formStatus", user.status === "block" ? "block" : "active");
+        setVal("formStatus", user.status === "block" ? "blocked" : (user.status || "active"));
 
         const passGrp = document.getElementById("passwordGroup");
         const confGrp = document.getElementById("confirmPasswordGroup");
@@ -647,8 +648,8 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("viewEmail").textContent = user.email || "N/A";
         document.getElementById("viewContact").textContent = user.contact_number || "N/A";
         document.getElementById("viewRole").textContent = (user.role || "user").toUpperCase();
-        document.getElementById("viewStatus").textContent = (user.status || "active").toUpperCase();
-        document.getElementById("viewApproval").textContent = (user.status === "pending_approval" ? "Pending Approval" : (user.status === "active" ? "Approved" : user.status)).toUpperCase();
+        document.getElementById("viewStatus").textContent = (user.status || "active").replace(/_/g, " ").toUpperCase();
+        document.getElementById("viewApproval").textContent = user.status === "pending_approval" ? "PENDING APPROVAL" : (user.status === "pending" ? "PENDING" : "APPROVED");
         document.getElementById("viewGender").textContent = (user.gender || "-").toUpperCase();
         document.getElementById("viewBirthdate").textContent = user.birthdate || "-";
         document.getElementById("viewAge").textContent = user.age || "-";
@@ -678,7 +679,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const isBlocking = row.status !== "block" && row.status !== "blocked";
     const actionName = isBlocking ? "Block" : "Unblock";
-    const nextStatus = isBlocking ? "block" : "active";
+    const nextStatus = isBlocking ? "blocked" : "active";
 
     confirmModalTitle.textContent = `${actionName} User Account`;
     confirmModalMessage.innerHTML = `Are you sure you want to <strong>${actionName.toLowerCase()}</strong> user account <strong>${escapeHtml(
@@ -768,7 +769,7 @@ document.addEventListener("DOMContentLoaded", function () {
           confirmModalBtn.disabled = false;
           if (res.success) {
             closeConfirmModal();
-            setFlashToast("Delete request submitted to Super Admin.", "success");
+            setFlashToast("Deletion requested. Status is now Pending Deletion.", "success");
             window.location.reload();
           } else {
             showToast(res.message || "Failed to submit delete request.", "error");

@@ -155,7 +155,7 @@ CREATE TABLE `users` (
   `password_hash` varchar(255) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `role` enum('user','admin','superadmin') NOT NULL DEFAULT 'user',
-  `status` enum('block','active') NOT NULL DEFAULT 'active',
+  `status` enum('blocked','pending','pending_approval','pending_deletion','active','inactive') NOT NULL DEFAULT 'active',
   `id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

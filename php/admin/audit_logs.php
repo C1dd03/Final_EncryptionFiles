@@ -79,6 +79,7 @@ $canViewAnyLogs   = $canViewUserLogs || $canViewAdminLogs;
                 <option value="Unblock User">Unblock User</option>
                 <option value="Delete User">Delete User</option>
                 <option value="Update User">Update User</option>
+                <option value="Delete Request Submitted">Delete Request Submitted</option>
               </select>
 
               <select id="roleFilter" class="filter-select" aria-label="Role Filter">

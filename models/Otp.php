@@ -59,12 +59,12 @@ class Otp
                 );
             }
 
-            // Add 'pending' to users.status so unverified registrations cannot log in.
+            // Keep OTP initialization compatible with the complete account lifecycle.
             $stmt = $this->conn->query("SHOW COLUMNS FROM users LIKE 'status'");
             $col = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($col && strpos($col['Type'], 'pending') === false) {
                 $this->conn->exec(
-                    "ALTER TABLE users MODIFY COLUMN status ENUM('block','pending','active') NOT NULL DEFAULT 'active'"
+                    "ALTER TABLE users MODIFY COLUMN status ENUM('blocked','pending','pending_approval','pending_deletion','active','inactive') NOT NULL DEFAULT 'active'"
                 );
             }
         } catch (Exception $e) {

@@ -79,6 +79,8 @@ function e($text)
               <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>Status: All</option>
               <option value="active" <?= $status === 'active' ? 'selected' : '' ?>>Active</option>
               <option value="blocked" <?= $status === 'blocked' ? 'selected' : '' ?>>Blocked</option>
+              <option value="pending_deletion" <?= $status === 'pending_deletion' ? 'selected' : '' ?>>Pending Deletion</option>
+              <option value="inactive" <?= $status === 'inactive' ? 'selected' : '' ?>>Inactive</option>
             </select>
 
             <select id="roleFilter" class="filter-select" disabled aria-label="Role Filter">
@@ -120,6 +122,8 @@ function e($text)
                   <?php foreach ($users as $index => $user):
                     $rowId = $totalRecords - $offset - $index;
                     $isBlocked = $user['status'] === 'block' || $user['status'] === 'blocked';
+                    $isPendingDeletion = $user['status'] === 'pending_deletion';
+                    $isInactive = $user['status'] === 'inactive';
                     $userName = trim(($user['first_name'] ?? '') . ' ' . ($user['middle_name'] ?? '') . ' ' . ($user['last_name'] ?? '') . ' ' . ($user['extension'] ?? ''));
                     $dataName = $user['name'] ?? $userName;
                     $dataEmail = $user['email'] ?? '';
@@ -185,7 +189,11 @@ function e($text)
                         </div>
                       </td>
                       <td>
-                        <?php if ($isBlocked): ?>
+                        <?php if ($isInactive): ?>
+                          <span class="badge-status badge-inactive">Inactive</span>
+                        <?php elseif ($isPendingDeletion): ?>
+                          <span class="badge-status badge-pending-deletion">Pending Deletion</span>
+                        <?php elseif ($isBlocked): ?>
                           <span class="badge-status badge-blocked">Blocked</span>
                         <?php else: ?>
                           <span class="badge-status badge-active">Active</span>
@@ -206,15 +214,19 @@ function e($text)
                               <i class="fa-solid fa-pen"></i>
                               <span>Edit</span>
                             </button>
+                            <?php if (!$isPendingDeletion && !$isInactive): ?>
                             <button type="button" class="action-menu-item <?= $isBlocked ? 'unblock' : 'block' ?>" onclick="confirmToggleBlock(this)">
                               <i class="fa-solid <?= $isBlocked ? 'fa-unlock' : 'fa-ban' ?>"></i>
                               <span><?= $isBlocked ? 'Unblock' : 'Block' ?></span>
                             </button>
+                            <?php endif; ?>
                             <div class="action-menu-divider"></div>
+                            <?php if (!$isInactive): ?>
                             <button type="button" class="action-menu-item delete" onclick="confirmDeleteUser(this)">
                               <i class="fa-solid fa-trash"></i>
-                              <span>Delete</span>
+                              <span>Deactivate</span>
                             </button>
+                            <?php endif; ?>
                           </div>
                         </div>
                       </td>
@@ -566,7 +578,9 @@ function e($text)
                   <label for="formStatus">Status</label>
                   <select id="formStatus" name="status" class="form-control">
                     <option value="active" selected>Active</option>
-                    <option value="block">Blocked</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="pending_deletion" disabled>Pending Deletion</option>
+                    <option value="inactive" disabled>Inactive</option>
                   </select>
                   <div class="input-error-container" aria-live="polite"></div>
                 </div>

@@ -215,6 +215,20 @@
   background: #c5221f;
 }
 
+.badge-pending-deletion {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.badge-pending-deletion::before { background: #f97316; }
+
+.badge-inactive {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.badge-inactive::before { background: #64748b; }
+
 .badge-role {
   background: #e8f0fe;
   color: #1a73e8;
@@ -773,6 +787,11 @@
   font-size: 0.5rem;
   color: #ef4444;
 }
+
+.edit-status-badge.pending-deletion { background:#fff7ed; color:#c2410c; border:1px solid #fdba74; }
+.edit-status-badge.pending-deletion i { color:#f97316; }
+.edit-status-badge.inactive { background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; }
+.edit-status-badge.inactive i { color:#64748b; }
 
 .edit-profile-sub {
   display: flex;

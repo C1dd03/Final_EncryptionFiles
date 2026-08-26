@@ -248,8 +248,8 @@ $activePage = 'delete_requests';
         <!-- Page Header -->
         <div class="block-list-header">
           <div>
-            <h2><i class="fa-solid fa-trash-arrow-up" style="color: #ef4444;"></i> Admin Delete Requests</h2>
-            <p>Review deletion requests submitted by Administrators. Inspect complete user details, stated reasons, and execute or reject deletions.</p>
+            <h2><i class="fa-solid fa-trash-arrow-up" style="color: #ef4444;"></i> Account Deletion Requests</h2>
+            <p>Review deletion requests submitted by Administrators. Approval marks an account Inactive; rejection restores Active status.</p>
           </div>
         </div>
 
@@ -263,7 +263,7 @@ $activePage = 'delete_requests';
 
             <select id="statusFilter" class="filter-select" aria-label="Status Filter">
               <option value="pending" selected>Pending Review</option>
-              <option value="approved">Approved & Deleted</option>
+              <option value="approved">Approved / Inactive</option>
               <option value="rejected">Rejected</option>
               <option value="all">All Requests</option>
             </select>
@@ -323,7 +323,7 @@ $activePage = 'delete_requests';
   <div class="modal" id="detailsModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
     <div class="modal-dialog" style="background:#fff; border-radius:12px; max-width:650px; width:90%; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); max-height:90vh; overflow-y:auto;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <h3 style="font-size:18px; font-weight:700; color:#1e293b; margin:0;"><i class="fa-solid fa-file-circle-exclamation" style="color:#ef4444;"></i> Delete Request & Complete User Info</h3>
+        <h3 style="font-size:18px; font-weight:700; color:#1e293b; margin:0;"><i class="fa-solid fa-file-circle-exclamation" style="color:#ef4444;"></i> Deletion Request & Account Information</h3>
         <button type="button" onclick="closeDetailsModal()" style="border:none; background:none; font-size:18px; cursor:pointer; color:#64748b;">&times;</button>
       </div>
       <div id="detailsModalBody">

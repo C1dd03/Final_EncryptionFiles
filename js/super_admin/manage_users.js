@@ -457,9 +457,10 @@ document.addEventListener("DOMContentLoaded", function () {
           if (emailEl) emailEl.textContent = user.email || "-";
 
           if (statusBadge && statusText) {
-            const isBlocked = user.status === "block";
-            statusBadge.className = isBlocked ? "edit-status-badge blocked" : "edit-status-badge active";
-            statusText.textContent = isBlocked ? "Blocked" : "Active";
+            const status = user.status || "active";
+            const label = status === "pending_deletion" ? "Pending Deletion" : status.charAt(0).toUpperCase() + status.slice(1);
+            statusBadge.className = `edit-status-badge ${status.replace("_", "-")}`;
+            statusText.textContent = label;
           }
         }
 
@@ -491,7 +492,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         setVal("formUsername", user.username);
         setVal("formEmail", user.email);
-        setVal("formStatus", user.status === "block" ? "block" : "active");
+        setVal("formStatus", user.status === "block" ? "blocked" : (user.status || "active"));
 
         const passGrp = document.getElementById("passwordGroup");
         const confGrp = document.getElementById("confirmPasswordGroup");
@@ -647,8 +648,8 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("viewEmail").textContent = user.email || "N/A";
         document.getElementById("viewContact").textContent = user.contact_number || "N/A";
         document.getElementById("viewRole").textContent = (user.role || "user").toUpperCase();
-        document.getElementById("viewStatus").textContent = (user.status || "active").toUpperCase();
-        document.getElementById("viewApproval").textContent = (user.status === "pending_approval" ? "Pending Approval" : (user.status === "active" ? "Approved" : user.status)).toUpperCase();
+        document.getElementById("viewStatus").textContent = (user.status || "active").replace(/_/g, " ").toUpperCase();
+        document.getElementById("viewApproval").textContent = user.status === "pending_approval" ? "PENDING APPROVAL" : (user.status === "pending" ? "PENDING" : "APPROVED");
         document.getElementById("viewGender").textContent = (user.gender || "-").toUpperCase();
         document.getElementById("viewBirthdate").textContent = user.birthdate || "-";
         document.getElementById("viewAge").textContent = user.age || "-";
@@ -678,7 +679,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const isBlocking = row.status !== "block" && row.status !== "blocked";
     const actionName = isBlocking ? "Block" : "Unblock";
-    const nextStatus = isBlocking ? "block" : "active";
+    const nextStatus = isBlocking ? "blocked" : "active";
 
     confirmModalTitle.textContent = `${actionName} User Account`;
     confirmModalMessage.innerHTML = `Are you sure you want to <strong>${actionName.toLowerCase()}</strong> user account <strong>${escapeHtml(
@@ -726,13 +727,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const row = getRowData(btnEl);
     if (!row) return;
 
-    confirmModalTitle.textContent = "Delete User Account";
-    confirmModalMessage.innerHTML = `Are you sure you want to delete user account <strong>${escapeHtml(
+    confirmModalTitle.textContent = "Deactivate User Account";
+    confirmModalMessage.innerHTML = `Are you sure you want to deactivate user account <strong>${escapeHtml(
       row.name
-    )}</strong> (<code>${escapeHtml(row.id_number)}</code>)?<br><br><span style="color:#dc2626; font-size: 0.85rem;"><i class="fa-solid fa-triangle-exclamation"></i> Warning: This action cannot be undone.</span>`;
+    )}</strong> (<code>${escapeHtml(row.id_number)}</code>)?<br><br><span style="color:#475569; font-size:0.85rem;"><i class="fa-solid fa-database"></i> Status will change to Inactive and the account record will be preserved.</span>`;
 
     confirmModalBtn.className = "btn-danger";
-    confirmModalBtn.textContent = "Confirm & Delete";
+    confirmModalBtn.textContent = "Confirm Deactivation";
 
     activeConfirmCallback = function () {
       const body = new FormData();
@@ -745,15 +746,15 @@ document.addEventListener("DOMContentLoaded", function () {
         .then((res) => res.json())
         .then((res) => {
           if (res.success) {
-            setFlashToast("User successfully deleted.", "success");
+            setFlashToast("User account is now Inactive.", "success");
             window.location.reload();
           } else {
-            showToast(res.message || "Failed to delete user.", "error");
+            showToast(res.message || "Failed to deactivate user.", "error");
           }
         })
         .catch((err) => {
           console.error(err);
-          showToast("An error occurred while deleting user.", "error");
+          showToast("An error occurred while deactivating user.", "error");
         });
     };
 

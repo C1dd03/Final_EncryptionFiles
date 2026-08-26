@@ -55,9 +55,15 @@ $activePage = 'audit_logs';
                 <option value="Create Admin">Create Admin</option>
                 <option value="Update Admin">Update Admin</option>
                 <option value="Delete Admin">Delete Admin</option>
+                <option value="Deactivate Admin">Deactivate Admin</option>
+                <option value="Deactivate Super Admin">Deactivate Super Admin</option>
                 <option value="Block User">Block User</option>
                 <option value="Unblock User">Unblock User</option>
                 <option value="Update User">Update User</option>
+                <option value="Deactivate User">Deactivate User</option>
+                <option value="Delete Request Submitted">Delete Request Submitted</option>
+                <option value="Approve Delete Request">Approve Delete Request</option>
+                <option value="Reject Delete Request">Reject Delete Request</option>
               </select>
 
               <select id="roleFilter" class="filter-select" aria-label="Role Filter">

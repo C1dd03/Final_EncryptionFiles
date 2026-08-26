@@ -18,6 +18,12 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
   </p>
 <?php endif; ?>
 
+<?php if (isset($_GET['inactive']) && $_GET['inactive'] == 1): ?>
+  <p style="color:#dc2626;font-weight:bold;text-align:center;">
+    This account is inactive and can no longer access the system.
+  </p>
+<?php endif; ?>
+
 
 <?php if (isset($_GET['registered']) && $_GET['registered'] == 1): ?>
   <p style="color: green; font-weight: bold; text-align:center;">

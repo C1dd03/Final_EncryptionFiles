@@ -13,8 +13,8 @@ class User
     {
         $this->conn = Database::getInstance()->getConnection();
         $this->ensureBlockListSchema();
-        $this->ensurePrivilegeSchema();
         $this->ensureDeleteRequestsAndApprovalSchema();
+        $this->ensurePrivilegeSchema();
         $this->ensureViewDetailsSchema();
         $this->ensurePendingRegistrationsSchema();
     }
@@ -338,7 +338,7 @@ class User
             // Blocked Accounts (status block in users OR blocked in block_list)
             $userBlockedCount = 0;
             try {
-                $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE status = 'block'");
+                $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE status = 'blocked'");
                 $userBlockedCount = (int) $stmt->fetchColumn();
             } catch (PDOException $e) {
             }
@@ -373,7 +373,7 @@ class User
             $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role = 'user' AND status = 'active'");
             $stats['active_users'] = (int) $stmt->fetchColumn();
 
-            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role = 'user' AND status = 'block'");
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role = 'user' AND status = 'blocked'");
             $stats['blocked_users'] = (int) $stmt->fetchColumn();
         } catch (PDOException $e) {
             error_log("Failed to fetch admin dashboard stats: " . $e->getMessage());
@@ -388,14 +388,18 @@ class User
     {
         $sql = "SELECT id_number, first_name, middle_name, last_name, extension, username, email, role, status, created_at 
                 FROM users 
-                WHERE role = 'admin'";
+                WHERE role IN ('admin', 'superadmin')";
         $params = [];
 
         if (!empty($status) && $status !== 'all') {
             if ($status === 'active') {
                 $sql .= " AND status = 'active'";
             } elseif ($status === 'blocked' || $status === 'block') {
-                $sql .= " AND status = 'block'";
+                $sql .= " AND status = 'blocked'";
+            } elseif ($status === 'pending_deletion') {
+                $sql .= " AND status = 'pending_deletion'";
+            } elseif ($status === 'inactive') {
+                $sql .= " AND status = 'inactive'";
             }
         }
 
@@ -428,14 +432,18 @@ class User
 
     public function getAdminsCount(string $search = '', string $status = 'all'): int
     {
-        $sql = "SELECT COUNT(*) FROM users WHERE role = 'admin'";
+        $sql = "SELECT COUNT(*) FROM users WHERE role IN ('admin', 'superadmin')";
         $params = [];
 
         if (!empty($status) && $status !== 'all') {
             if ($status === 'active') {
                 $sql .= " AND status = 'active'";
             } elseif ($status === 'blocked' || $status === 'block') {
-                $sql .= " AND status = 'block'";
+                $sql .= " AND status = 'blocked'";
+            } elseif ($status === 'pending_deletion') {
+                $sql .= " AND status = 'pending_deletion'";
+            } elseif ($status === 'inactive') {
+                $sql .= " AND status = 'inactive'";
             }
         }
 
@@ -455,7 +463,7 @@ class User
 
     public function getAdminByIdNumber(string $id_number): ?array
     {
-        $stmt = $this->conn->prepare("SELECT u.id_number, u.first_name, u.middle_name, u.last_name, u.extension, u.birthdate, u.gender, u.age, u.username, u.email, u.role, u.status, u.created_at, a.purok_street AS street, a.barangay, a.city_municipality AS city, a.province, a.country, a.zip_code AS zip FROM users u LEFT JOIN addresses a ON u.id_number = a.id_number WHERE u.id_number = :id_number AND u.role = 'admin'");
+        $stmt = $this->conn->prepare("SELECT u.id_number, u.first_name, u.middle_name, u.last_name, u.extension, u.birthdate, u.gender, u.age, u.username, u.email, u.role, u.status, u.created_at, a.purok_street AS street, a.barangay, a.city_municipality AS city, a.province, a.country, a.zip_code AS zip FROM users u LEFT JOIN addresses a ON u.id_number = a.id_number WHERE u.id_number = :id_number AND u.role IN ('admin', 'superadmin')");
         $stmt->execute([':id_number' => $id_number]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($user) {
@@ -502,6 +510,13 @@ class User
 
     public function updateAdmin(string $id_number, array $data): bool
     {
+        $current = $this->getUserOrAdminByIdNumber($id_number);
+        $currentStatus = $current['status'] ?? 'active';
+        $requestedStatus = ($data['status'] ?? 'active') === 'block' ? 'blocked' : ($data['status'] ?? 'active');
+        $data['status'] = in_array($currentStatus, ['pending_deletion', 'inactive'], true)
+            ? $currentStatus
+            : $requestedStatus;
+
         $fields = [
             'first_name = :first_name',
             'middle_name = :middle_name',
@@ -536,7 +551,7 @@ class User
             $params[':password_hash'] = password_hash($data['password'], PASSWORD_BCRYPT);
         }
 
-        $sql = "UPDATE users SET " . implode(', ', $fields) . " WHERE id_number = :id_number AND role = 'admin'";
+        $sql = "UPDATE users SET " . implode(', ', $fields) . " WHERE id_number = :id_number AND role IN ('admin', 'superadmin')";
         $stmt = $this->conn->prepare($sql);
         $res = $stmt->execute($params);
         if ($res) {
@@ -546,7 +561,7 @@ class User
             }
             // Sync block_list when status changes via edit form
             $newStatus = $data['status'] ?? 'active';
-            if ($newStatus === 'block') {
+            if ($newStatus === 'blocked') {
                 $this->syncBlockListOnBlock($id_number, 'superadmin');
             } else {
                 $targetUser = $this->getAdminByIdNumber($id_number);
@@ -560,8 +575,10 @@ class User
 
     public function toggleAdminStatus(string $id_number, string $new_status, string $operator = 'superadmin', ?string $reason = null, ?string $ip = null): bool
     {
-        $stmt = $this->conn->prepare("UPDATE users SET status = :status, session_version = session_version + 1 WHERE id_number = :id_number AND role = 'admin'");
-        $res = $stmt->execute([':status' => $new_status, ':id_number' => $id_number]);
+        $new_status = $new_status === 'block' ? 'blocked' : $new_status;
+        $stmt = $this->conn->prepare("UPDATE users SET status = :status, session_version = session_version + 1 WHERE id_number = :id_number AND role = 'admin' AND status IN ('active', 'blocked')");
+        $stmt->execute([':status' => $new_status, ':id_number' => $id_number]);
+        $res = $stmt->rowCount() === 1;
         if ($res) {
             $targetUser = $this->getUserOrAdminByIdNumber($id_number);
             $targetName = $targetUser['name'] ?? $id_number;
@@ -569,7 +586,7 @@ class User
             $opId = $opUser['id_number'] ?? $operator;
             $opRole = strtolower($opUser['role'] ?? 'superadmin');
 
-            if ($new_status === 'block') {
+            if ($new_status === 'blocked') {
                 $this->syncBlockListOnBlock($id_number, $operator, $reason, $ip);
                 $reasonText = !empty($reason) ? $reason : 'Restricted by Super Admin';
                 $details = "Blocked Admin: {$targetName} | Blocked By: {$operator} | Reason: {$reasonText}";
@@ -585,25 +602,32 @@ class User
         return $res;
     }
 
-    public function deleteAdmin(string $id_number): bool
+    public function deleteAdmin(string $id_number, string $reviewer = 'superadmin'): bool
     {
         try {
             $this->conn->beginTransaction();
-
-            $stmt = $this->conn->prepare("DELETE FROM addresses WHERE id_number = :id_number");
+            $stmt = $this->conn->prepare(
+                "UPDATE users
+                 SET status = 'inactive', session_version = session_version + 1
+                 WHERE id_number = :id_number AND role IN ('admin', 'superadmin') AND status <> 'inactive'"
+            );
             $stmt->execute([':id_number' => $id_number]);
-
-            $stmt = $this->conn->prepare("DELETE FROM user_auth_answers WHERE id_number = :id_number");
-            $stmt->execute([':id_number' => $id_number]);
-
-            $stmt = $this->conn->prepare("DELETE FROM users WHERE id_number = :id_number AND role = 'admin'");
-            $result = $stmt->execute([':id_number' => $id_number]);
-
+            if ($stmt->rowCount() !== 1) {
+                $this->conn->rollBack();
+                return false;
+            }
+            $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number")
+                ->execute([':id_number' => $id_number]);
+            $this->conn->prepare(
+                "UPDATE delete_requests SET status = 'approved', reviewed_at = NOW(), reviewed_by = :reviewer,
+                 review_notes = 'Resolved by direct Super Admin deactivation.'
+                 WHERE user_id_number = :id_number AND status = 'pending'"
+            )->execute([':reviewer' => $reviewer, ':id_number' => $id_number]);
             $this->conn->commit();
-            return $result;
-        } catch (Exception $e) {
-            $this->conn->rollBack();
-            error_log("Failed to delete admin: " . $e->getMessage());
+            return true;
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) $this->conn->rollBack();
+            error_log('Failed to deactivate admin: ' . $e->getMessage());
             return false;
         }
     }
@@ -621,7 +645,11 @@ class User
             if ($status === 'active') {
                 $sql .= " AND status = 'active'";
             } elseif ($status === 'blocked' || $status === 'block') {
-                $sql .= " AND status = 'block'";
+                $sql .= " AND status = 'blocked'";
+            } elseif ($status === 'pending_deletion') {
+                $sql .= " AND status = 'pending_deletion'";
+            } elseif ($status === 'inactive') {
+                $sql .= " AND status = 'inactive'";
             }
         }
 
@@ -661,7 +689,11 @@ class User
             if ($status === 'active') {
                 $sql .= " AND status = 'active'";
             } elseif ($status === 'blocked' || $status === 'block') {
-                $sql .= " AND status = 'block'";
+                $sql .= " AND status = 'blocked'";
+            } elseif ($status === 'pending_deletion') {
+                $sql .= " AND status = 'pending_deletion'";
+            } elseif ($status === 'inactive') {
+                $sql .= " AND status = 'inactive'";
             }
         }
 
@@ -728,6 +760,13 @@ class User
 
     public function updateStandardUser(string $id_number, array $data): bool
     {
+        $current = $this->getUserOrAdminByIdNumber($id_number);
+        $currentStatus = $current['status'] ?? 'active';
+        $requestedStatus = ($data['status'] ?? 'active') === 'block' ? 'blocked' : ($data['status'] ?? 'active');
+        $data['status'] = in_array($currentStatus, ['pending_deletion', 'inactive'], true)
+            ? $currentStatus
+            : $requestedStatus;
+
         $fields = [
             'first_name = :first_name',
             'middle_name = :middle_name',
@@ -772,7 +811,7 @@ class User
             }
             // Sync block_list when status changes via edit form
             $newStatus = $data['status'] ?? 'active';
-            if ($newStatus === 'block') {
+            if ($newStatus === 'blocked') {
                 $this->syncBlockListOnBlock($id_number, 'superadmin');
             } else {
                 $targetUser = $this->getUserByIdNumber($id_number);
@@ -841,8 +880,10 @@ class User
 
     public function toggleStandardUserStatus(string $id_number, string $new_status, string $operator = 'superadmin', ?string $reason = null, ?string $ip = null): bool
     {
-        $stmt = $this->conn->prepare("UPDATE users SET status = :status, session_version = session_version + 1 WHERE id_number = :id_number AND role = 'user'");
-        $res = $stmt->execute([':status' => $new_status, ':id_number' => $id_number]);
+        $new_status = $new_status === 'block' ? 'blocked' : $new_status;
+        $stmt = $this->conn->prepare("UPDATE users SET status = :status, session_version = session_version + 1 WHERE id_number = :id_number AND role = 'user' AND status IN ('active', 'blocked')");
+        $stmt->execute([':status' => $new_status, ':id_number' => $id_number]);
+        $res = $stmt->rowCount() === 1;
         if ($res) {
             $targetUser = $this->getUserOrAdminByIdNumber($id_number);
             $targetName = $targetUser['name'] ?? $id_number;
@@ -851,7 +892,7 @@ class User
             $opUsername = $opUser['username'] ?? $operator;
             $opRole = strtolower($opUser['role'] ?? 'superadmin');
 
-            if ($new_status === 'block') {
+            if ($new_status === 'blocked') {
                 $this->syncBlockListOnBlock($id_number, $opUsername, $reason, $ip);
                 $reasonText = !empty($reason) ? $reason : 'Restricted by ' . ucfirst($opRole);
                 $details = "Blocked User: {$targetName} | Blocked By: {$opUsername} | Reason: {$reasonText}";
@@ -867,25 +908,32 @@ class User
         return $res;
     }
 
-    public function deleteStandardUser(string $id_number): bool
+    public function deleteStandardUser(string $id_number, string $reviewer = 'superadmin'): bool
     {
         try {
             $this->conn->beginTransaction();
-
-            $stmt = $this->conn->prepare("DELETE FROM addresses WHERE id_number = :id_number");
+            $stmt = $this->conn->prepare(
+                "UPDATE users
+                 SET status = 'inactive', session_version = session_version + 1
+                 WHERE id_number = :id_number AND role = 'user' AND status <> 'inactive'"
+            );
             $stmt->execute([':id_number' => $id_number]);
-
-            $stmt = $this->conn->prepare("DELETE FROM user_auth_answers WHERE id_number = :id_number");
-            $stmt->execute([':id_number' => $id_number]);
-
-            $stmt = $this->conn->prepare("DELETE FROM users WHERE id_number = :id_number AND role = 'user'");
-            $result = $stmt->execute([':id_number' => $id_number]);
-
+            if ($stmt->rowCount() !== 1) {
+                $this->conn->rollBack();
+                return false;
+            }
+            $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number")
+                ->execute([':id_number' => $id_number]);
+            $this->conn->prepare(
+                "UPDATE delete_requests SET status = 'approved', reviewed_at = NOW(), reviewed_by = :reviewer,
+                 review_notes = 'Resolved by direct Super Admin deactivation.'
+                 WHERE user_id_number = :id_number AND status = 'pending'"
+            )->execute([':reviewer' => $reviewer, ':id_number' => $id_number]);
             $this->conn->commit();
-            return $result;
-        } catch (Exception $e) {
-            $this->conn->rollBack();
-            error_log("Failed to delete user: " . $e->getMessage());
+            return true;
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) $this->conn->rollBack();
+            error_log('Failed to deactivate user: ' . $e->getMessage());
             return false;
         }
     }
@@ -1046,7 +1094,7 @@ class User
      *
      * Special behaviour when a Super Admin promotes an Admin to Super Admin:
      *   - The previous Super Admin is downgraded to role = 'admin' and
-     *     status = 'block' (Blocked) and their session_version is bumped so
+     *     status = 'blocked' and their session_version is bumped so
      *     their existing session cannot continue using Super Admin privileges.
      *   - The promoted account becomes the new Super Admin.
      *
@@ -1084,7 +1132,7 @@ class User
             if ($isPromotingNewSuperAdmin) {
                 // 1. Downgrade the previous Super Admin to 'admin' and mark them as Blocked
                 $this->conn->prepare(
-                    "UPDATE users SET role = 'admin', status = 'block', session_version = session_version + 1
+                    "UPDATE users SET role = 'admin', status = 'blocked', session_version = session_version + 1
                      WHERE id_number = :id_number AND role = 'superadmin'"
                 )->execute([':id_number' => $performedById]);
 
@@ -1321,8 +1369,8 @@ class User
 
     public function getBlockList(string $search = '', string $status = 'blocked', string $roleFilter = 'all', int $offset = 0, int $limit = 10): array
     {
-        // First sync users with status='block' into block_list if not present
-        $syncStmt = $this->conn->query("SELECT id_number FROM users WHERE status = 'block'");
+        // First sync blocked users into block_list if not present
+        $syncStmt = $this->conn->query("SELECT id_number FROM users WHERE status = 'blocked'");
         if ($syncStmt) {
             $blockedUsers = $syncStmt->fetchAll(PDO::FETCH_COLUMN);
             foreach ($blockedUsers as $bId) {
@@ -1465,7 +1513,7 @@ class User
             $id_number = $blockRecord['id_number'] ?? '';
             $username  = $blockRecord['username'] ?? '';
 
-            // 1. Change the user's status from block to active in users table
+            // 1. Change the user's status from blocked to active in users table
             if (!empty($id_number)) {
                 $uStmt = $this->conn->prepare("UPDATE users SET status = 'active' WHERE id_number = :id_number");
                 $uStmt->execute([':id_number' => $id_number]);
@@ -1499,19 +1547,43 @@ class User
         }
     }
 
-    /**
-     * Ensures delete_requests table and pending_approval status enum exist.
-     */
+    /** Ensures deletion/approval tables and all account lifecycle statuses exist. */
     public function ensureDeleteRequestsAndApprovalSchema(): void
     {
         try {
-            // Ensure users.status includes 'pending_approval'
+            // Migrate legacy `block` values to the canonical `blocked` status,
+            // while adding the non-destructive deletion states.
             $stmt = $this->conn->query("SHOW COLUMNS FROM users LIKE 'status'");
             $col = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($col && strpos($col['Type'], 'pending_approval') === false) {
+            if (!$col) {
                 $this->conn->exec(
-                    "ALTER TABLE users MODIFY COLUMN status ENUM('block','pending','pending_approval','active') NOT NULL DEFAULT 'active'"
+                    "ALTER TABLE users ADD COLUMN status ENUM('blocked','pending','pending_approval','pending_deletion','active','inactive') NOT NULL DEFAULT 'active' AFTER password_hash"
                 );
+                $stmt = $this->conn->query("SHOW COLUMNS FROM users LIKE 'status'");
+                $col = $stmt->fetch(PDO::FETCH_ASSOC);
+            }
+            $statusType = strtolower($col['Type'] ?? '');
+            $needsLifecycleStatuses = strpos($statusType, "'pending_deletion'") === false
+                || strpos($statusType, "'inactive'") === false
+                || strpos($statusType, "'blocked'") === false;
+            $hasLegacyBlock = strpos($statusType, "'block'") !== false;
+
+            if ($col && ($needsLifecycleStatuses || $hasLegacyBlock)) {
+                $this->conn->exec(
+                    "ALTER TABLE users MODIFY COLUMN status ENUM('block','blocked','pending','pending_approval','pending_deletion','active','inactive') NOT NULL DEFAULT 'active'"
+                );
+                $this->conn->exec("UPDATE users SET status = 'blocked' WHERE status = 'block'");
+                $this->conn->exec(
+                    "ALTER TABLE users MODIFY COLUMN status ENUM('blocked','pending','pending_approval','pending_deletion','active','inactive') NOT NULL DEFAULT 'active'"
+                );
+            }
+
+            // Older dumps may contain MySQL's empty ENUM sentinel.
+            $this->conn->exec("UPDATE users SET status = 'inactive', session_version = session_version + 1 WHERE status = '' OR status IS NULL");
+
+            $sessionCol = $this->conn->query("SHOW COLUMNS FROM users LIKE 'session_version'")->fetch(PDO::FETCH_ASSOC);
+            if (!$sessionCol) {
+                $this->conn->exec("ALTER TABLE users ADD COLUMN session_version INT NOT NULL DEFAULT 0 AFTER status");
             }
 
             // Ensure delete_requests table
@@ -1539,6 +1611,33 @@ class User
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
                 );
             }
+
+            // Reconcile requests created before lifecycle statuses were added.
+            $this->conn->exec(
+                "UPDATE users u
+                 INNER JOIN delete_requests d ON d.user_id_number = u.id_number
+                 SET u.status = 'pending_deletion'
+                 WHERE d.status = 'pending' AND u.status = 'active'"
+            );
+            $this->conn->exec(
+                "UPDATE users u
+                 INNER JOIN delete_requests d ON d.user_id_number = u.id_number
+                 SET u.status = 'inactive', u.session_version = u.session_version + 1
+                 WHERE d.status = 'approved' AND u.status <> 'inactive'"
+            );
+            $this->conn->exec(
+                "UPDATE users u
+                 SET u.status = 'active'
+                 WHERE u.status = 'pending_deletion'
+                   AND EXISTS (SELECT 1 FROM delete_requests r WHERE r.user_id_number = u.id_number AND r.status = 'rejected')
+                   AND NOT EXISTS (SELECT 1 FROM delete_requests p WHERE p.user_id_number = u.id_number AND p.status = 'pending')"
+            );
+            $this->conn->exec(
+                "UPDATE block_list b
+                 INNER JOIN delete_requests d ON d.user_id_number = b.id_number
+                 SET b.status = 'unblocked'
+                 WHERE d.status = 'approved' AND b.status = 'blocked'"
+            );
         } catch (Exception $e) {
             error_log("Approval and Delete Request schema sync warning: " . $e->getMessage());
         }
@@ -1942,13 +2041,21 @@ class User
 
     public function submitDeleteRequest(string $id_number, string $reason, string $adminId, string $adminUsername): array
     {
-        $user = $this->getUserByIdNumber($id_number);
+        $user = $this->getUserOrAdminByIdNumber($id_number);
         if (!$user) {
-            return ['success' => false, 'message' => 'User account not found.'];
+            return ['success' => false, 'message' => 'Account not found.'];
         }
 
         if (strtolower($user['role']) === 'superadmin') {
             return ['success' => false, 'message' => 'Cannot request deletion for a Super Admin account.'];
+        }
+
+        if (($user['status'] ?? '') === 'inactive') {
+            return ['success' => false, 'message' => 'This account is already inactive.'];
+        }
+
+        if (($user['status'] ?? '') === 'blocked') {
+            return ['success' => false, 'message' => 'Blocked accounts must be unblocked before requesting deletion.'];
         }
 
         // Check if a pending delete request already exists
@@ -1960,29 +2067,52 @@ class User
 
         $fullName = trim(($user['first_name'] ?? '') . ' ' . ($user['middle_name'] ?? '') . ' ' . ($user['last_name'] ?? '') . ' ' . ($user['extension'] ?? ''));
 
-        $stmt = $this->conn->prepare(
-            "INSERT INTO delete_requests (user_id_number, user_name, user_username, user_email, user_role, user_details, reason, requested_by_id, requested_by_username, status)
-             VALUES (:user_id_number, :user_name, :user_username, :user_email, :user_role, :user_details, :reason, :requested_by_id, :requested_by_username, 'pending')"
-        );
+        try {
+            $this->conn->beginTransaction();
 
-        $success = $stmt->execute([
-            ':user_id_number'        => $id_number,
-            ':user_name'             => $fullName ?: $user['username'],
-            ':user_username'         => $user['username'],
-            ':user_email'            => $user['email'] ?? '',
-            ':user_role'             => $user['role'],
-            ':user_details'          => json_encode($user),
-            ':reason'                => $reason,
-            ':requested_by_id'       => $adminId,
-            ':requested_by_username' => $adminUsername
-        ]);
+            $stmt = $this->conn->prepare(
+                "INSERT INTO delete_requests (user_id_number, user_name, user_username, user_email, user_role, user_details, reason, requested_by_id, requested_by_username, status)
+                 VALUES (:user_id_number, :user_name, :user_username, :user_email, :user_role, :user_details, :reason, :requested_by_id, :requested_by_username, 'pending')"
+            );
+            $stmt->execute([
+                ':user_id_number'        => $id_number,
+                ':user_name'             => $fullName ?: $user['username'],
+                ':user_username'         => $user['username'],
+                ':user_email'            => $user['email'] ?? '',
+                ':user_role'             => $user['role'],
+                ':user_details'          => json_encode($user),
+                ':reason'                => $reason,
+                ':requested_by_id'       => $adminId,
+                ':requested_by_username' => $adminUsername
+            ]);
 
-        if ($success) {
-            $this->logAuditAction($adminId, $adminUsername, 'admin', 'Delete Request Submitted', "Requested deletion of user {$user['username']} (ID: {$id_number}). Reason: {$reason}");
-            return ['success' => true, 'message' => 'Delete request has been submitted to the Super Admin for approval.'];
+            $statusStmt = $this->conn->prepare(
+                "UPDATE users SET status = 'pending_deletion'
+                 WHERE id_number = :id_number AND role IN ('user', 'admin') AND status = 'active'"
+            );
+            $statusStmt->execute([':id_number' => $id_number]);
+            if ($statusStmt->rowCount() !== 1) {
+                throw new RuntimeException('Unable to mark the account as pending deletion.');
+            }
+
+            $targetRole = strtolower($user['role'] ?? 'user');
+            $this->logAuditAction(
+                $adminId,
+                $adminUsername,
+                'admin',
+                'Delete Request Submitted',
+                "Requested deletion of {$targetRole} {$user['username']} (ID: {$id_number}). Status changed from {$user['status']} to Pending Deletion. Reason: {$reason}"
+            );
+
+            $this->conn->commit();
+            return ['success' => true, 'message' => 'Deletion request submitted. Account status is now Pending Deletion.'];
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('Failed to submit delete request: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Failed to submit deletion request.'];
         }
-
-        return ['success' => false, 'message' => 'Failed to submit delete request.'];
     }
 
     public function getDeleteRequests(string $search = '', string $status = 'all', int $offset = 0, int $limit = 10): array
@@ -2037,68 +2167,96 @@ class User
 
     public function approveDeleteRequest(int $requestId, string $superAdminId, string $superAdminUsername): array
     {
-        $stmt = $this->conn->prepare("SELECT * FROM delete_requests WHERE id = :id AND status = 'pending'");
-        $stmt->execute([':id' => $requestId]);
-        $request = $stmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            $this->conn->beginTransaction();
+            $stmt = $this->conn->prepare("SELECT * FROM delete_requests WHERE id = :id AND status = 'pending' FOR UPDATE");
+            $stmt->execute([':id' => $requestId]);
+            $request = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$request) {
+                $this->conn->rollBack();
+                return ['success' => false, 'message' => 'Pending deletion request not found.'];
+            }
 
-        if (!$request) {
-            return ['success' => false, 'message' => 'Pending deletion request not found.'];
+            $targetId = $request['user_id_number'];
+            $statusStmt = $this->conn->prepare(
+                "UPDATE users SET status = 'inactive', session_version = session_version + 1
+                 WHERE id_number = :id_number AND status IN ('pending_deletion', 'active')"
+            );
+            $statusStmt->execute([':id_number' => $targetId]);
+            if ($statusStmt->rowCount() !== 1) {
+                throw new RuntimeException('Target account is not eligible for deletion approval.');
+            }
+
+            $updateStmt = $this->conn->prepare(
+                "UPDATE delete_requests SET status = 'approved', reviewed_at = NOW(), reviewed_by = :reviewer, review_notes = :notes WHERE id = :id"
+            );
+            $updateStmt->execute([
+                ':reviewer' => $superAdminUsername,
+                ':notes' => 'Approved; account status changed to Inactive.',
+                ':id' => $requestId
+            ]);
+
+            $targetRole = strtolower($request['user_role'] ?? 'user');
+            $this->logAuditAction(
+                $superAdminId,
+                $superAdminUsername,
+                'superadmin',
+                'Approve Delete Request',
+                "Approved deletion of {$targetRole} {$request['user_username']} (ID: {$targetId}) requested by {$request['requested_by_username']}. Pending Deletion changed to Inactive. Reason: {$request['reason']}"
+            );
+            $this->conn->commit();
+            return ['success' => true, 'message' => 'Deletion approved. Account status is now Inactive and its record was preserved.'];
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('Failed to approve delete request: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Failed to approve deletion request.'];
         }
-
-        $targetId = $request['user_id_number'];
-
-        // Deactivate rather than permanently delete: status = 'block' (Inactive)
-        $deactivated = $this->setAccountStatus($targetId, 'block');
-        if (!$deactivated) {
-            return ['success' => false, 'message' => 'Failed to deactivate target user account.'];
-        }
-
-        // Bump session_version so any active sessions for the target are invalidated
-        $this->bumpSessionVersion($targetId);
-
-        // Sync block_list entry
-        $this->syncBlockListOnBlock(
-            $targetId,
-            $superAdminUsername,
-            "Deactivation approved. Original reason: {$request['reason']}",
-            $_SERVER['REMOTE_ADDR'] ?? ''
-        );
-
-        // Update request status
-        $updateStmt = $this->conn->prepare(
-            "UPDATE delete_requests SET status = 'approved', reviewed_at = NOW(), reviewed_by = :reviewer WHERE id = :id"
-        );
-        $updateStmt->execute([':reviewer' => $superAdminUsername, ':id' => $requestId]);
-
-        $this->logAuditAction(
-            $superAdminId,
-            $superAdminUsername,
-            'superadmin',
-            'Approve Delete Request',
-            "Super Admin approved deactivation of user {$request['user_username']} (ID: {$targetId}) requested by Admin {$request['requested_by_username']} | Reason: {$request['reason']}"
-        );
-
-        return ['success' => true, 'message' => 'Account has been deactivated (status set to Inactive). Account record is preserved.'];
     }
 
     public function rejectDeleteRequest(int $requestId, string $notes, string $superAdminId, string $superAdminUsername): array
     {
-        $stmt = $this->conn->prepare("SELECT * FROM delete_requests WHERE id = :id AND status = 'pending'");
-        $stmt->execute([':id' => $requestId]);
-        $request = $stmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            $this->conn->beginTransaction();
+            $stmt = $this->conn->prepare("SELECT * FROM delete_requests WHERE id = :id AND status = 'pending' FOR UPDATE");
+            $stmt->execute([':id' => $requestId]);
+            $request = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$request) {
+                $this->conn->rollBack();
+                return ['success' => false, 'message' => 'Pending deletion request not found.'];
+            }
 
-        if (!$request) {
-            return ['success' => false, 'message' => 'Pending deletion request not found.'];
+            $statusStmt = $this->conn->prepare(
+                "UPDATE users SET status = 'active' WHERE id_number = :id_number AND status = 'pending_deletion'"
+            );
+            $statusStmt->execute([':id_number' => $request['user_id_number']]);
+            if ($statusStmt->rowCount() !== 1) {
+                throw new RuntimeException('Target account is not pending deletion.');
+            }
+
+            $updateStmt = $this->conn->prepare(
+                "UPDATE delete_requests SET status = 'rejected', reviewed_at = NOW(), reviewed_by = :reviewer, review_notes = :notes WHERE id = :id"
+            );
+            $updateStmt->execute([':reviewer' => $superAdminUsername, ':notes' => $notes, ':id' => $requestId]);
+
+            $targetRole = strtolower($request['user_role'] ?? 'user');
+            $this->logAuditAction(
+                $superAdminId,
+                $superAdminUsername,
+                'superadmin',
+                'Reject Delete Request',
+                "Rejected deletion of {$targetRole} {$request['user_username']} (ID: {$request['user_id_number']}). Pending Deletion changed to Active. Notes: {$notes}"
+            );
+            $this->conn->commit();
+            return ['success' => true, 'message' => 'Deletion request rejected. Account status is Active.'];
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('Failed to reject delete request: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Failed to reject deletion request.'];
         }
-
-        $updateStmt = $this->conn->prepare(
-            "UPDATE delete_requests SET status = 'rejected', reviewed_at = NOW(), reviewed_by = :reviewer, review_notes = :notes WHERE id = :id"
-        );
-        $updateStmt->execute([':reviewer' => $superAdminUsername, ':notes' => $notes, ':id' => $requestId]);
-
-        $this->logAuditAction($superAdminId, $superAdminUsername, 'superadmin', 'Reject Delete Request', "Super Admin rejected delete request for {$request['user_username']} (ID: {$request['user_id_number']}). Notes: {$notes}");
-
-        return ['success' => true, 'message' => 'Delete request has been rejected.'];
     }
 
     /* ========================== ENHANCED AUDIT LOGS ======================== */

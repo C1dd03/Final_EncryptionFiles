@@ -31,11 +31,12 @@ class AdminController
             exit;
         }
 
-        if ($authState['status'] !== 'active') {
+        if (!in_array($authState['status'], ['active', 'pending_deletion'], true)) {
             session_unset();
             session_destroy();
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['success' => false, 'message' => 'Your account has been blocked. Please contact the Super Admin.', 'accountBlocked' => true]);
+            $inactive = $authState['status'] === 'inactive';
+            echo json_encode(['success' => false, 'message' => $inactive ? 'This account is inactive.' : 'Your account has been blocked. Please contact the Super Admin.', 'accountInactive' => $inactive, 'accountBlocked' => !$inactive]);
             exit;
         }
 
@@ -652,14 +653,14 @@ class AdminController
         $reason     = trim($_POST['reason'] ?? '');
         $ip         = $_SERVER['REMOTE_ADDR'] ?? '';
 
-        if (empty($id_number) || !in_array($new_status, ['active', 'block'], true)) {
+        if (empty($id_number) || !in_array($new_status, ['active', 'blocked', 'block'], true)) {
             echo json_encode(['success' => false, 'message' => 'Invalid parameters provided.']);
             exit;
         }
 
         $updated = $this->userModel->toggleStandardUserStatus($id_number, $new_status, $_SESSION['user_id'] ?? 'admin', $reason, $ip);
         if ($updated) {
-            $actionText = ($new_status === 'block') ? 'blocked' : 'unblocked';
+            $actionText = in_array($new_status, ['block', 'blocked'], true) ? 'blocked' : 'unblocked';
             echo json_encode(['success' => true, 'message' => "User account has been {$actionText}."]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to update user status.']);
