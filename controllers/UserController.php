@@ -2590,8 +2590,10 @@ class UserController
         $authState = $this->validateLiveSession(['superadmin', 'admin']);
 
         if (strtolower($authState['role']) === 'admin') {
-            if (!$this->userModel->hasAdminPrivilege($authState['id_number'], 'approve_registrations') &&
-                !$this->userModel->hasAdminPrivilege($authState['id_number'], 'view_users')) {
+            if (
+                !$this->userModel->hasAdminPrivilege($authState['id_number'], 'approve_registrations') &&
+                !$this->userModel->hasAdminPrivilege($authState['id_number'], 'view_users')
+            ) {
                 echo json_encode(['success' => false, 'message' => 'You do not have privilege to view pending registrations.']);
                 exit;
             }
@@ -2631,8 +2633,10 @@ class UserController
         $authState = $this->validateLiveSession(['superadmin', 'admin']);
 
         if (strtolower($authState['role']) === 'admin') {
-            if (!$this->userModel->hasAdminPrivilege($authState['id_number'], 'approve_registrations') &&
-                !$this->userModel->hasAdminPrivilege($authState['id_number'], 'edit_users')) {
+            if (
+                !$this->userModel->hasAdminPrivilege($authState['id_number'], 'approve_registrations') &&
+                !$this->userModel->hasAdminPrivilege($authState['id_number'], 'edit_users')
+            ) {
                 echo json_encode(['success' => false, 'message' => 'You do not have privilege to approve registrations.']);
                 exit;
             }
@@ -2670,8 +2674,10 @@ class UserController
         $authState = $this->validateLiveSession(['superadmin', 'admin']);
 
         if (strtolower($authState['role']) === 'admin') {
-            if (!$this->userModel->hasAdminPrivilege($authState['id_number'], 'approve_registrations') &&
-                !$this->userModel->hasAdminPrivilege($authState['id_number'], 'block_users')) {
+            if (
+                !$this->userModel->hasAdminPrivilege($authState['id_number'], 'approve_registrations') &&
+                !$this->userModel->hasAdminPrivilege($authState['id_number'], 'block_users')
+            ) {
                 echo json_encode(['success' => false, 'message' => 'You do not have privilege to reject registrations.']);
                 exit;
             }
@@ -2948,5 +2954,3 @@ class UserController
         exit;
     }
 }
-
-
