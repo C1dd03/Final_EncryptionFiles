@@ -8,10 +8,17 @@ class User
      * @var \PDO
      */
     private $conn;
+    private string $pendingTable;
 
     public function __construct()
     {
-        $this->conn = Database::getInstance()->getConnection();
+        $database = Database::getInstance();
+        $this->conn = $database->getConnection();
+        $pendingDatabase = $database->getPendingDatabaseName();
+        if (!preg_match('/^[A-Za-z0-9_]+$/', $pendingDatabase)) {
+            throw new RuntimeException('Invalid pending database name.');
+        }
+        $this->pendingTable = "`{$pendingDatabase}`.`pending_registrations`";
         $this->ensureBlockListSchema();
         $this->ensureDeleteRequestsAndApprovalSchema();
         $this->ensurePrivilegeSchema();
@@ -135,7 +142,7 @@ class User
             $stmt = $this->conn->prepare("
                 SELECT id_number FROM users WHERE id_number LIKE :yearPrefix
                 UNION
-                SELECT user_id FROM pending_registrations WHERE user_id LIKE :yearPrefix
+                SELECT user_id FROM {$this->pendingTable} WHERE user_id LIKE :yearPrefix
                 ORDER BY 1 DESC LIMIT 1
             ");
             $stmt->execute([':yearPrefix' => $yearPrefix]);
@@ -155,7 +162,7 @@ class User
         $stmt = $this->conn->prepare("
             SELECT id_number FROM users WHERE id_number REGEXP '^[0-9]{4}-[0-9]{4}$'
             UNION
-            SELECT user_id FROM pending_registrations WHERE user_id REGEXP '^[0-9]{4}-[0-9]{4}$'
+            SELECT user_id FROM {$this->pendingTable} WHERE user_id REGEXP '^[0-9]{4}-[0-9]{4}$'
             ORDER BY 1 DESC LIMIT 1
         ");
         $stmt->execute();
@@ -1201,7 +1208,7 @@ class User
     {
         $total = 0;
         try {
-            $stmt = $this->conn->query("SELECT COUNT(*) FROM pending_registrations WHERE status = 'pending'");
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM {$this->pendingTable} WHERE status = 'pending'");
             $total += (int)$stmt->fetchColumn();
 
             $stmt = $this->conn->query("SELECT COUNT(*) FROM delete_requests WHERE status = 'pending'");
@@ -1223,7 +1230,7 @@ class User
             $hasApprove = $this->hasAdminPrivilege($adminIdNumber, 'approve_registrations')
                 || $this->hasAdminPrivilege($adminIdNumber, 'view_users');
             if ($hasApprove) {
-                $stmt = $this->conn->query("SELECT COUNT(*) FROM pending_registrations WHERE status = 'pending'");
+                $stmt = $this->conn->query("SELECT COUNT(*) FROM {$this->pendingTable} WHERE status = 'pending'");
                 $total += (int)$stmt->fetchColumn();
             }
         } catch (Exception $e) {
@@ -1646,10 +1653,13 @@ class User
     public function ensurePendingRegistrationsSchema(): void
     {
         try {
-            $stmt = $this->conn->query("SHOW TABLES LIKE 'pending_registrations'");
-            if (!$stmt->fetch()) {
-                $this->conn->exec(
-                    "CREATE TABLE pending_registrations (
+            $pendingDatabase = Database::getInstance()->getPendingDatabaseName();
+            $this->conn->exec(
+                "CREATE DATABASE IF NOT EXISTS `{$pendingDatabase}`
+                 CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
+            );
+            $this->conn->exec(
+                    "CREATE TABLE IF NOT EXISTS {$this->pendingTable} (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         user_id VARCHAR(20) NOT NULL,
                         first_name VARCHAR(50) NOT NULL,
@@ -1682,9 +1692,27 @@ class User
                         KEY idx_pr_status (status),
                         KEY idx_pr_created (created_at)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+            );
+
+            // Preserve and copy records from older installations where the
+            // pending table lived inside the main database. The legacy table
+            // is intentionally retained as a recoverable backup.
+            $legacyTable = $this->conn->query("SHOW TABLES LIKE 'pending_registrations'");
+            if ($legacyTable->fetchColumn()) {
+                $this->conn->exec(
+                    "INSERT IGNORE INTO {$this->pendingTable}
+                        (user_id, first_name, middle_name, last_name, extension, birthdate, gender, age,
+                         username, email, password_hash, role, status, street, barangay, city_municipality,
+                         province, country, zip_code, security_answers, created_at, updated_at, reviewed_at,
+                         reviewed_by, rejection_reason)
+                     SELECT user_id, first_name, middle_name, last_name, extension, birthdate, gender, age,
+                            username, email, password_hash, role, status, street, barangay, city_municipality,
+                            province, country, zip_code, security_answers, created_at, updated_at, reviewed_at,
+                            reviewed_by, rejection_reason
+                     FROM pending_registrations"
                 );
             }
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log("Pending registrations schema sync warning: " . $e->getMessage());
         }
     }
@@ -1743,7 +1771,7 @@ class User
                 $securityAnswersJson = !empty($answers) ? json_encode($answers) : null;
             }
 
-            $sql = "INSERT INTO pending_registrations
+            $sql = "INSERT INTO {$this->pendingTable}
                         (user_id, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status,
                          street, barangay, city_municipality, province, country, zip_code, security_answers)
                     VALUES
@@ -1780,14 +1808,14 @@ class User
 
     public function pendingUserIdExists(string $id_number): bool
     {
-        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM pending_registrations WHERE user_id = :user_id");
+        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM {$this->pendingTable} WHERE user_id = :user_id");
         $stmt->execute([':user_id' => $id_number]);
         return $stmt->fetchColumn() > 0;
     }
 
     public function pendingUsernameExists(string $username): bool
     {
-        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM pending_registrations WHERE username = :username");
+        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM {$this->pendingTable} WHERE username = :username");
         $stmt->execute([':username' => $username]);
         return $stmt->fetchColumn() > 0;
     }
@@ -1795,7 +1823,7 @@ class User
     public function pendingEmailExists(string $email): bool
     {
         try {
-            $stmt = $this->conn->prepare("SELECT COUNT(*) FROM pending_registrations WHERE email = :email");
+            $stmt = $this->conn->prepare("SELECT COUNT(*) FROM {$this->pendingTable} WHERE email = :email");
             $stmt->execute([':email' => $email]);
             return $stmt->fetchColumn() > 0;
         } catch (PDOException $e) {
@@ -1805,7 +1833,7 @@ class User
 
     public function findPendingRegistrationByUsername(string $username): ?array
     {
-        $stmt = $this->conn->prepare("SELECT * FROM pending_registrations WHERE username = :username LIMIT 1");
+        $stmt = $this->conn->prepare("SELECT * FROM {$this->pendingTable} WHERE username = :username LIMIT 1");
         $stmt->execute([':username' => $username]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -1813,7 +1841,7 @@ class User
 
     public function findPendingRegistrationByEmail(string $email): ?array
     {
-        $stmt = $this->conn->prepare("SELECT * FROM pending_registrations WHERE email = :email LIMIT 1");
+        $stmt = $this->conn->prepare("SELECT * FROM {$this->pendingTable} WHERE email = :email LIMIT 1");
         $stmt->execute([':email' => $email]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -1821,7 +1849,7 @@ class User
 
     public function getPendingRegistrationById(string $user_id): ?array
     {
-        $stmt = $this->conn->prepare("SELECT * FROM pending_registrations WHERE user_id = :user_id LIMIT 1");
+        $stmt = $this->conn->prepare("SELECT * FROM {$this->pendingTable} WHERE user_id = :user_id LIMIT 1");
         $stmt->execute([':user_id' => $user_id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -1837,7 +1865,7 @@ class User
                         )) AS full_name,
                         p.birthdate, p.gender, p.age, p.username, p.email, p.role, p.status, p.created_at,
                         p.street AS purok_street, p.barangay, p.city_municipality, p.province, p.country, p.zip_code
-                 FROM pending_registrations p
+                 FROM {$this->pendingTable} p
                  WHERE 1=1";
         $params = [];
 
@@ -1886,7 +1914,7 @@ class User
 
     public function getPendingRegistrationsCount(string $search = '', string $startDate = '', string $endDate = '', string $month = 'all', string $year = 'all', string $status = 'pending'): int
     {
-        $sql = "SELECT COUNT(*) FROM pending_registrations p WHERE 1=1";
+        $sql = "SELECT COUNT(*) FROM {$this->pendingTable} p WHERE 1=1";
         $params = [];
 
         if (!empty($status) && $status !== 'all') {
@@ -1927,16 +1955,24 @@ class User
     public function approveRegistration(string $user_id, string $performedById, string $performedByUsername, string $performedByRole): array
     {
         try {
-            $pending = $this->getPendingRegistrationById($user_id);
+            $this->conn->beginTransaction();
+
+            // Lock the pending record so two administrators cannot approve it
+            // at the same time. Both databases use this same PDO transaction.
+            $pendingStmt = $this->conn->prepare(
+                "SELECT * FROM {$this->pendingTable} WHERE user_id = :user_id FOR UPDATE"
+            );
+            $pendingStmt->execute([':user_id' => $user_id]);
+            $pending = $pendingStmt->fetch(PDO::FETCH_ASSOC);
             if (!$pending) {
+                $this->conn->rollBack();
                 return ['success' => false, 'message' => 'Pending registration not found.'];
             }
 
             if ($pending['status'] !== 'pending') {
+                $this->conn->rollBack();
                 return ['success' => false, 'message' => 'This registration has already been processed.'];
             }
-
-            $this->conn->beginTransaction();
 
             $stmt = $this->conn->prepare("SELECT COUNT(*) FROM users WHERE id_number = :id_number OR username = :username OR email = :email");
             $stmt->execute([
@@ -1998,40 +2034,61 @@ class User
                 }
             }
 
-            $stmt = $this->conn->prepare("UPDATE pending_registrations SET status = 'approved', reviewed_at = NOW(), reviewed_by = :reviewed_by WHERE user_id = :user_id");
+            $stmt = $this->conn->prepare("UPDATE {$this->pendingTable} SET status = 'approved', reviewed_at = NOW(), reviewed_by = :reviewed_by WHERE user_id = :user_id AND status = 'pending'");
             $stmt->execute([':reviewed_by' => $performedByUsername, ':user_id' => $user_id]);
+            if ($stmt->rowCount() !== 1) {
+                throw new RuntimeException('The pending registration was already processed.');
+            }
 
             $name = trim(($pending['first_name'] ?? '') . ' ' . ($pending['last_name'] ?? ''));
             $this->logAuditAction($performedById, $performedByUsername, $performedByRole, 'Approve Registration', "Approved registration for {$name} (ID: {$user_id})");
 
             $this->conn->commit();
             return ['success' => true, 'message' => 'Registration approved successfully. The account can now log in.'];
-        } catch (Exception $e) {
-            $this->conn->rollBack();
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             error_log("Failed to approve registration: " . $e->getMessage());
-            return ['success' => false, 'message' => 'Failed to approve registration: ' . $e->getMessage()];
+            return ['success' => false, 'message' => 'Failed to approve registration. Please try again.'];
         }
     }
 
     public function rejectRegistration(string $user_id, string $reason, string $performedById, string $performedByUsername, string $performedByRole): bool
     {
         try {
-            $pending = $this->getPendingRegistrationById($user_id);
+            $this->conn->beginTransaction();
+            $pendingStmt = $this->conn->prepare(
+                "SELECT * FROM {$this->pendingTable} WHERE user_id = :user_id FOR UPDATE"
+            );
+            $pendingStmt->execute([':user_id' => $user_id]);
+            $pending = $pendingStmt->fetch(PDO::FETCH_ASSOC);
             if (!$pending) {
+                $this->conn->rollBack();
+                return false;
+            }
+            if ($pending['status'] !== 'pending') {
+                $this->conn->rollBack();
                 return false;
             }
 
             $name = trim(($pending['first_name'] ?? '') . ' ' . ($pending['last_name'] ?? ''));
 
-            $stmt = $this->conn->prepare("UPDATE pending_registrations SET status = 'rejected', rejection_reason = :reason, reviewed_at = NOW(), reviewed_by = :reviewed_by WHERE user_id = :user_id AND status = 'pending'");
+            $stmt = $this->conn->prepare("UPDATE {$this->pendingTable} SET status = 'rejected', rejection_reason = :reason, reviewed_at = NOW(), reviewed_by = :reviewed_by WHERE user_id = :user_id AND status = 'pending'");
             $success = $stmt->execute([':reason' => $reason, ':reviewed_by' => $performedByUsername, ':user_id' => $user_id]);
 
-            if ($success) {
-                $this->logAuditAction($performedById, $performedByUsername, $performedByRole, 'Reject Registration', "Rejected registration for {$name} (ID: {$user_id}). Reason: {$reason}");
+            if (!$success || $stmt->rowCount() !== 1) {
+                throw new RuntimeException('The pending registration was already processed.');
             }
 
-            return $success;
-        } catch (Exception $e) {
+            $this->logAuditAction($performedById, $performedByUsername, $performedByRole, 'Reject Registration', "Rejected registration for {$name} (ID: {$user_id}). Reason: {$reason}");
+            $this->conn->commit();
+
+            return true;
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             error_log("Failed to reject registration: " . $e->getMessage());
             return false;
         }

@@ -248,9 +248,25 @@ class UserController
                 return;
             }
 
+            $fieldErrors = [];
             $submittedIdNumber = trim($_POST['id_number'] ?? '');
             if (!empty($submittedIdNumber) && ($this->userModel->findById($submittedIdNumber) || $this->userModel->pendingUserIdExists($submittedIdNumber))) {
                 $fieldErrors['id_number'] = "This User ID is already in use. Please use a different one.";
+            }
+            if ($username === '') {
+                $fieldErrors['username'] = 'Username is required.';
+            } elseif ($this->userModel->usernameExists($username) || $this->userModel->pendingUsernameExists($username)) {
+                $fieldErrors['username'] = 'Username is already registered or waiting for approval.';
+            }
+            if ($email === '') {
+                $fieldErrors['email'] = 'Email is required.';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $fieldErrors['email'] = 'Invalid email format.';
+            } elseif ($this->userModel->emailExists($email) || $this->userModel->pendingEmailExists($email)) {
+                $fieldErrors['email'] = 'Email is already registered or waiting for approval.';
+            }
+            if (!hash_equals($password, (string)($_POST['confirm_password'] ?? ''))) {
+                $fieldErrors['confirm_password'] = 'Passwords do not match.';
             }
 
             $data = [

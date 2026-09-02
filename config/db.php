@@ -7,6 +7,7 @@ class Database {
 
     private $host = "localhost";
     private $dbname = "encryption_system";
+    private $pendingDbname = "pending_encryption_system";
     private $username = "root";
     private $password = "";
 
@@ -33,5 +34,9 @@ class Database {
 
     public function getConnection() {
         return $this->conn;
+    }
+
+    public function getPendingDatabaseName(): string {
+        return $this->pendingDbname;
     }
 }

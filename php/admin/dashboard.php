@@ -16,6 +16,7 @@ $currentIdNumber = $_SESSION['user_id'] ?? '';
 
 $userModel = new User();
 $canViewUsers = $userModel->hasAdminPrivilege($currentIdNumber, 'view_users');
+$canApproveRegistrations = $userModel->hasAdminPrivilege($currentIdNumber, 'approve_registrations');
 $stats = $userModel->getAdminDashboardStats();
 
 // Without the View Users privilege, statistics are not exposed (N/A)
@@ -91,7 +92,7 @@ $blockedDisplay = $canViewUsers ? number_format($stats['blocked_users']) : 'N/A'
             </div>
             <div>
               <h3>Pending Approvals</h3>
-              <div class="stat-value" id="adminPendingCount">0</div>
+              <div class="stat-value" id="adminPendingCount"><?= $canApproveRegistrations ? '0' : 'N/A' ?></div>
               <p>User registrations</p>
             </div>
           </a>
@@ -103,6 +104,7 @@ $blockedDisplay = $canViewUsers ? number_format($stats['blocked_users']) : 'N/A'
 
   <script src="../../js/admin/admin.js"></script>
   <script src="../../js/admin/dashboard.js"></script>
+  <?php if ($canApproveRegistrations): ?>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       fetch('../../php/auth/index.php?action=getDashboardCounts')
@@ -118,6 +120,7 @@ $blockedDisplay = $canViewUsers ? number_format($stats['blocked_users']) : 'N/A'
         .catch((err) => console.error('Failed to load dashboard counts:', err));
     });
   </script>
+  <?php endif; ?>
 </body>
 
 </html>
