@@ -8,6 +8,7 @@ let forgotPasswordInput,
   strengthMessage,
   passwordSuccess,
   submitButton;
+let passwordResetToken = "";
 
 function nextStepForgot(step) {
   const current = document.querySelector(`.step-${step}`);
@@ -27,7 +28,7 @@ function nextStepForgot(step) {
     const email = emailInput.value.trim();
     if (!email) {
       if (emailError) {
-        emailError.textContent = "Please enter your email address";
+        emailError.textContent = "Please enter your registered email address.";
         emailError.style.visibility = "visible";
       }
       updateForgotStepIndicators(1);
@@ -52,30 +53,16 @@ function nextStepForgot(step) {
 
         if (data.success) {
           window.userData = data.user;
-          window.userQuestions = data.questions;
-
-          document.getElementById("displayEmail").textContent =
-            data.user.email;
-          document.getElementById("displayUsername").textContent =
-            data.user.username;
-
-          if (data.questions && data.questions.length === 3) {
-            document.getElementById("question1Label").textContent =
-              data.questions[0].question_text;
-            document.getElementById("question2Label").textContent =
-              data.questions[1].question_text;
-            document.getElementById("question3Label").textContent =
-              data.questions[2].question_text;
-          }
 
           if (emailError) {
             emailError.textContent = "";
             emailError.style.visibility = "hidden";
           }
+          const otpStep = document.querySelector(".forgot-password .step-3");
           current.classList.remove("active");
-          next.classList.add("active");
-          updateForgotStepIndicators(2);
-          current.querySelector('[name="security_answer_1"]').focus();
+          otpStep.classList.add("active");
+          updateForgotStepIndicators(3);
+          sendForgotOtp();
         } else {
           if (emailError) {
             emailError.textContent = data.message || "Email not found.";
@@ -98,7 +85,7 @@ function nextStepForgot(step) {
     return;
   }
 
-  // Step 2: Verify security answers (at least 2 of 3), then send the OTP
+  // Legacy security-question handler retained for compatibility.
   if (step === 2) {
     const id_number = window.userData ? window.userData.id_number : "";
     const ans1 = current.querySelector('[name="security_answer_1"]').value.trim();
@@ -171,7 +158,7 @@ function nextStepForgot(step) {
           next.classList.add("active");
           updateForgotStepIndicators(3);
 
-          // Send the OTP automatically once the security questions pass
+          // Send the OTP when this legacy verification path is used.
           sendForgotOtp();
         } else {
           if (securityError) {
@@ -224,6 +211,7 @@ function nextStepForgot(step) {
         otpSetButtonLoading(verifyBtn, false, "", "Verify Code >");
 
         if (data.success) {
+          passwordResetToken = data.reset_token || "";
           if (otpError) {
             otpError.textContent = "";
             otpError.style.visibility = "hidden";
@@ -257,8 +245,9 @@ function nextStepForgot(step) {
   }
 }
 
-// Send the OTP for step 3 (called after security questions pass / on resend)
+// Send the OTP for the existing OTP step (called after email verification or resend).
 function sendForgotOtp() {
+  passwordResetToken = "";
   const email = window.userData ? window.userData.email : "";
   const otpError = document.getElementById("otpError");
   const sendBtn = document.querySelector(".step-3 .next-btn");
@@ -282,7 +271,7 @@ function sendForgotOtp() {
         document.getElementById("otpEmailDisplay").textContent =
           data.email || email;
         otpStartExpiryTimer(
-          data.expires_in || 300,
+          data.expires_in || 600,
           document.getElementById("forgotOtpExpiry")
         );
         otpStartResendTimer(
@@ -311,12 +300,13 @@ function sendForgotOtp() {
 
 function prevStepForgot(step) {
   const current = document.querySelector(`.step-${step}`);
-  const prev = document.querySelector(`.step-${step - 1}`);
+  const previousStep = step === 3 ? 1 : step - 1;
+  const prev = document.querySelector(`.step-${previousStep}`);
   current.classList.remove("active");
   prev.classList.add("active");
 
   // Update step indicators
-  updateForgotStepIndicators(step - 1);
+  updateForgotStepIndicators(previousStep);
 }
 
 // Update step indicators for forgot password form
@@ -334,8 +324,12 @@ function updateForgotStepIndicators(currentStep) {
     line.classList.remove("active");
   });
 
-  // Activate indicators based on current step
-  for (let i = 0; i < currentStep; i++) {
+  // The existing form keeps its original internal step class names, while the
+  // visible recovery flow is Email -> OTP -> Change Password.
+  const logicalStep = currentStep >= 4 ? 3 : currentStep >= 3 ? 2 : 1;
+
+  // Activate indicators based on the visible three-step flow.
+  for (let i = 0; i < logicalStep; i++) {
     if (numbers[i]) numbers[i].classList.add("active");
     if (i > 0 && lines[i - 1]) lines[i - 1].classList.add("active");
   }
@@ -442,8 +436,9 @@ document.addEventListener("DOMContentLoaded", function () {
               data.dev_otp
             );
             if (data.success) {
+              passwordResetToken = "";
               otpStartExpiryTimer(
-                data.expires_in || 300,
+                data.expires_in || 600,
                 document.getElementById("forgotOtpExpiry")
               );
               otpStartResendTimer(
@@ -856,6 +851,7 @@ form.addEventListener("submit", function (e) {
   otpPost("index.php?action=resetPassword", {
     new_password: new_password,
     confirm_password: confirm_password,
+    reset_token: passwordResetToken,
   })
     .then((data) => {
       if (data.success) {

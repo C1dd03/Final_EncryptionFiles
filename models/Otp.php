@@ -7,7 +7,7 @@ require_once __DIR__ . '/Mailer.php';
  *
  * - 6-digit numeric codes
  * - stored hashed (password_hash) in the `otp_codes` table
- * - expire after 5 minutes
+ * - expire after 10 minutes
  * - max 5 failed attempts, then the code is invalidated
  * - rate-limited: 60s resend cooldown, max 5 sends per email+purpose per 10 minutes
  */
@@ -15,7 +15,7 @@ require_once __DIR__ . '/Mailer.php';
 class Otp
 {
     public const PURPOSES      = ['register', 'login', 'forgot_password'];
-    public const CODE_LIFETIME = 300;   // seconds a code stays valid (5 min)
+    public const CODE_LIFETIME = 600;   // seconds a code stays valid (10 min)
     public const RESEND_COOLDOWN = 60;  // seconds between sends
     public const MAX_ATTEMPTS  = 5;     // failed attempts before invalidation
     public const MAX_SENDS     = 5;     // max sends per window
@@ -88,7 +88,7 @@ class Otp
             return ['success' => false, 'message' => 'Invalid OTP purpose.'];
         }
 
-        $this->purgeExpired($email, $purpose);
+        $this->cleanupOldCodes();
 
         // Rate limit: max sends within the window.
         $sentCount = $this->countRecentSends($email, $purpose);
@@ -118,18 +118,39 @@ class Otp
         $now  = date('Y-m-d H:i:s');
         $expiresAt = date('Y-m-d H:i:s', time() + self::CODE_LIFETIME);
 
-        $stmt = $this->conn->prepare(
-            "INSERT INTO otp_codes (email, id_number, purpose, code_hash, expires_at, sent_at)
-             VALUES (:email, :id_number, :purpose, :code_hash, :expires_at, :sent_at)"
-        );
-        $stmt->execute([
-            ':email'      => $email,
-            ':id_number'  => $idNumber,
-            ':purpose'    => $purpose,
-            ':code_hash'  => password_hash($code, PASSWORD_DEFAULT),
-            ':expires_at' => $expiresAt,
-            ':sent_at'    => $now
-        ]);
+        try {
+            $this->conn->beginTransaction();
+            $this->conn->prepare(
+                "UPDATE otp_codes
+                 SET used = 1, consumed_at = COALESCE(consumed_at, :consumed_at)
+                 WHERE email = :email AND purpose = :purpose AND used = 0"
+            )->execute([
+                ':consumed_at' => $now,
+                ':email' => $email,
+                ':purpose' => $purpose
+            ]);
+
+            $stmt = $this->conn->prepare(
+                "INSERT INTO otp_codes (email, id_number, purpose, code_hash, expires_at, sent_at)
+                 VALUES (:email, :id_number, :purpose, :code_hash, :expires_at, :sent_at)"
+            );
+            $stmt->execute([
+                ':email'      => $email,
+                ':id_number'  => $idNumber,
+                ':purpose'    => $purpose,
+                ':code_hash'  => password_hash($code, PASSWORD_DEFAULT),
+                ':expires_at' => $expiresAt,
+                ':sent_at'    => $now
+            ]);
+            $otpId = (int)$this->conn->lastInsertId();
+            $this->conn->commit();
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('Failed to create OTP: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Could not create the OTP. Please try again.'];
+        }
 
         $subject = 'Your ArgiConnect verification code';
         $body = $this->buildEmailBody($code, $purpose);
@@ -138,7 +159,8 @@ class Otp
         $devOtp = null;
 
         if (!$result['sent']) {
-            $isDev = ($this->mailerConfig('app_env') ?? 'dev') === 'dev';
+            $environment = strtolower((string)($this->mailerConfig('app_env') ?? 'production'));
+            $isDev = in_array($environment, ['dev', 'development'], true);
             if ($result['logged'] && $isDev && $this->mailerConfig('dev_show_otp')) {
                 // Keep the flow testable without a mail server.
                 return [
@@ -149,9 +171,12 @@ class Otp
                     'dev_otp'    => $code
                 ];
             }
+            // A code that was neither delivered nor explicitly exposed in a
+            // development environment must never remain valid.
+            $this->invalidate($otpId);
             return [
                 'success' => false,
-                'message' => 'Could not send the verification email. Please check the SMTP settings in config/mail.php and try again.',
+                'message' => 'Could not send the verification email. Please verify the private SMTP configuration and try again.',
                 'cooldown' => self::RESEND_COOLDOWN
             ];
         }
@@ -179,53 +204,82 @@ class Otp
             return ['success' => false, 'message' => 'Please enter the 6-digit code.'];
         }
 
-        $stmt = $this->conn->prepare(
-            "SELECT * FROM otp_codes
-             WHERE email = :email AND purpose = :purpose AND used = 0 AND expires_at > NOW()
-             ORDER BY id DESC LIMIT 1"
-        );
-        $stmt->execute([':email' => $email, ':purpose' => $purpose]);
-        $record = $stmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            $this->conn->beginTransaction();
+            $stmt = $this->conn->prepare(
+                "SELECT * FROM otp_codes
+                 WHERE email = :email AND purpose = :purpose
+                 ORDER BY id DESC LIMIT 1 FOR UPDATE"
+            );
+            $stmt->execute([':email' => $email, ':purpose' => $purpose]);
+            $record = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$record) {
-            return ['success' => false, 'message' => 'The code has expired. Please request a new one.'];
-        }
-
-        if ((int)$record['attempts'] >= self::MAX_ATTEMPTS) {
-            $this->invalidate($record['id']);
-            return ['success' => false, 'message' => 'Too many incorrect attempts. Please request a new code.'];
-        }
-
-        if (!password_verify($code, $record['code_hash'])) {
-            $newAttempts = (int)$record['attempts'] + 1;
-            if ($newAttempts >= self::MAX_ATTEMPTS) {
-                $this->invalidate($record['id']);
-                return ['success' => false, 'message' => 'Too many incorrect attempts. Please request a new code.'];
+            if (!$record) {
+                $this->conn->rollBack();
+                return ['success' => false, 'message' => 'OTP has expired. Please request a new one.'];
             }
-            $this->conn->prepare("UPDATE otp_codes SET attempts = :attempts WHERE id = :id")
-                ->execute([':attempts' => $newAttempts, ':id' => $record['id']]);
-            $remaining = self::MAX_ATTEMPTS - $newAttempts;
-            return [
-                'success' => false,
-                'message' => 'Incorrect code. ' . $remaining . ' attempt(s) remaining.'
-            ];
+
+            if ((int)$record['attempts'] >= self::MAX_ATTEMPTS) {
+                $this->conn->prepare("UPDATE otp_codes SET used = 1 WHERE id = :id")
+                    ->execute([':id' => $record['id']]);
+                $this->conn->commit();
+                return ['success' => false, 'message' => 'Too many incorrect attempts. Please request a new OTP.'];
+            }
+
+            if ((int)$record['used'] === 1 || strtotime($record['expires_at']) <= time()) {
+                if ((int)$record['used'] === 0) {
+                    $this->conn->prepare("UPDATE otp_codes SET used = 1 WHERE id = :id")
+                        ->execute([':id' => $record['id']]);
+                }
+                $this->conn->commit();
+                return ['success' => false, 'message' => 'OTP has expired. Please request a new one.'];
+            }
+
+            if (!password_verify($code, $record['code_hash'])) {
+                $newAttempts = (int)$record['attempts'] + 1;
+                $locked = $newAttempts >= self::MAX_ATTEMPTS;
+                $this->conn->prepare(
+                    "UPDATE otp_codes SET attempts = :attempts, used = :used WHERE id = :id"
+                )->execute([
+                    ':attempts' => $newAttempts,
+                    ':used' => $locked ? 1 : 0,
+                    ':id' => $record['id']
+                ]);
+                $this->conn->commit();
+
+                return $locked
+                    ? ['success' => false, 'message' => 'Too many incorrect attempts. Please request a new OTP.']
+                    : ['success' => false, 'message' => 'Invalid OTP. Please try again.'];
+            }
+
+            $consumedAt = date('Y-m-d H:i:s');
+            $this->conn->prepare(
+                "UPDATE otp_codes SET used = 1, consumed_at = :consumed_at WHERE id = :id"
+            )->execute([':consumed_at' => $consumedAt, ':id' => $record['id']]);
+            $this->conn->prepare(
+                "UPDATE otp_codes SET used = 1, consumed_at = COALESCE(consumed_at, :consumed_at)
+                 WHERE email = :email AND purpose = :purpose AND used = 0"
+            )->execute([
+                ':consumed_at' => $consumedAt,
+                ':email' => $email,
+                ':purpose' => $purpose
+            ]);
+            $this->conn->commit();
+
+            return ['success' => true, 'message' => 'OTP verified successfully.'];
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('Failed to verify OTP: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Unable to verify the OTP. Please try again.'];
         }
-
-        // Success: mark used, consume, and invalidate any other live codes for this email+purpose.
-        $this->conn->prepare(
-            "UPDATE otp_codes SET used = 1, consumed_at = :consumed_at WHERE id = :id"
-        )->execute([':consumed_at' => date('Y-m-d H:i:s'), ':id' => $record['id']]);
-        $this->conn->prepare(
-            "UPDATE otp_codes SET used = 1 WHERE email = :email AND purpose = :purpose AND used = 0"
-        )->execute([':email' => $email, ':purpose' => $purpose]);
-
-        return ['success' => true, 'message' => 'Code verified successfully.'];
     }
 
     /**
      * Send a fresh code for an existing flow, respecting the resend cooldown.
      */
-    public function resend(string $email, string $purpose): array
+    public function resend(string $email, string $purpose, ?string $idNumber = null): array
     {
         $email = strtolower(trim($email));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -244,21 +298,17 @@ class Otp
             }
         }
 
-        // The previous code is now useless.
-        $this->conn->prepare(
-            "UPDATE otp_codes SET used = 1 WHERE email = :email AND purpose = :purpose AND used = 0"
-        )->execute([':email' => $email, ':purpose' => $purpose]);
-
-        return $this->issue($email, null, $purpose);
+        return $this->issue($email, $idNumber, $purpose);
     }
 
     /* ---------------------------------- helpers ---------------------------------- */
 
-    private function purgeExpired(string $email, string $purpose): void
+    private function cleanupOldCodes(): void
     {
-        $this->conn->prepare(
-            "DELETE FROM otp_codes WHERE email = :email AND purpose = :purpose AND (expires_at <= NOW() OR used = 1)"
-        )->execute([':email' => $email, ':purpose' => $purpose]);
+        // Keep recent used and expired codes for resend-rate accounting.
+        $this->conn->exec(
+            "DELETE FROM otp_codes WHERE created_at < DATE_SUB(NOW(), INTERVAL 1 DAY)"
+        );
     }
 
     private function countRecentSends(string $email, string $purpose): int
@@ -277,6 +327,7 @@ class Otp
         $stmt = $this->conn->prepare(
             "SELECT sent_at FROM otp_codes
              WHERE email = :email AND purpose = :purpose
+               AND sent_at >= DATE_SUB(NOW(), INTERVAL " . self::SEND_WINDOW . " SECOND)
              ORDER BY sent_at ASC LIMIT 1"
         );
         $stmt->execute([':email' => $email, ':purpose' => $purpose]);
@@ -336,7 +387,7 @@ class Otp
             <h2 style=\"color:#16a34a;margin:0 0 8px;\">ArgiConnect</h2>
             <p style=\"color:#374151;font-size:14px;\">Hello! Use the code below to {$label}:</p>
             <p style=\"font-size:32px;font-weight:bold;letter-spacing:8px;color:#111827;text-align:center;margin:24px 0;padding:12px;background:#f3f4f6;border-radius:6px;\">{$code}</p>
-            <p style=\"color:#6b7280;font-size:12px;\">This code expires in 5 minutes. If you did not request it, you can safely ignore this email.</p>
+            <p style=\"color:#6b7280;font-size:12px;\">This code expires in 10 minutes and can only be used once. If you did not request it, you can safely ignore this email.</p>
         </div>";
     }
 }

@@ -1,0 +1,3 @@
+/vendor/
+/logs/otp.log
+/config/smtp.local.php

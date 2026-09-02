@@ -1,30 +1,46 @@
 <?php
 
 /**
- * SMTP configuration for the OTP mailer (models/Mailer.php).
+ * SMTP configuration for PHPMailer.
  *
- * Paste your SMTP credentials here (Mailtrap or Gmail App Password):
- *
- *  - Mailtrap (dev inbox):   host = sandbox.smtp.mailtrap.io, port = 587,
- *                            username/password from your Mailtrap inbox page,
- *                            encryption = 'tls'
- *  - Gmail App Password:     host = smtp.gmail.com, port = 587, encryption = 'tls',
- *                            username = your Gmail address,
- *                            password = the 16-char App Password (enable 2FA first),
- *                            from_email = the same Gmail address
- *
- * While 'host' is empty, no real email is sent: the OTP is written to
- * logs/otp.log and (when 'dev_show_otp' is true) shown on screen so the
- * full flow can be tested without a mail server.
+ * Keep credentials outside source control. For XAMPP/Apache, define these
+ * with SetEnv directives in Apache's httpd-vhosts.conf (or as Windows
+ * environment variables), then restart Apache.
  */
+$localConfigFile = __DIR__ . '/smtp.local.php';
+$localConfig = is_file($localConfigFile) ? require $localConfigFile : [];
+if (!is_array($localConfig)) {
+    $localConfig = [];
+}
+
+$env = static function (string $key, $default = '') use ($localConfig) {
+    $value = getenv($key);
+    if ($value === false && array_key_exists($key, $_ENV)) {
+        $value = $_ENV[$key];
+    }
+    if ($value === false && array_key_exists($key, $_SERVER)) {
+        $value = $_SERVER[$key];
+    }
+    if (($value === false || $value === '') && array_key_exists($key, $localConfig)) {
+        $value = $localConfig[$key];
+    }
+    return $value === false || $value === '' ? $default : $value;
+};
+
+$envBool = static function (string $key, bool $default = false) use ($env): bool {
+    return filter_var($env($key, $default ? 'true' : 'false'), FILTER_VALIDATE_BOOL);
+};
+
 return [
-    'host'         => 'smtp.gmail.com',        // e.g. 'smtp.gmail.com' or 'sandbox.smtp.mailtrap.io'
-    'port'         => 587,       // 587 for STARTTLS, 2525 for Mailtrap plain
-    'username'     => 'jerwil.umpad4456@gmail.com',        // SMTP username (usually the email address)
-    'password'     => 'tqpc norg lbae nuyc',        // SMTP password / app password
-    'encryption'   => 'tls',     // 'tls' (STARTTLS) or 'none'
-    'from_email'   => 'jerwil.umpad4456@gmail.com',
-    'from_name'    => 'ArgiConnect',
-    'app_env'      => 'dev',     // 'dev' or 'production'
-    'dev_show_otp' => true,      // dev only: reveal the OTP in the UI when sending is unavailable
+    'host'         => $env('SMTP_HOST'),
+    'port'         => (int)$env('SMTP_PORT', '587'),
+    'username'     => $env('SMTP_USERNAME'),
+    'password'     => $env('SMTP_PASSWORD'),
+    'encryption'   => $env('SMTP_ENCRYPTION', 'tls'),
+    'from_email'   => $env('SMTP_FROM_EMAIL'),
+    'from_name'    => $env('SMTP_FROM_NAME', 'ArgiConnect'),
+    'timeout'      => (int)$env('SMTP_TIMEOUT', '15'),
+    'app_env'      => $env('APP_ENV', 'production'),
+    'dev_log_otp'  => $envBool('OTP_DEV_LOG', false),
+    'dev_show_otp' => $envBool('OTP_DEV_SHOW', false),
 ];

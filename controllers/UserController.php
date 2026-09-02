@@ -694,7 +694,11 @@ class UserController
         }
 
         $email = strtolower(trim($_POST['email'] ?? ''));
-        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if ($email === '') {
+            echo json_encode(['success' => false, 'message' => 'Please enter your registered email address.']);
+            exit;
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             echo json_encode(['success' => false, 'message' => 'Please enter a valid email address.']);
             exit;
         }
@@ -709,20 +713,6 @@ class UserController
             echo json_encode(['success' => false, 'message' => ($user['status'] ?? '') === 'inactive' ? 'This account is inactive.' : 'This account cannot reset its password at this time.']);
             exit;
         }
-
-        $questions = $this->userModel->getUserAuthAnswers($user['id_number']);
-        if (empty($questions)) {
-            echo json_encode(['success' => false, 'message' => 'No security questions are set for this account.']);
-            exit;
-        }
-
-        // Never send the answer hashes to the browser — only the question text.
-        $safeQuestions = array_map(function ($q) {
-            return [
-                'question_id'   => $q['question_id'],
-                'question_text' => $q['question_text']
-            ];
-        }, $questions);
 
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
@@ -739,8 +729,7 @@ class UserController
                 'email'    => $email,
                 'username' => $user['username'],
                 'id_number' => $user['id_number']
-            ],
-            'questions' => $safeQuestions
+            ]
         ]);
         exit;
     }
@@ -756,7 +745,11 @@ class UserController
         }
 
         $email = strtolower(trim($_POST['email'] ?? ''));
-        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if ($email === '') {
+            echo json_encode(['success' => false, 'message' => 'Please enter your registered email address.']);
+            exit;
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             echo json_encode(['success' => false, 'message' => 'Please enter a valid email address.']);
             exit;
         }
@@ -785,7 +778,8 @@ class UserController
         $_SESSION['otp_pending'] = [
             'purpose'   => 'forgot_password',
             'email'     => $email,
-            'id_number' => $user['id_number']
+            'id_number' => $user['id_number'],
+            'issued_at' => time()
         ];
 
         echo json_encode([
@@ -825,8 +819,15 @@ class UserController
             exit;
         }
 
+        session_regenerate_id(true);
         $_SESSION['otp_pending']['verified'] = true;
-        echo json_encode(['success' => true, 'message' => 'Code verified! You can now set a new password.']);
+        $_SESSION['otp_pending']['verified_at'] = time();
+        $_SESSION['otp_pending']['reset_token'] = bin2hex(random_bytes(32));
+        echo json_encode([
+            'success' => true,
+            'message' => 'OTP verified! You can now set a new password.',
+            'reset_token' => $_SESSION['otp_pending']['reset_token']
+        ]);
         exit;
     }
 
@@ -890,7 +891,15 @@ class UserController
         }
 
         $otp = new Otp();
-        $issue = $otp->resend($pending['email'], $pending['purpose']);
+        $issue = $otp->resend($pending['email'], $pending['purpose'], $pending['id_number'] ?? null);
+        if ($issue['success']) {
+            unset(
+                $_SESSION['otp_pending']['verified'],
+                $_SESSION['otp_pending']['verified_at'],
+                $_SESSION['otp_pending']['reset_token']
+            );
+            $_SESSION['otp_pending']['issued_at'] = time();
+        }
         echo json_encode([
             'success'    => $issue['success'],
             'message'    => $issue['message'],
@@ -1069,11 +1078,28 @@ class UserController
     {
         header('Content-Type: application/json; charset=utf-8');
 
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            return;
+        }
+
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
         $pending = $_SESSION['otp_pending'] ?? null;
-        if (!$pending || ($pending['purpose'] ?? '') !== 'forgot_password' || empty($pending['verified'])) {
+        $verifiedAt = (int)($pending['verified_at'] ?? 0);
+        $submittedToken = (string)($_POST['reset_token'] ?? '');
+        $sessionToken = (string)($pending['reset_token'] ?? '');
+        if (
+            !$pending ||
+            ($pending['purpose'] ?? '') !== 'forgot_password' ||
+            empty($pending['verified']) ||
+            $verifiedAt <= 0 ||
+            (time() - $verifiedAt) > Otp::CODE_LIFETIME ||
+            $submittedToken === '' ||
+            $sessionToken === '' ||
+            !hash_equals($sessionToken, $submittedToken)
+        ) {
             echo json_encode(['success' => false, 'message' => 'OTP verification required. Please start the password reset again.']);
             return;
         }
@@ -1081,6 +1107,18 @@ class UserController
         $id_number = $pending['id_number'];
         $new_password = $_POST['new_password'] ?? '';
         $confirm_password = $_POST['confirm_password'] ?? '';
+
+        $user = $this->userModel->findById($id_number);
+        if (!$user || strtolower((string)($user['email'] ?? '')) !== strtolower((string)$pending['email'])) {
+            unset($_SESSION['otp_pending']);
+            echo json_encode(['success' => false, 'message' => 'Password reset session is no longer valid.']);
+            return;
+        }
+
+        if ($new_password === '' || $confirm_password === '') {
+            echo json_encode(['success' => false, 'message' => 'New Password and Confirm Password are required.']);
+            return;
+        }
 
         if ($new_password !== $confirm_password) {
             echo json_encode(['success' => false, 'message' => 'Passwords do not match']);
@@ -1119,7 +1157,7 @@ class UserController
             return;
         }
 
-        $hashed = password_hash($new_password, PASSWORD_BCRYPT);
+        $hashed = password_hash($new_password, PASSWORD_DEFAULT);
         if ($this->userModel->updatePassword($id_number, $hashed)) {
             unset($_SESSION['otp_pending']);
             echo json_encode(['success' => true, 'message' => 'Your password has been successfully changed!']);

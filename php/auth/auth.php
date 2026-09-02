@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pick&Match | Ecommerce Website Design</title>
-  <link rel="stylesheet" href="../../css/styles1.css" />
+  <link rel="stylesheet" href="../../css/styles1.css?v=20260902-responsive" />
   <!-- <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" /> -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -56,7 +56,7 @@
         <div class="column">
           <input type="checkbox" id="toggle" hidden />
           <input type="checkbox" id="toggle-Changepassword" hidden />
-          <div class="form-container">
+          <div class="form-container<?php echo !empty($showSuccessModal) ? ' registration-success-container' : ''; ?>">
             <?php
             // Ensure $formView is defined and the target view exists to avoid undefined variable notices.
             $formView = isset($formView) ? $formView : 'login.php';
@@ -96,10 +96,10 @@
   </div>
 
   <script src="../../js/reset-form.js"></script>
-  <script src="../../js/forgot_password.js"></script>
+  <script src="../../js/forgot_password.js?v=20260902-otp"></script>
   <script src="../../js/validation.js"></script>
-  <script src="../../js/login-incorrect-atmp.js"></script>
-  <script src="../../js/otp-common.js"></script>
+  <script src="../../js/login-incorrect-atmp.js?v=20260902-otp"></script>
+  <script src="../../js/otp-common.js?v=20260902-otp"></script>
 
 
   <!---------------------------- Added restrict js code --->

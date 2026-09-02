@@ -1,4 +1,4 @@
-<!------------------------------- ADD STEP 1, 2, 3, 4 for forgot password -------------------------------------->
+<!------------------------------- Existing forgot-password recovery flow -------------------------------------->
 <form class="forgot-password" id="forgotForm">
     <h2 class="text-xl font-semibold mb-4 text-center">Forgot Password</h2>
     <div class="forgot-pass" style="display: flex; justify-content: space-around; align-items: center;">
@@ -8,15 +8,11 @@
         <div class=number>2</div>
         <div class=line></div>
         <div class=number>3</div>
-        <div class=line></div>
-        <div class=number>4</div>
         <div class=line2></div>
     </div>
     <div class="title-container-forgot-pass" style="display: flex; justify-content:space-between; align-items: center;padding:0px 12px 0px 12px">
 
         <div class=title>Email Verification</div>
-        <div class=line></div>
-        <div class=title>Security Questions</div>
         <div class=line></div>
         <div class=title>OTP Code</div>
         <div class=line></div>
@@ -36,7 +32,8 @@
         </div>
     </div>
 
-    <!-- Step 2: Security Questions -->
+    <!-- Legacy security-question component retained for compatibility; the
+         standard recovery flow now proceeds directly from email to OTP. -->
     <div class="step step-2">
         <div style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center;">
             <p style="margin: 0; color: #555; font-size: 13px;">Email: <strong id="displayEmail"></strong></p>

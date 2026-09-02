@@ -403,7 +403,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (loginForm) loginForm.style.display = "none";
     if (otpStep) otpStep.style.display = "block";
     if (otpInput) otpInput.focus();
-    otpTimers.push(otpStartExpiryTimer(data.expires_in || 300, otpExpiryEl));
+    otpTimers.push(otpStartExpiryTimer(data.expires_in || 600, otpExpiryEl));
     otpTimers.push(
       otpStartResendTimer(data.cooldown || 60, otpResendLink, otpResendTimerEl)
     );
@@ -464,7 +464,7 @@ document.addEventListener("DOMContentLoaded", function () {
         otpShowDevBanner(otpDevBanner, data.dev_otp);
         if (data.success) {
           setOtpMessage(data.message || "A new code has been sent.");
-          otpTimers.push(otpStartExpiryTimer(data.expires_in || 300, otpExpiryEl));
+          otpTimers.push(otpStartExpiryTimer(data.expires_in || 600, otpExpiryEl));
           otpTimers.push(
             otpStartResendTimer(data.cooldown || 60, otpResendLink, otpResendTimerEl)
           );

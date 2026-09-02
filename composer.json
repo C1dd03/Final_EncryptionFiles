@@ -1,0 +1,9 @@
+{
+    "name": "local/argiconnect",
+    "description": "ArgiConnect local XAMPP application",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "phpmailer/phpmailer": "^6.9"
+    }
+}

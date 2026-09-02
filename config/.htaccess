@@ -1,0 +1,2 @@
+# SMTP and database configuration must never be served by Apache.
+Require all denied
