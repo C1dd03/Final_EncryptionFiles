@@ -377,6 +377,7 @@ require_once __DIR__ . '/../auth/session_protect.php';
                 <button type="submit">Search</button>
             </form>
             <div class="actions">
+                <a class="action-icon" href="../home/personal_details.php" style="color:var(--primary); font-weight:600;"><i class="bi bi-person-vcard"></i> Personal Details</a>
                 <a class="action-icon" href="javascript:void(0)" onclick="openUserLogsModal()" style="color:var(--primary); font-weight:600;"><i class="bi bi-clock-history"></i> My Activity Logs</a>
                 <span class="action-icon"><i class="bi bi-cart3"></i> Cart</span>
                 <span class="action-icon"><i class="bi bi-bell"></i> Alerts</span>

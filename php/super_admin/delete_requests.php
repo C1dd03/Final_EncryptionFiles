@@ -341,6 +341,11 @@ $activePage = 'delete_requests';
       <h3 id="confirmModalTitle" style="font-size:18px; font-weight:700; color:#1e293b; margin:0 0 10px 0;"></h3>
       <p id="confirmModalMsg" style="font-size:14px; color:#475569; margin:0 0 16px 0;"></p>
 
+      <div id="deleteApprovalPasswordGroup" style="display:none;margin-bottom:16px;">
+        <label for="deleteApprovalPassword" style="display:block;font-size:13px;font-weight:600;color:#334155;margin-bottom:4px;">Your Current Password:</label>
+        <input type="password" id="deleteApprovalPassword" autocomplete="current-password" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:9px;" />
+      </div>
+
       <div id="rejectNotesGroup" style="display:none; margin-bottom:16px;">
         <label for="rejectNotesInput" style="display:block; font-size:13px; font-weight:600; color:#334155; margin-bottom:4px;">Rejection Notes / Reason:</label>
         <textarea id="rejectNotesInput" rows="3" style="width:100%; border:1px solid #cbd5e1; border-radius:6px; padding:8px; font-size:13px;" placeholder="Enter note explaining why deletion was rejected..."></textarea>

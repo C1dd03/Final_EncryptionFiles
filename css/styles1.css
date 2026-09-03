@@ -143,6 +143,14 @@ p {
   width: 380px;
 }
 
+/* Keep container tall enough for the required-password modal instead of collapsing */
+.form-container.required-password-container,
+.form-container:has(.required-password-modal.active) {
+  width: min(440px, calc(100vw - 32px));
+  min-height: 570px;
+  height: auto;
+}
+
 /* Login, Register, Forgot Forms */
 .login-form,
 .register-form,
@@ -1292,6 +1300,22 @@ ul {
 
 .title-container-forgot-pass {
   margin-bottom: 5px;
+  gap: 3px;
+  padding: 0 !important;
+}
+
+.title-container-forgot-pass .title {
+  flex: 1 1 0;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.forgot-account-summary {
+  background: #f5f5f5;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  text-align: center;
 }
 
 .forgot-pass .line:not(.active) {
@@ -1300,7 +1324,33 @@ ul {
 }
 
 .forgot-pass .line {
-  width: 100px;
+  width: auto;
+  min-width: 18px;
+  flex: 1 1 36px;
   background-color: var(--farm-card-1);
+}
+
+@media (max-width: 480px) {
+  .form-container:has(.forgot-password) {
+    width: min(410px, calc(100vw - 20px));
+    padding: 20px 14px;
+  }
+
+  .form-container.required-password-container,
+  .form-container:has(.required-password-modal.active) {
+    width: min(410px, calc(100vw - 20px));
+    min-height: 540px;
+  }
+
+  .forgot-pass .number {
+    width: 26px;
+    height: 26px;
+    flex: 0 0 26px;
+    font-size: 12px;
+  }
+
+  .title-container-forgot-pass .title {
+    font-size: 8px;
+  }
 }
 

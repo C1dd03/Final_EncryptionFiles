@@ -40,6 +40,12 @@ class AdminController
             exit;
         }
 
+        if (!empty($authState['must_change_password'])) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'message' => 'Change the default password before accessing the portal.', 'passwordChangeRequired' => true]);
+            exit;
+        }
+
         if ((int)($_SESSION['session_version'] ?? 0) !== (int)$authState['session_version']) {
             session_unset();
             session_destroy();
@@ -69,6 +75,15 @@ class AdminController
         if (!$this->userModel->hasAdminPrivilege($idNumber, $privilegeKey)) {
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode(['success' => false, 'message' => 'You do not have the required privilege (' . $privilegeKey . ') to perform this action.']);
+            exit;
+        }
+    }
+
+    private function requireActorPassword(array $authState): void
+    {
+        if (!$this->userModel->verifyAccountPassword($authState['id_number'], (string)($_POST['operator_password'] ?? ''))) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'message' => 'Your current password is incorrect. The action was cancelled.', 'passwordInvalid' => true]);
             exit;
         }
     }
@@ -438,6 +453,7 @@ class AdminController
             echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
             exit;
         }
+        $this->requireActorPassword($authState);
 
         $id_number = trim($_POST['id_number'] ?? '');
         $firstName = trim($_POST['first_name'] ?? '');
@@ -647,6 +663,7 @@ class AdminController
         $authState = $this->requireAdmin();
         $this->requirePrivilege('block_users', $authState['id_number']);
         header('Content-Type: application/json; charset=utf-8');
+        $this->requireActorPassword($authState);
 
         $id_number  = trim($_POST['id_number'] ?? '');
         $new_status = trim($_POST['status'] ?? '');
@@ -655,6 +672,15 @@ class AdminController
 
         if (empty($id_number) || !in_array($new_status, ['active', 'blocked', 'block'], true)) {
             echo json_encode(['success' => false, 'message' => 'Invalid parameters provided.']);
+            exit;
+        }
+        $target = $this->userModel->getManagedAccountById($id_number);
+        if (!$target || strtolower($target['role']) !== 'user') {
+            echo json_encode(['success' => false, 'message' => 'Admins may block or unblock User accounts only.']);
+            exit;
+        }
+        if (in_array($new_status, ['blocked', 'block'], true) && $reason === '') {
+            echo json_encode(['success' => false, 'message' => 'A reason is required when blocking an account.']);
             exit;
         }
 
@@ -678,12 +704,18 @@ class AdminController
             echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
             exit;
         }
+        $this->requireActorPassword($authState);
 
         $id_number = trim($_POST['id_number'] ?? '');
         $reason    = trim($_POST['reason'] ?? '');
 
         if (empty($id_number)) {
             echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
+            exit;
+        }
+        $target = $this->userModel->getManagedAccountById($id_number);
+        if (!$target || strtolower($target['role']) !== 'user') {
+            echo json_encode(['success' => false, 'message' => 'Admins may delete User accounts only.']);
             exit;
         }
 

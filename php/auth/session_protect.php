@@ -53,4 +53,11 @@ if ((int)($_SESSION['session_version'] ?? 0) !== (int)$authState['session_versio
 // 3. Refresh the live role and username from the database
 $_SESSION['role'] = $authState['role'];
 $_SESSION['username'] = $authState['username'];
+
+// Administrator-created accounts cannot enter any portal until the default
+// password has been replaced. The login page presents the required modal.
+if (!empty($authState['must_change_password'])) {
+    header("Location: ../auth/index.php?action=login&force_password_change=1");
+    exit();
+}
 ?>

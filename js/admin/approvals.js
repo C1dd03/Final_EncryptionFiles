@@ -20,6 +20,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const confirmModalMsg = document.getElementById("confirmModalMsg");
   const rejectReasonGroup = document.getElementById("rejectReasonGroup");
   const rejectReasonInput = document.getElementById("rejectReasonInput");
+  const approvalPasswordGroup = document.getElementById("approvalPasswordGroup");
+  const approvalOperatorPassword = document.getElementById("approvalOperatorPassword");
   const confirmModalSubmitBtn = document.getElementById("confirmModalSubmitBtn");
 
   let currentPage = 1;
@@ -272,8 +274,10 @@ document.addEventListener("DOMContentLoaded", function () {
       name
     )}</strong> (ID: ${escapeHtml(idNumber)})? The account will be activated immediately.`;
     rejectReasonGroup.style.display = "none";
+    approvalPasswordGroup.style.display = "none";
+    approvalOperatorPassword.value = "";
     confirmModalSubmitBtn.style.background = "#10b981";
-    confirmModalSubmitBtn.textContent = "Approve & Activate";
+    confirmModalSubmitBtn.textContent = "Yes, Continue";
     confirmModal.style.display = "flex";
   };
 
@@ -284,6 +288,7 @@ document.addEventListener("DOMContentLoaded", function () {
       name
     )}</strong> (ID: ${escapeHtml(idNumber)})? This will mark the registration as rejected.`;
     rejectReasonGroup.style.display = "block";
+    approvalPasswordGroup.style.display = "none";
     rejectReasonInput.value = "";
     confirmModalSubmitBtn.style.background = "#ef4444";
     confirmModalSubmitBtn.textContent = "Reject Registration";
@@ -299,11 +304,23 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!pendingAction) return;
 
     if (pendingAction.action === "approve") {
+      if (approvalPasswordGroup.style.display === "none") {
+        approvalPasswordGroup.style.display = "block";
+        confirmModalSubmitBtn.textContent = "Verify & Approve";
+        approvalOperatorPassword.focus();
+        return;
+      }
+      if (!approvalOperatorPassword.value) {
+        alert("Enter your current password to approve this account.");
+        approvalOperatorPassword.focus();
+        return;
+      }
       confirmModalSubmitBtn.disabled = true;
       confirmModalSubmitBtn.textContent = "Approving...";
 
       const formData = new FormData();
       formData.append("id_number", pendingAction.id_number);
+      formData.append("operator_password", approvalOperatorPassword.value);
 
       fetch("../../php/auth/index.php?action=approveRegistration", {
         method: "POST",

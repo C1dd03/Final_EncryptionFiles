@@ -20,7 +20,7 @@
     <div class="profile-dropdown">
       <button class="profile-menu-btn" type="button" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-chevron-down"></i></button>
       <div class="profile-menu">
-        <a href="#">Profile</a>
+        <a href="personal_details.php">Personal Details</a>
         <a href="../../php/auth/logout.php">Logout</a>
       </div>
     </div>

@@ -27,6 +27,7 @@ $avatarInitials = strtoupper(substr($currentUsername, 0, 2));
         <i class="fa-solid fa-chevron-down"></i>
       </button>
       <div class="profile-menu">
+        <a href="personal_details.php">Personal Details</a>
         <a href="../auth/logout.php">Logout</a>
       </div>
     </div>

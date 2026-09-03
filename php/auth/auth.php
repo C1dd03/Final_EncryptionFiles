@@ -56,7 +56,7 @@
         <div class="column">
           <input type="checkbox" id="toggle" hidden />
           <input type="checkbox" id="toggle-Changepassword" hidden />
-          <div class="form-container<?php echo !empty($showSuccessModal) ? ' registration-success-container' : ''; ?>">
+          <div class="form-container<?php echo !empty($showSuccessModal) ? ' registration-success-container' : ''; ?><?php echo (isset($_SESSION['user_id'], $_GET['force_password_change']) && $_GET['force_password_change'] === '1') ? ' required-password-container' : ''; ?>">
             <?php
             // Ensure $formView is defined and the target view exists to avoid undefined variable notices.
             $formView = isset($formView) ? $formView : 'login.php';

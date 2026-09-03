@@ -34,6 +34,13 @@ if ($username) {
         $auditId ? (int)$auditId : null,
         $details
     );
+
+    // Only one Super Admin is active. On logout, hand access to the oldest
+    // eligible blocked Super Admin and place this account at the back of the
+    // queue. The current account is blocked even if no successor is available.
+    if (strtolower((string)$role) === 'superadmin' && $userId) {
+        $userModel->rotateSuperAdminOnLogout((string)$userId, (string)$username);
+    }
 }
 
 session_unset();

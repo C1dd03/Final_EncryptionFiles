@@ -34,18 +34,16 @@
         <span class="nav-label">Dashboard</span>
       </a>
 
-      <a href="manage_admins.php" class="nav-link <?= $activePage === 'manage_admins' ? 'active' : '' ?>">
-        <span class="nav-icon">
-          <i class="fa-solid fa-user-shield"></i>
-        </span>
-        <span class="nav-label">Manage Admins</span>
-      </a>
-
-      <a href="manage_users.php" class="nav-link <?= $activePage === 'manage_users' ? 'active' : '' ?>">
+      <a href="manage_users.php" class="nav-link <?= $activePage === 'account_management' ? 'active' : '' ?>">
         <span class="nav-icon">
           <i class="fa-solid fa-users"></i>
         </span>
-        <span class="nav-label">Manage Users</span>
+        <span class="nav-label">Account Management</span>
+      </a>
+
+      <a href="personal_details.php" class="nav-link <?= $activePage === 'personal_details' ? 'active' : '' ?>">
+        <span class="nav-icon"><i class="fa-solid fa-id-card"></i></span>
+        <span class="nav-label">Personal Details</span>
       </a>
 
       <a href="approvals.php" class="nav-link <?= $activePage === 'approvals' ? 'active' : '' ?>">

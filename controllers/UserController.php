@@ -15,6 +15,15 @@ class UserController
     // Show Login Page
     public function showLogin()
     {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $forcePasswordChange = isset($_SESSION['user_id'], $_GET['force_password_change'])
+            && $_GET['force_password_change'] === '1';
+        if (isset($_SESSION['user_id']) && !$forcePasswordChange) {
+            header('Location: index.php?action=dashboard');
+            exit();
+        }
         $page = 'login';               // ✅ define first
         $formView = "login.php";
         require __DIR__ . '/../php/auth/auth.php';
@@ -554,6 +563,7 @@ class UserController
             $_SESSION['user_id'] = $user['id_number'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = strtolower($user['role'] ?? 'user');
+            $_SESSION['email'] = $user['email'] ?? '';
             $_SESSION['session_version'] = (int)($user['session_version'] ?? 0);
 
             // Record Login Audit Log — always use Philippine local time
@@ -590,7 +600,11 @@ class UserController
                 $redirectUrl = '../admin/dashboard.php';
             }
 
-            echo json_encode(['success' => true, 'redirect' => $redirectUrl]);
+            echo json_encode([
+                'success' => true,
+                'redirect' => $redirectUrl,
+                'mustChangePassword' => !empty($user['must_change_password'])
+            ]);
             return;
         }
 
@@ -636,6 +650,7 @@ class UserController
         $_SESSION['user_id'] = $user['id_number'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['role'] = strtolower($user['role'] ?? 'user');
+        $_SESSION['email'] = $user['email'] ?? '';
         $_SESSION['session_version'] = (int)($user['session_version'] ?? 0);
 
         // Record Login Audit Log — always use Philippine local time
@@ -674,7 +689,11 @@ class UserController
 
         unset($_SESSION['otp_pending']);
 
-        echo json_encode(['success' => true, 'redirect' => $redirectUrl]);
+        echo json_encode([
+            'success' => true,
+            'redirect' => $redirectUrl,
+            'mustChangePassword' => !empty($user['must_change_password'])
+        ]);
         exit;
     }
 
@@ -683,7 +702,7 @@ class UserController
 
 
 
-    //========================================== Verify Forgot-Password Email =====================================
+    //========================================== Start Forgot-Password by ID =====================================
     public function verifyForgotEmail()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -693,19 +712,15 @@ class UserController
             exit;
         }
 
-        $email = strtolower(trim($_POST['email'] ?? ''));
-        if ($email === '') {
-            echo json_encode(['success' => false, 'message' => 'Please enter your registered email address.']);
-            exit;
-        }
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            echo json_encode(['success' => false, 'message' => 'Please enter a valid email address.']);
+        $idNumber = trim($_POST['id_number'] ?? '');
+        if ($idNumber === '') {
+            echo json_encode(['success' => false, 'message' => 'Please enter your registered ID Number.']);
             exit;
         }
 
-        $user = $this->userModel->findByEmail($email);
+        $user = $this->userModel->findById($idNumber);
         if (!$user) {
-            echo json_encode(['success' => false, 'message' => 'No account found with that email address.']);
+            echo json_encode(['success' => false, 'message' => 'The ID Number is not registered.']);
             exit;
         }
 
@@ -714,22 +729,51 @@ class UserController
             exit;
         }
 
+        $email = strtolower(trim((string)($user['email'] ?? '')));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['success' => false, 'message' => 'This account has no recovery email. Update Personal Details or contact an administrator.']);
+            exit;
+        }
+        $questions = $this->userModel->getUserAuthAnswers($user['id_number']);
+        if (!$questions) {
+            echo json_encode(['success' => false, 'message' => 'This account has no security question configured. Update Personal Details or contact an administrator.']);
+            exit;
+        }
+
+        $otp = new Otp();
+        $issue = $otp->issue($email, $user['id_number'], 'forgot_password');
+        if (!$issue['success']) {
+            echo json_encode(['success' => false, 'message' => $issue['message'], 'cooldown' => $issue['cooldown'] ?? null]);
+            exit;
+        }
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
+        session_regenerate_id(true);
         $_SESSION['otp_pending'] = [
             'purpose'   => 'forgot_password',
             'email'     => $email,
-            'id_number' => $user['id_number']
+            'id_number' => $user['id_number'],
+            'issued_at' => time(),
+            'otp_verified' => false,
+            'security_verified' => false,
+            'security_attempts' => 0,
+            'security_question_id' => null
         ];
 
+        $dash = strpos($user['id_number'], '-');
+        $maskedId = $dash === false
+            ? substr($user['id_number'], 0, min(2, strlen($user['id_number']))) . str_repeat('*', max(1, strlen($user['id_number']) - 2))
+            : substr($user['id_number'], 0, $dash + 1) . str_repeat('*', max(6, strlen($user['id_number']) - $dash - 1));
+
         echo json_encode([
-            'success'   => true,
-            'user'      => [
-                'email'    => $email,
-                'username' => $user['username'],
-                'id_number' => $user['id_number']
-            ]
+            'success' => true,
+            'message' => $issue['message'],
+            'masked_id' => $maskedId,
+            'masked_email' => $otp->maskEmail($email),
+            'expires_in' => $issue['expires_in'] ?? Otp::CODE_LIFETIME,
+            'cooldown' => $issue['cooldown'] ?? Otp::RESEND_COOLDOWN,
+            'dev_otp' => $issue['dev_otp'] ?? null
         ]);
         exit;
     }
@@ -744,48 +788,29 @@ class UserController
             exit;
         }
 
-        $email = strtolower(trim($_POST['email'] ?? ''));
-        if ($email === '') {
-            echo json_encode(['success' => false, 'message' => 'Please enter your registered email address.']);
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $pending = $_SESSION['otp_pending'] ?? null;
+        if (!$pending || ($pending['purpose'] ?? '') !== 'forgot_password' || empty($pending['email'])) {
+            echo json_encode(['success' => false, 'message' => 'Session expired. Please enter your ID Number again.']);
             exit;
         }
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            echo json_encode(['success' => false, 'message' => 'Please enter a valid email address.']);
-            exit;
-        }
-
-        $user = $this->userModel->findByEmail($email);
-        if (!$user) {
-            echo json_encode(['success' => false, 'message' => 'No account found with that email address.']);
-            exit;
-        }
-
-        if (!in_array(($user['status'] ?? ''), ['active', 'pending_deletion'], true)) {
-            echo json_encode(['success' => false, 'message' => ($user['status'] ?? '') === 'inactive' ? 'This account is inactive.' : 'This account cannot reset its password at this time.']);
-            exit;
-        }
-
         $otp = new Otp();
-        $issue = $otp->issue($email, $user['id_number'], 'forgot_password');
+        $issue = $otp->resend($pending['email'], 'forgot_password', $pending['id_number'] ?? null);
         if (!$issue['success']) {
             echo json_encode(['success' => false, 'message' => $issue['message'], 'cooldown' => $issue['cooldown'] ?? null]);
             exit;
         }
-
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        $_SESSION['otp_pending'] = [
-            'purpose'   => 'forgot_password',
-            'email'     => $email,
-            'id_number' => $user['id_number'],
-            'issued_at' => time()
-        ];
+        unset($_SESSION['otp_pending']['otp_verified'], $_SESSION['otp_pending']['otp_verified_at'],
+            $_SESSION['otp_pending']['security_verified'], $_SESSION['otp_pending']['security_verified_at'],
+            $_SESSION['otp_pending']['reset_token']);
+        $_SESSION['otp_pending']['issued_at'] = time();
 
         echo json_encode([
             'success'    => true,
             'message'    => $issue['message'],
-            'email'      => $otp->maskEmail($email),
+            'email'      => $otp->maskEmail($pending['email']),
             'expires_in' => $issue['expires_in'] ?? Otp::CODE_LIFETIME,
             'cooldown'   => $issue['cooldown'] ?? Otp::RESEND_COOLDOWN,
             'dev_otp'    => $issue['dev_otp'] ?? null
@@ -819,14 +844,24 @@ class UserController
             exit;
         }
 
+        $questions = $this->userModel->getUserAuthAnswers($pending['id_number']);
+        if (!$questions) {
+            unset($_SESSION['otp_pending']);
+            echo json_encode(['success' => false, 'message' => 'No security question is configured for this account.']);
+            exit;
+        }
+        $selected = $questions[random_int(0, count($questions) - 1)];
         session_regenerate_id(true);
-        $_SESSION['otp_pending']['verified'] = true;
-        $_SESSION['otp_pending']['verified_at'] = time();
-        $_SESSION['otp_pending']['reset_token'] = bin2hex(random_bytes(32));
+        $_SESSION['otp_pending']['otp_verified'] = true;
+        $_SESSION['otp_pending']['otp_verified_at'] = time();
+        $_SESSION['otp_pending']['security_question_id'] = (int)$selected['question_id'];
         echo json_encode([
             'success' => true,
-            'message' => 'OTP verified! You can now set a new password.',
-            'reset_token' => $_SESSION['otp_pending']['reset_token']
+            'message' => 'OTP verified. Please answer your security question.',
+            'question' => [
+                'question_id' => (int)$selected['question_id'],
+                'question_text' => $selected['question_text']
+            ]
         ]);
         exit;
     }
@@ -896,7 +931,12 @@ class UserController
             unset(
                 $_SESSION['otp_pending']['verified'],
                 $_SESSION['otp_pending']['verified_at'],
-                $_SESSION['otp_pending']['reset_token']
+                $_SESSION['otp_pending']['reset_token'],
+                $_SESSION['otp_pending']['otp_verified'],
+                $_SESSION['otp_pending']['otp_verified_at'],
+                $_SESSION['otp_pending']['security_verified'],
+                $_SESSION['otp_pending']['security_verified_at'],
+                $_SESSION['otp_pending']['security_question_id']
             );
             $_SESSION['otp_pending']['issued_at'] = time();
         }
@@ -945,73 +985,55 @@ class UserController
     public function verifySecurityAnswers()
     {
         header('Content-Type: application/json; charset=utf-8');
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $id_number = trim($_POST['id_number'] ?? '');
-
-            // Fall back to the pending forgot-password account from the session.
-            if ($id_number === '') {
-                if (session_status() === PHP_SESSION_NONE) {
-                    session_start();
-                }
-                $id_number = trim($_SESSION['otp_pending']['id_number'] ?? '');
-            }
-
-            // Validate ID number is provided
-            if (empty($id_number)) {
-                echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
-                exit;
-            }
-
-            // Get the user's actual security questions and answers
-            $userQuestions = $this->userModel->getUserAuthAnswers($id_number);
-
-            if (empty($userQuestions)) {
-                echo json_encode(['success' => false, 'message' => 'No security questions found for this user.']);
-                exit;
-            }
-
-            // Map the user's questions to their answers from the form
-            $answers = [
-                trim($_POST['security_answer_1'] ?? ''),
-                trim($_POST['security_answer_2'] ?? ''),
-                trim($_POST['security_answer_3'] ?? '')
-            ];
-
-            // Validate all answers are provided
-            $emptyAnswers = [];
-            foreach ($answers as $index => $ans) {
-                if (empty($ans)) {
-                    $emptyAnswers[] = $index + 1;
-                }
-            }
-
-            if (!empty($emptyAnswers)) {
-                echo json_encode(['success' => false, 'message' => 'Please answer all security questions.']);
-                exit;
-            }
-
-            $correctCount = 0;
-
-            // Verify each answer against the corresponding user question
-            for ($i = 0; $i < min(count($userQuestions), count($answers)); $i++) {
-                $record = $userQuestions[$i];
-                $answer = $answers[$i];
-
-                if (password_verify($answer, $record['answer_hash'])) {
-                    $correctCount++;
-                }
-            }
-
-            // User must answer at least 2 out of 3 questions correctly
-            if ($correctCount >= 2) {
-                echo json_encode(['success' => true, 'message' => 'Verification successful! You answered at least 2 questions correctly.']);
-            } else {
-                echo json_encode(['success' => false, 'message' => 'Verification failed. You must answer at least 2 out of 3 questions correctly.']);
-            }
-        } else {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
         }
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $pending = $_SESSION['otp_pending'] ?? null;
+        $otpVerifiedAt = (int)($pending['otp_verified_at'] ?? 0);
+        if (!$pending || ($pending['purpose'] ?? '') !== 'forgot_password' ||
+            empty($pending['otp_verified']) || $otpVerifiedAt <= 0 ||
+            (time() - $otpVerifiedAt) > Otp::CODE_LIFETIME) {
+            echo json_encode(['success' => false, 'message' => 'OTP verification is required before the security question.']);
+            exit;
+        }
+        $attempts = (int)($pending['security_attempts'] ?? 0);
+        if ($attempts >= 5) {
+            unset($_SESSION['otp_pending']);
+            echo json_encode(['success' => false, 'message' => 'Too many incorrect security-answer attempts. Please start again.']);
+            exit;
+        }
+        $questionId = (int)($_POST['question_id'] ?? 0);
+        $expectedQuestionId = (int)($pending['security_question_id'] ?? 0);
+        $answer = trim($_POST['security_answer'] ?? '');
+        if ($questionId !== $expectedQuestionId || $answer === '') {
+            echo json_encode(['success' => false, 'message' => 'Select the displayed security question and enter your answer.']);
+            exit;
+        }
+        $record = $this->userModel->getUserAuthAnswer($pending['id_number'], $questionId);
+        if (!$record || !password_verify($answer, $record['answer_hash'])) {
+            $_SESSION['otp_pending']['security_attempts'] = $attempts + 1;
+            $remaining = 5 - $_SESSION['otp_pending']['security_attempts'];
+            if ($remaining <= 0) {
+                unset($_SESSION['otp_pending']);
+                echo json_encode(['success' => false, 'message' => 'Too many incorrect security-answer attempts. Please start again.']);
+            } else {
+                echo json_encode(['success' => false, 'message' => "Incorrect security answer. {$remaining} attempt(s) remaining."]);
+            }
+            exit;
+        }
+        session_regenerate_id(true);
+        $_SESSION['otp_pending']['security_verified'] = true;
+        $_SESSION['otp_pending']['security_verified_at'] = time();
+        $_SESSION['otp_pending']['reset_token'] = bin2hex(random_bytes(32));
+        echo json_encode([
+            'success' => true,
+            'message' => 'Security answer verified. You may now change your password.',
+            'reset_token' => $_SESSION['otp_pending']['reset_token']
+        ]);
         exit;
     }
 
@@ -1020,54 +1042,10 @@ class UserController
     public function validateSecurityAnswer()
     {
         header('Content-Type: application/json; charset=utf-8');
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $id_number = trim($_POST['id_number'] ?? '');
-            $question_index = (int)($_POST['question_id'] ?? 0); // This is now the index (1, 2, 3) rather than question_id
-            $answer = trim($_POST['answer'] ?? '');
-
-            // Fall back to the pending forgot-password account from the session.
-            if ($id_number === '') {
-                if (session_status() === PHP_SESSION_NONE) {
-                    session_start();
-                }
-                $id_number = trim($_SESSION['otp_pending']['id_number'] ?? '');
-            }
-
-            // Validate required fields
-            if (empty($id_number)) {
-                echo json_encode(['valid' => false, 'message' => 'ID Number is required.']);
-                exit;
-            }
-
-            if (empty($question_index) || $question_index < 1 || $question_index > 3) {
-                echo json_encode(['valid' => false, 'message' => 'Invalid question index.']);
-                exit;
-            }
-
-            if (empty($answer)) {
-                echo json_encode(['valid' => false, 'message' => 'Answer is required.']);
-                exit;
-            }
-
-            // Get the user's actual security questions
-            $userQuestions = $this->userModel->getUserAuthAnswers($id_number);
-
-            if (empty($userQuestions) || !isset($userQuestions[$question_index - 1])) {
-                echo json_encode(['valid' => false, 'message' => 'No answer found for this question.']);
-                exit;
-            }
-
-            // Get the stored answer hash for the specific question
-            $record = $userQuestions[$question_index - 1];
-
-            // Verify the answer
-            $isValid = password_verify($answer, $record['answer_hash']);
-
-            echo json_encode(['valid' => $isValid]);
-        } else {
-            echo json_encode(['valid' => false, 'message' => 'Invalid request method.']);
-        }
+        echo json_encode([
+            'valid' => false,
+            'message' => 'Security answers are verified together when the form is submitted.'
+        ]);
         exit;
     }
 
@@ -1087,20 +1065,24 @@ class UserController
             session_start();
         }
         $pending = $_SESSION['otp_pending'] ?? null;
-        $verifiedAt = (int)($pending['verified_at'] ?? 0);
+        $otpVerifiedAt = (int)($pending['otp_verified_at'] ?? 0);
+        $securityVerifiedAt = (int)($pending['security_verified_at'] ?? 0);
         $submittedToken = (string)($_POST['reset_token'] ?? '');
         $sessionToken = (string)($pending['reset_token'] ?? '');
         if (
             !$pending ||
             ($pending['purpose'] ?? '') !== 'forgot_password' ||
-            empty($pending['verified']) ||
-            $verifiedAt <= 0 ||
-            (time() - $verifiedAt) > Otp::CODE_LIFETIME ||
+            empty($pending['otp_verified']) ||
+            empty($pending['security_verified']) ||
+            $otpVerifiedAt <= 0 ||
+            $securityVerifiedAt <= 0 ||
+            (time() - $otpVerifiedAt) > Otp::CODE_LIFETIME ||
+            (time() - $securityVerifiedAt) > Otp::CODE_LIFETIME ||
             $submittedToken === '' ||
             $sessionToken === '' ||
             !hash_equals($sessionToken, $submittedToken)
         ) {
-            echo json_encode(['success' => false, 'message' => 'OTP verification required. Please start the password reset again.']);
+            echo json_encode(['success' => false, 'message' => 'OTP and security-question verification are required. Please start again.']);
             return;
         }
 
@@ -1122,6 +1104,11 @@ class UserController
 
         if ($new_password !== $confirm_password) {
             echo json_encode(['success' => false, 'message' => 'Passwords do not match']);
+            return;
+        }
+
+        if (password_verify($new_password, $user['password_hash'])) {
+            echo json_encode(['success' => false, 'message' => 'The new password must be different from your current password.']);
             return;
         }
 
@@ -1160,7 +1147,18 @@ class UserController
         $hashed = password_hash($new_password, PASSWORD_DEFAULT);
         if ($this->userModel->updatePassword($id_number, $hashed)) {
             unset($_SESSION['otp_pending']);
-            echo json_encode(['success' => true, 'message' => 'Your password has been successfully changed!']);
+            $this->userModel->logAuditAction(
+                $id_number,
+                $user['username'],
+                strtolower($user['role'] ?? 'user'),
+                'Reset Password',
+                'Password reset completed after ID, OTP, and security-question verification.'
+            );
+            echo json_encode([
+                'success' => true,
+                'message' => 'Your password has been successfully changed!',
+                'redirect' => 'index.php?action=login&password_reset=1'
+            ]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to reset password']);
         }
@@ -1255,6 +1253,16 @@ class UserController
             exit;
         }
 
+        if (!empty($authState['must_change_password'])) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => false,
+                'message' => 'Change the default password before accessing the portal.',
+                'passwordChangeRequired' => true
+            ]);
+            exit;
+        }
+
         if ((int)($_SESSION['session_version'] ?? 0) !== (int)$authState['session_version']) {
             session_unset();
             session_destroy();
@@ -1279,7 +1287,33 @@ class UserController
 
     private function requireSuperAdmin()
     {
-        $this->validateLiveSession(['superadmin']);
+        return $this->validateLiveSession(['superadmin']);
+    }
+
+    private function requireActorPassword(array $authState): void
+    {
+        $password = (string)($_POST['operator_password'] ?? '');
+        if (!$this->userModel->verifyAccountPassword($authState['id_number'], $password)) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => false,
+                'message' => 'Your current password is incorrect. The action was cancelled.',
+                'passwordInvalid' => true
+            ]);
+            exit;
+        }
+    }
+
+    private function passwordPolicyError(string $password): ?string
+    {
+        if (strlen($password) < 8 ||
+            !preg_match('/[a-z]/', $password) ||
+            !preg_match('/[A-Z]/', $password) ||
+            !preg_match('/\d/', $password) ||
+            !preg_match('/[^a-zA-Z0-9]/', $password)) {
+            return 'Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.';
+        }
+        return null;
     }
 
     /**
@@ -1657,13 +1691,15 @@ class UserController
 
     public function updateAdmin()
     {
-        $this->requireSuperAdmin();
+        $authState = $this->requireSuperAdmin();
         header('Content-Type: application/json; charset=utf-8');
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
             exit;
         }
+
+        $this->requireActorPassword($authState);
 
         $id_number  = trim($_POST['id_number'] ?? '');
         $firstName  = trim($_POST['first_name'] ?? '');
@@ -1705,6 +1741,10 @@ class UserController
         $existing = $this->userModel->getAdminByIdNumber($id_number);
         if (!$existing) {
             echo json_encode(['success' => false, 'message' => 'Admin account not found.']);
+            exit;
+        }
+        if (($existing['role'] ?? '') === 'superadmin' && $status === 'active' && $this->userModel->hasOtherActiveSuperAdmin($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'Only the queued Super Admin handoff may activate this account.']);
             exit;
         }
 
@@ -1871,8 +1911,9 @@ class UserController
 
     public function toggleBlockAdmin()
     {
-        $this->requireSuperAdmin();
+        $authState = $this->requireSuperAdmin();
         header('Content-Type: application/json; charset=utf-8');
+        $this->requireActorPassword($authState);
 
         $id_number  = trim($_POST['id_number'] ?? '');
         $new_status = trim($_POST['status'] ?? '');
@@ -1882,6 +1923,15 @@ class UserController
 
         if (empty($id_number) || !in_array($new_status, ['active', 'blocked', 'block'], true)) {
             echo json_encode(['success' => false, 'message' => 'Invalid parameters provided.']);
+            exit;
+        }
+        if (in_array($new_status, ['blocked', 'block'], true) && $reason === '') {
+            echo json_encode(['success' => false, 'message' => 'A reason is required when blocking an account.']);
+            exit;
+        }
+        $target = $this->userModel->getManagedAccountById($id_number);
+        if ($target && $target['role'] === 'superadmin' && $new_status === 'active' && $this->userModel->hasOtherActiveSuperAdmin($id_number)) {
+            echo json_encode(['success' => false, 'message' => 'Queued Super Admins are activated automatically when the active Super Admin logs out.']);
             exit;
         }
 
@@ -1903,10 +1953,12 @@ class UserController
 
     public function deleteAdmin()
     {
-        $this->requireSuperAdmin();
+        $authState = $this->requireSuperAdmin();
         header('Content-Type: application/json; charset=utf-8');
+        $this->requireActorPassword($authState);
 
         $id_number = trim($_POST['id_number'] ?? '');
+        $reason = trim($_POST['reason'] ?? '');
         if (empty($id_number)) {
             echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
             exit;
@@ -1914,6 +1966,10 @@ class UserController
 
         if ($id_number === ($_SESSION['user_id'] ?? '')) {
             echo json_encode(['success' => false, 'message' => 'You cannot deactivate your own Super Admin account.']);
+            exit;
+        }
+        if ($reason === '') {
+            echo json_encode(['success' => false, 'message' => 'A reason is required when deleting an account.']);
             exit;
         }
 
@@ -2215,7 +2271,7 @@ class UserController
 
     public function updateStandardUser()
     {
-        $this->requireSuperAdmin();
+        $authState = $this->requireSuperAdmin();
         header('Content-Type: application/json; charset=utf-8');
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -2223,7 +2279,10 @@ class UserController
             exit;
         }
 
+        $this->requireActorPassword($authState);
+
         $id_number = trim($_POST['id_number'] ?? '');
+        $reason = trim($_POST['reason'] ?? '');
         $firstName = trim($_POST['first_name'] ?? '');
         $middleName = trim($_POST['middle_name'] ?? '');
         $lastName  = trim($_POST['last_name'] ?? '');
@@ -2442,8 +2501,9 @@ class UserController
 
     public function toggleBlockUser()
     {
-        $this->requireSuperAdmin();
+        $authState = $this->requireSuperAdmin();
         header('Content-Type: application/json; charset=utf-8');
+        $this->requireActorPassword($authState);
 
         $id_number  = trim($_POST['id_number'] ?? '');
         $new_status = trim($_POST['status'] ?? '');
@@ -2453,6 +2513,10 @@ class UserController
 
         if (empty($id_number) || !in_array($new_status, ['active', 'blocked', 'block'], true)) {
             echo json_encode(['success' => false, 'message' => 'Invalid parameters provided.']);
+            exit;
+        }
+        if (in_array($new_status, ['blocked', 'block'], true) && $reason === '') {
+            echo json_encode(['success' => false, 'message' => 'A reason is required when blocking an account.']);
             exit;
         }
 
@@ -2468,10 +2532,12 @@ class UserController
 
     public function deleteStandardUser()
     {
-        $this->requireSuperAdmin();
+        $authState = $this->requireSuperAdmin();
         header('Content-Type: application/json; charset=utf-8');
+        $this->requireActorPassword($authState);
 
         $id_number = trim($_POST['id_number'] ?? '');
+        $reason = trim($_POST['reason'] ?? '');
         if (empty($id_number)) {
             echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
             exit;
@@ -2481,6 +2547,10 @@ class UserController
         $target = $this->userModel->getUserOrAdminByIdNumber($id_number);
         if (!$target || strtolower($target['role'] ?? '') !== 'user') {
             echo json_encode(['success' => false, 'message' => 'User account not found.']);
+            exit;
+        }
+        if ($reason === '') {
+            echo json_encode(['success' => false, 'message' => 'A reason is required when deleting an account.']);
             exit;
         }
 
@@ -2558,12 +2628,19 @@ class UserController
 
     public function unblockAccount()
     {
-        $this->requireSuperAdmin();
+        $authState = $this->requireSuperAdmin();
         header('Content-Type: application/json; charset=utf-8');
+        $this->requireActorPassword($authState);
 
         $id = (int)($_POST['id'] ?? 0);
         if ($id <= 0) {
             echo json_encode(['success' => false, 'message' => 'Invalid block record ID.']);
+            exit;
+        }
+
+        $blockedAccount = $this->userModel->getBlockDetail($id);
+        if ($blockedAccount && ($blockedAccount['role'] ?? '') === 'superadmin' && $this->userModel->hasOtherActiveSuperAdmin((string)($blockedAccount['id_number'] ?? ''))) {
+            echo json_encode(['success' => false, 'message' => 'Queued Super Admins are activated automatically when the active Super Admin logs out.']);
             exit;
         }
 
@@ -2773,6 +2850,8 @@ class UserController
             exit;
         }
 
+        $this->requireActorPassword($authState);
+
         $id_number = trim($_POST['id_number'] ?? '');
         if (empty($id_number)) {
             echo json_encode(['success' => false, 'message' => 'ID Number is required.']);
@@ -2866,12 +2945,13 @@ class UserController
     public function approveDeleteRequest()
     {
         header('Content-Type: application/json; charset=utf-8');
-        $this->requireSuperAdmin();
+        $authState = $this->requireSuperAdmin();
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
             exit;
         }
+        $this->requireActorPassword($authState);
 
         $requestId = (int)($_POST['request_id'] ?? 0);
         if ($requestId <= 0) {
@@ -2921,7 +3001,7 @@ class UserController
 
     public function changeRole()
     {
-        $this->requireSuperAdmin();
+        $authState = $this->requireSuperAdmin();
         header('Content-Type: application/json; charset=utf-8');
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -2929,27 +3009,23 @@ class UserController
             exit;
         }
 
+        $this->requireActorPassword($authState);
+
         $id_number = trim($_POST['id_number'] ?? '');
         $newRole   = strtolower(trim($_POST['new_role'] ?? ''));
-        $confirmSelf = ($_POST['confirm_self'] ?? '') === 'true';
 
         if (empty($id_number) || !in_array($newRole, ['user', 'admin', 'superadmin'], true)) {
             echo json_encode(['success' => false, 'message' => 'Invalid parameters provided.']);
             exit;
         }
 
-        // Protect the currently logged-in Super Admin from self-demotion
-        // unless a deliberate confirmation was provided.
         $currentId = $_SESSION['user_id'] ?? '';
         if ($id_number === $currentId && $newRole !== 'superadmin') {
-            if (!$confirmSelf) {
-                echo json_encode([
-                    'success'      => false,
-                    'confirmation' => true,
-                    'message'      => 'You are about to change your own role. This will remove your Super Admin access. Confirm to continue.'
-                ]);
-                exit;
-            }
+            echo json_encode([
+                'success' => false,
+                'message' => 'The active Super Admin cannot be demoted. Use Logout to perform the Super Admin handoff.'
+            ]);
+            exit;
         }
 
         // Prevent changing the role of another super admin through this flow
@@ -3022,13 +3098,15 @@ class UserController
 
     public function saveAdminPrivileges()
     {
-        $this->requireSuperAdmin();
+        $authState = $this->requireSuperAdmin();
         header('Content-Type: application/json; charset=utf-8');
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
             exit;
         }
+
+        $this->requireActorPassword($authState);
 
         $id_number = trim($_POST['id_number'] ?? '');
         if (empty($id_number)) {
@@ -3071,6 +3149,494 @@ class UserController
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to save admin privileges.']);
         }
+        exit;
+    }
+
+    /* ========================== UNIFIED ACCOUNT MANAGEMENT ======================== */
+
+    public function getManagedAccounts()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['superadmin', 'admin']);
+        $isAdmin = strtolower($authState['role']) === 'admin';
+        if ($isAdmin) {
+            $this->requireAdminPrivilege('view_users', $authState['id_number']);
+        }
+
+        $search = trim($_GET['search'] ?? '');
+        $status = strtolower(trim($_GET['status'] ?? 'all'));
+        $role = strtolower(trim($_GET['role'] ?? 'all'));
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $limit = in_array((int)($_GET['limit'] ?? 10), [10, 25, 50, 100], true)
+            ? (int)$_GET['limit'] : 10;
+        $total = $this->userModel->getManagedAccountsCount($search, $status, $role, $isAdmin);
+        $pages = max(1, (int)ceil($total / $limit));
+        $page = min($page, $pages);
+        $records = $this->userModel->getManagedAccounts(
+            $search,
+            $status,
+            $role,
+            ($page - 1) * $limit,
+            $limit,
+            $isAdmin
+        );
+        echo json_encode([
+            'success' => true,
+            'data' => $records,
+            'totalRecords' => $total,
+            'totalPages' => $pages,
+            'currentPage' => $page,
+            'limit' => $limit,
+            'scope' => $isAdmin ? 'user' : 'all'
+        ]);
+        exit;
+    }
+
+    public function getManagedAccountDetail()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['superadmin', 'admin']);
+        $target = $this->userModel->getManagedAccountById(trim($_GET['id_number'] ?? ''));
+        if (!$target) {
+            echo json_encode(['success' => false, 'message' => 'Account not found.']);
+            exit;
+        }
+        if (strtolower($authState['role']) === 'admin') {
+            $this->requireAdminPrivilege('view_users', $authState['id_number']);
+            if (strtolower($target['role']) !== 'user') {
+                echo json_encode(['success' => false, 'message' => 'Admins may view User accounts only.']);
+                exit;
+            }
+        }
+        echo json_encode(['success' => true, 'data' => $target, 'availablePrivileges' => User::PRIVILEGES]);
+        exit;
+    }
+
+    public function createManagedAccount()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['superadmin', 'admin']);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+        $isAdmin = strtolower($authState['role']) === 'admin';
+        if ($isAdmin) {
+            $this->requireAdminPrivilege('edit_users', $authState['id_number']);
+        }
+
+        $idNumber = trim($_POST['id_number'] ?? '');
+        $username = trim($_POST['username'] ?? '');
+        $role = $isAdmin ? 'user' : strtolower(trim($_POST['role'] ?? 'user'));
+        $errors = [];
+        if (!preg_match('/^[A-Za-z0-9-]{4,20}$/', $idNumber)) {
+            $errors['id_number'] = 'ID Number must be 4-20 letters, numbers, or hyphens.';
+        } elseif ($this->userModel->findById($idNumber) || $this->userModel->pendingUserIdExists($idNumber)) {
+            $errors['id_number'] = 'This ID Number is already registered.';
+        }
+        if (!preg_match('/^[A-Za-z0-9._@-]{3,50}$/', $username)) {
+            $errors['username'] = 'Username must be 3-50 characters and contain no spaces.';
+        } elseif ($this->userModel->usernameExists($username) || $this->userModel->pendingUsernameExists($username)) {
+            $errors['username'] = 'This Username is already registered.';
+        }
+        if (!in_array($role, ['user', 'admin', 'superadmin'], true) || ($isAdmin && $role !== 'user')) {
+            $errors['role'] = 'You are not allowed to create this account role.';
+        }
+        if ($errors) {
+            echo json_encode(['success' => false, 'message' => 'Please correct the highlighted fields.', 'fieldErrors' => $errors]);
+            exit;
+        }
+
+        $submitted = $_POST['privileges'] ?? [];
+        if (!is_array($submitted)) {
+            $submitted = json_decode((string)$submitted, true) ?: [];
+        }
+        $result = $this->userModel->createManagedAccount([
+            'id_number' => $idNumber,
+            'username' => $username,
+            'role' => $role,
+            'password' => '@Abcde12345',
+            'privileges' => $role === 'user' ? [] : array_map('strval', $submitted)
+        ], $authState['id_number']);
+        if ($result['success']) {
+            $statusText = $role === 'superadmin'
+                ? 'Blocked and queued behind the active Super Admin (oldest eligible first)'
+                : 'Active';
+            $this->userModel->logAuditAction(
+                $authState['id_number'],
+                $authState['username'],
+                $authState['role'],
+                'Create Account',
+                "Created {$role} {$username} (ID: {$idNumber}). Initial status: {$statusText}. First-login password change required."
+            );
+            $result['message'] = "Account created with default password @Abcde12345. Status: {$statusText}.";
+        }
+        echo json_encode($result);
+        exit;
+    }
+
+    public function updateManagedAccount()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['superadmin', 'admin']);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+        $targetId = trim($_POST['id_number'] ?? '');
+        $target = $this->userModel->getManagedAccountById($targetId);
+        if (!$target) {
+            echo json_encode(['success' => false, 'message' => 'Account not found.']);
+            exit;
+        }
+        $isAdmin = strtolower($authState['role']) === 'admin';
+        if ($isAdmin) {
+            $this->requireAdminPrivilege('edit_users', $authState['id_number']);
+            if (strtolower($target['role']) !== 'user') {
+                echo json_encode(['success' => false, 'message' => 'Admins may edit User accounts only.']);
+                exit;
+            }
+        }
+        $this->requireActorPassword($authState);
+
+        $username = trim($_POST['username'] ?? $target['username']);
+        if (!preg_match('/^[A-Za-z0-9._@-]{3,50}$/', $username)) {
+            echo json_encode(['success' => false, 'message' => 'Username must be 3-50 characters and contain no spaces.']);
+            exit;
+        }
+        if ($username !== $target['username'] && $this->userModel->usernameExists($username)) {
+            echo json_encode(['success' => false, 'message' => 'Username is already registered.']);
+            exit;
+        }
+
+        $fullName = trim($_POST['full_name'] ?? $target['full_name']);
+        $nameParts = preg_split('/\s+/', $fullName, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if (count($nameParts) < 2) {
+            echo json_encode(['success' => false, 'message' => 'Full Name must include at least a first and last name.']);
+            exit;
+        }
+        $firstName = $nameParts ? array_shift($nameParts) : '';
+        $lastName = $nameParts ? array_pop($nameParts) : '';
+        $middleName = $nameParts ? implode(' ', $nameParts) : null;
+        $role = $isAdmin ? 'user' : strtolower(trim($_POST['role'] ?? $target['role']));
+        $status = $isAdmin ? $target['status'] : strtolower(trim($_POST['status'] ?? $target['status']));
+        if (!in_array($role, ['user', 'admin', 'superadmin'], true) ||
+            !in_array($status, ['active', 'blocked', 'pending_approval', 'pending_deletion', 'inactive'], true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid role or account status.']);
+            exit;
+        }
+        if ($targetId === $authState['id_number'] && ($role !== 'superadmin' || $status !== 'active')) {
+            echo json_encode(['success' => false, 'message' => 'Use Logout to rotate the active Super Admin account.']);
+            exit;
+        }
+        $autoQueuedSuperAdmin = false;
+        if ($role === 'superadmin' && $status === 'active' && $this->userModel->hasOtherActiveSuperAdmin($targetId)) {
+            $status = 'blocked';
+            $autoQueuedSuperAdmin = true;
+        }
+        $reason = trim($_POST['reason'] ?? '');
+        if ($status === 'blocked' && $target['status'] !== 'blocked' && $reason === '' && !$autoQueuedSuperAdmin) {
+            echo json_encode(['success' => false, 'message' => 'A reason is required when blocking an account.']);
+            exit;
+        }
+
+        $newPassword = (string)($_POST['password'] ?? '');
+        if ($newPassword !== '' && ($error = $this->passwordPolicyError($newPassword))) {
+            echo json_encode(['success' => false, 'message' => $error]);
+            exit;
+        }
+        if ($newPassword !== '' && password_verify($newPassword, (string)($this->userModel->findById($targetId)['password_hash'] ?? ''))) {
+            echo json_encode(['success' => false, 'message' => 'The replacement password must be different from the current password.']);
+            exit;
+        }
+        $submitted = $_POST['privileges'] ?? [];
+        if (!is_array($submitted)) {
+            $submitted = json_decode((string)$submitted, true) ?: [];
+        }
+        $privileges = $isAdmin ? [] : array_values(array_intersect(array_keys(User::PRIVILEGES), array_map('strval', $submitted)));
+        $oldPrivileges = $target['privileges'] ?? [];
+        sort($privileges);
+        sort($oldPrivileges);
+        $ok = $this->userModel->updateManagedAccount($targetId, [
+            'first_name' => $firstName,
+            'middle_name' => $middleName,
+            'last_name' => $lastName,
+            'extension' => $target['extension'] ?? null,
+            'username' => $username,
+            'role' => $role,
+            'status' => $status,
+            'password' => $newPassword,
+            'privileges' => $isAdmin ? $oldPrivileges : $privileges,
+            'operator' => $authState['username'],
+            'reason' => $reason ?: ($autoQueuedSuperAdmin ? 'Queued as an eligible Super Admin; oldest eligible account activates first.' : null)
+        ]);
+        if ($ok) {
+            $changes = [];
+            if ($role !== $target['role']) $changes[] = "role {$target['role']} -> {$role}";
+            if ($status !== $target['status']) $changes[] = "status {$target['status']} -> {$status}";
+            if (!$isAdmin && $privileges !== $oldPrivileges) $changes[] = 'assigned privileges updated';
+            if ($newPassword !== '') $changes[] = 'password replaced; next-login change required';
+            if ($reason !== '') $changes[] = "reason: {$reason}";
+            if (!$changes) $changes[] = 'account profile updated';
+            $auditAction = 'Edit Account';
+            if ($role !== $target['role']) {
+                $auditAction = 'Change Role';
+            } elseif (!$isAdmin && $privileges !== $oldPrivileges) {
+                $auditAction = 'Change Privileges';
+            } elseif ($status !== $target['status']) {
+                $auditAction = $status === 'blocked' ? 'Block Account' : ($status === 'active' ? 'Unblock Account' : 'Change Account Status');
+            }
+            $this->userModel->logAuditAction(
+                $authState['id_number'], $authState['username'], $authState['role'],
+                $auditAction, "Updated {$target['username']} (ID: {$targetId}): " . implode(', ', $changes)
+            );
+        }
+        echo json_encode(['success' => $ok, 'message' => $ok ? 'Account updated successfully.' : 'Unable to update the account.']);
+        exit;
+    }
+
+    public function setManagedAccountStatus()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['superadmin', 'admin']);
+        $targetId = trim($_POST['id_number'] ?? '');
+        $status = strtolower(trim($_POST['status'] ?? ''));
+        $reason = trim($_POST['reason'] ?? '');
+        $target = $this->userModel->getManagedAccountById($targetId);
+        if (!$target || !in_array($status, ['active', 'blocked'], true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid account or status.']);
+            exit;
+        }
+        $isAdmin = strtolower($authState['role']) === 'admin';
+        if ($isAdmin) {
+            $this->requireAdminPrivilege('block_users', $authState['id_number']);
+            if (strtolower($target['role']) !== 'user') {
+                echo json_encode(['success' => false, 'message' => 'Admins may block or unblock User accounts only.']);
+                exit;
+            }
+        }
+        $this->requireActorPassword($authState);
+        if ($status === 'blocked' && $reason === '') {
+            echo json_encode(['success' => false, 'message' => 'A reason is required when blocking an account.']);
+            exit;
+        }
+        if ($targetId === $authState['id_number']) {
+            echo json_encode(['success' => false, 'message' => 'You cannot block your own account.']);
+            exit;
+        }
+        if ($target['role'] === 'superadmin' && $status === 'active' && $this->userModel->hasOtherActiveSuperAdmin($targetId)) {
+            echo json_encode(['success' => false, 'message' => 'This queued Super Admin will be activated automatically when the current Super Admin logs out.']);
+            exit;
+        }
+        $ok = $this->userModel->setManagedAccountStatus(
+            $targetId, $status, $authState['username'], $authState['role'], $reason ?: null
+        );
+        if ($ok) {
+            $verb = $status === 'blocked' ? 'Block Account' : 'Unblock Account';
+            $details = "{$verb}: {$target['username']} (ID: {$targetId})";
+            if ($reason !== '') $details .= " | Reason: {$reason}";
+            $this->userModel->logAuditAction($authState['id_number'], $authState['username'], $authState['role'], $verb, $details);
+        }
+        echo json_encode(['success' => $ok, 'message' => $ok ? "Account {$status} successfully." : 'Unable to update account status.']);
+        exit;
+    }
+
+    public function deleteManagedAccount()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['superadmin', 'admin']);
+        $targetId = trim($_POST['id_number'] ?? '');
+        $reason = trim($_POST['reason'] ?? '');
+        $target = $this->userModel->getManagedAccountById($targetId);
+        if (!$target) {
+            echo json_encode(['success' => false, 'message' => 'Account not found.']);
+            exit;
+        }
+        $isAdmin = strtolower($authState['role']) === 'admin';
+        if ($isAdmin) {
+            $this->requireAdminPrivilege('delete_users', $authState['id_number']);
+            if (strtolower($target['role']) !== 'user') {
+                echo json_encode(['success' => false, 'message' => 'Admins may delete User accounts only.']);
+                exit;
+            }
+        }
+        $this->requireActorPassword($authState);
+        if ($reason === '') {
+            echo json_encode(['success' => false, 'message' => 'A reason is required when deleting an account.']);
+            exit;
+        }
+        if ($targetId === $authState['id_number']) {
+            echo json_encode(['success' => false, 'message' => 'You cannot delete your own account.']);
+            exit;
+        }
+        $ok = $this->userModel->deactivateManagedAccount($targetId);
+        if ($ok) {
+            $this->userModel->logAuditAction(
+                $authState['id_number'], $authState['username'], $authState['role'],
+                'Delete Account', "Soft-deleted {$target['username']} (ID: {$targetId}). Reason: {$reason}"
+            );
+        }
+        echo json_encode(['success' => $ok, 'message' => $ok ? 'Account deleted (marked Inactive).' : 'Unable to delete the account.']);
+        exit;
+    }
+
+    /* ========================== PERSONAL DETAILS ======================== */
+
+    public function getPersonalDetails()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['user', 'admin', 'superadmin']);
+        $details = $this->userModel->getPersonalDetails($authState['id_number']);
+        echo json_encode($details
+            ? ['success' => true, 'data' => $details]
+            : ['success' => false, 'message' => 'Account details were not found.']);
+        exit;
+    }
+
+    public function updatePersonalDetails()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $authState = $this->validateLiveSession(['user', 'admin', 'superadmin']);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+        $this->requireActorPassword($authState);
+        $current = $this->userModel->getPersonalDetails($authState['id_number']);
+        $firstName = trim($_POST['first_name'] ?? '');
+        $lastName = trim($_POST['last_name'] ?? '');
+        $birthdate = trim($_POST['birthdate'] ?? '');
+        $gender = strtolower(trim($_POST['gender'] ?? ''));
+        $username = trim($_POST['username'] ?? '');
+        $email = strtolower(trim($_POST['email'] ?? ''));
+        $errors = [];
+        if ($firstName === '') $errors['first_name'] = 'First Name is required.';
+        if ($lastName === '') $errors['last_name'] = 'Last Name is required.';
+        $dob = DateTime::createFromFormat('Y-m-d', $birthdate);
+        if (!$dob || $dob > new DateTime()) {
+            $errors['birthdate'] = 'Enter a valid Birthdate.';
+            $age = 0;
+        } else {
+            $age = (new DateTime())->diff($dob)->y;
+            if ($age < 18) $errors['birthdate'] = 'You must be at least 18 years old.';
+        }
+        if (!in_array($gender, ['male', 'female'], true)) $errors['gender'] = 'Select a valid Gender.';
+        if (!preg_match('/^[A-Za-z0-9._@-]{3,50}$/', $username)) {
+            $errors['username'] = 'Username must be 3-50 characters and contain no spaces.';
+        } elseif ($username !== ($current['username'] ?? '') && $this->userModel->usernameExists($username)) {
+            $errors['username'] = 'Username is already registered.';
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors['email'] = 'A valid Email Address is required for OTP recovery.';
+        } elseif ($email !== strtolower((string)($current['email'] ?? '')) && $this->userModel->emailExists($email)) {
+            $errors['email'] = 'Email Address is already registered.';
+        }
+        foreach (['street' => 'Purok / Street', 'barangay' => 'Barangay', 'city' => 'Municipal / City', 'province' => 'Province', 'country' => 'Country'] as $field => $label) {
+            if (trim($_POST[$field] ?? '') === '') $errors[$field] = "{$label} is required.";
+        }
+        if (!preg_match('/^\d{4,6}$/', trim($_POST['zip'] ?? ''))) $errors['zip'] = 'Zip Code must contain 4-6 digits.';
+        $securityAnswers = [];
+        $currentQuestions = $current['security_questions'] ?? [];
+        $currentQuestionIds = array_map(static fn(array $question): int => (int)$question['question_id'], $currentQuestions);
+        $securityUpdateRequested = count($currentQuestionIds) < 3;
+        for ($i = 1; $i <= 3; $i++) {
+            $questionId = (int)($_POST["security_question_{$i}"] ?? 0);
+            $answer = trim($_POST["security_answer_{$i}"] ?? '');
+            if ($answer !== '' || $questionId !== ($currentQuestionIds[$i - 1] ?? 0)) {
+                $securityUpdateRequested = true;
+            }
+            $securityAnswers[] = ['question_id' => $questionId, 'answer' => $answer];
+        }
+        if ($securityUpdateRequested) {
+            foreach ($securityAnswers as $index => $entry) {
+                if ($entry['question_id'] <= 0 || $entry['answer'] === '') {
+                    $number = $index + 1;
+                    $errors["security_question_{$number}"] = "Question {$number} and its new answer are required when updating security questions.";
+                }
+            }
+            $questionIds = array_column($securityAnswers, 'question_id');
+            if (count(array_unique($questionIds)) !== 3) {
+                $errors['security_questions'] = 'Choose three different security questions.';
+            }
+        }
+        if ($errors) {
+            echo json_encode(['success' => false, 'message' => 'Please correct the highlighted fields.', 'fieldErrors' => $errors]);
+            exit;
+        }
+        $ok = $this->userModel->updatePersonalDetails($authState['id_number'], [
+            'first_name' => $firstName,
+            'middle_name' => trim($_POST['middle_name'] ?? '') ?: null,
+            'last_name' => $lastName,
+            'extension' => trim($_POST['extension'] ?? '') ?: null,
+            'birthdate' => $birthdate,
+            'gender' => $gender,
+            'age' => $age,
+            'username' => $username,
+            'email' => $email,
+            'contact_number' => $current['contact_number'] ?? null,
+            'street' => trim($_POST['street'] ?? ''),
+            'barangay' => trim($_POST['barangay'] ?? ''),
+            'city' => trim($_POST['city'] ?? ''),
+            'province' => trim($_POST['province'] ?? ''),
+            'country' => trim($_POST['country'] ?? ''),
+            'zip' => trim($_POST['zip'] ?? '')
+        ]);
+        if ($ok && $securityUpdateRequested) {
+            $ok = $this->userModel->replaceSecurityAnswers($authState['id_number'], $securityAnswers);
+        }
+        if ($ok) {
+            $_SESSION['username'] = $username;
+            $_SESSION['email'] = $email;
+            $this->userModel->logAuditAction(
+                $authState['id_number'], $username, $authState['role'], 'Update Personal Details',
+                'Account owner updated their own personal details after current-password verification.'
+            );
+        }
+        echo json_encode(['success' => $ok, 'message' => $ok ? 'Personal details saved successfully.' : 'Unable to save personal details.']);
+        exit;
+    }
+
+    public function changeRequiredPassword()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $idNumber = (string)($_SESSION['user_id'] ?? '');
+        $authState = $idNumber !== '' ? $this->userModel->getAccountAuthState($idNumber) : null;
+        if (!$authState || !in_array($authState['status'], ['active', 'pending_deletion'], true)) {
+            echo json_encode(['success' => false, 'message' => 'Session expired. Please log in again.']);
+            exit;
+        }
+        if (empty($authState['must_change_password'])) {
+            echo json_encode(['success' => false, 'message' => 'A password change is not currently required.']);
+            exit;
+        }
+        $password = (string)($_POST['new_password'] ?? '');
+        $confirm = (string)($_POST['confirm_password'] ?? '');
+        if ($password !== $confirm) {
+            echo json_encode(['success' => false, 'message' => 'Passwords do not match.']);
+            exit;
+        }
+        if ($error = $this->passwordPolicyError($password)) {
+            echo json_encode(['success' => false, 'message' => $error]);
+            exit;
+        }
+        $existing = $this->userModel->findById($idNumber);
+        if ($existing && password_verify($password, $existing['password_hash'])) {
+            echo json_encode(['success' => false, 'message' => 'The new password must be different from the default/current password.']);
+            exit;
+        }
+        $ok = $this->userModel->updatePassword($idNumber, password_hash($password, PASSWORD_DEFAULT));
+        if ($ok) {
+            $fresh = $this->userModel->getAccountAuthState($idNumber);
+            $_SESSION['session_version'] = (int)($fresh['session_version'] ?? 0);
+            $this->userModel->logAuditAction($idNumber, $authState['username'], $authState['role'], 'Change Default Password', 'Required first-login password change completed.');
+        }
+        $redirect = 'index.php?action=dashboard';
+        if ($authState['role'] === 'superadmin') $redirect = '../super_admin/dashboard.php';
+        if ($authState['role'] === 'admin') $redirect = '../admin/dashboard.php';
+        echo json_encode(['success' => $ok, 'message' => $ok ? 'Password changed successfully.' : 'Unable to change password.', 'redirect' => $redirect]);
         exit;
     }
 }

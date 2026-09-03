@@ -15,6 +15,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const confirmModalMsg = document.getElementById("confirmModalMsg");
   const rejectNotesGroup = document.getElementById("rejectNotesGroup");
   const rejectNotesInput = document.getElementById("rejectNotesInput");
+  const deleteApprovalPasswordGroup = document.getElementById("deleteApprovalPasswordGroup");
+  const deleteApprovalPassword = document.getElementById("deleteApprovalPassword");
   const confirmModalSubmitBtn = document.getElementById("confirmModalSubmitBtn");
 
   let currentPage = 1;
@@ -275,8 +277,10 @@ document.addEventListener("DOMContentLoaded", function () {
       targetName
     )}</strong>? Access will end immediately, but the account record will be preserved.`;
     rejectNotesGroup.style.display = "none";
+    deleteApprovalPasswordGroup.style.display = "none";
+    deleteApprovalPassword.value = "";
     confirmModalSubmitBtn.style.background = "#ef4444";
-    confirmModalSubmitBtn.textContent = "Approve & Deactivate Account";
+    confirmModalSubmitBtn.textContent = "Yes, Continue";
     confirmModal.style.display = "flex";
   };
 
@@ -287,6 +291,7 @@ document.addEventListener("DOMContentLoaded", function () {
       targetName
     )}</strong>? The user account will remain safe and active.`;
     rejectNotesGroup.style.display = "block";
+    deleteApprovalPasswordGroup.style.display = "none";
     rejectNotesInput.value = "";
     confirmModalSubmitBtn.style.background = "#64748b";
     confirmModalSubmitBtn.textContent = "Reject Request";
@@ -302,11 +307,23 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!pendingAction) return;
 
     if (pendingAction.action === "approve") {
+      if (deleteApprovalPasswordGroup.style.display === "none") {
+        deleteApprovalPasswordGroup.style.display = "block";
+        confirmModalSubmitBtn.textContent = "Verify & Deactivate";
+        deleteApprovalPassword.focus();
+        return;
+      }
+      if (!deleteApprovalPassword.value) {
+        alert("Enter your current password to approve this deletion.");
+        deleteApprovalPassword.focus();
+        return;
+      }
       confirmModalSubmitBtn.disabled = true;
       confirmModalSubmitBtn.textContent = "Deleting...";
 
       const formData = new FormData();
       formData.append("request_id", pendingAction.requestId);
+      formData.append("operator_password", deleteApprovalPassword.value);
 
       fetch("../../php/auth/index.php?action=approveDeleteRequest", {
         method: "POST",

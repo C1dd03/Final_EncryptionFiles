@@ -194,6 +194,37 @@ switch ($action) {
         $userController->saveAdminPrivileges();
         break;
 
+    /* ========================== UNIFIED ACCOUNT MANAGEMENT ======================== */
+    case 'getManagedAccounts':
+        $userController->getManagedAccounts();
+        break;
+    case 'getManagedAccountDetail':
+        $userController->getManagedAccountDetail();
+        break;
+    case 'createManagedAccount':
+        $userController->createManagedAccount();
+        break;
+    case 'updateManagedAccount':
+        $userController->updateManagedAccount();
+        break;
+    case 'setManagedAccountStatus':
+        $userController->setManagedAccountStatus();
+        break;
+    case 'deleteManagedAccount':
+        $userController->deleteManagedAccount();
+        break;
+
+    /* ========================== PERSONAL DETAILS / FIRST LOGIN ======================== */
+    case 'getPersonalDetails':
+        $userController->getPersonalDetails();
+        break;
+    case 'updatePersonalDetails':
+        $userController->updatePersonalDetails();
+        break;
+    case 'changeRequiredPassword':
+        $userController->changeRequiredPassword();
+        break;
+
     /* ========================== ID GENERATION & DASHBOARD COUNTS ======================== */
     case 'getNextIds':
         $userController->getNextIds();

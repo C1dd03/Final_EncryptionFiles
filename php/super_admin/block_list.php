@@ -209,10 +209,14 @@ $activePage = 'block_list';
       </div>
       <div class="modal-body">
         <p id="confirmModalMessage" style="margin:0; font-size: 0.95rem; color: var(--farm-text);"></p>
+        <div id="unblockPasswordGroup" style="display:none;">
+          <label for="unblockOperatorPassword" style="display:block;margin-top:14px;font-size:13px;font-weight:600;">Your Current Password</label>
+          <input type="password" id="unblockOperatorPassword" autocomplete="current-password" style="width:100%;box-sizing:border-box;margin-top:5px;padding:9px;border:1px solid #cbd5e1;border-radius:6px;" />
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-secondary" id="cancelConfirmModalBtn">Cancel</button>
-        <button type="button" class="btn-success" id="confirmModalBtn">Confirm</button>
+        <button type="button" class="btn-success" id="confirmModalBtn">Yes, Continue</button>
       </div>
     </div>
   </div>

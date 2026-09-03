@@ -278,6 +278,11 @@ document.addEventListener("DOMContentLoaded", function () {
           clearState();
           setForgotLinkVisible(false); // hide the link
 
+          if (data.mustChangePassword && window.showRequiredPasswordModal) {
+            window.showRequiredPasswordModal(data.redirect);
+            return;
+          }
+
           // Credentials accepted -> show the OTP verification step
           if (data.needOtp) {
             showOtpStep(data);
@@ -432,6 +437,11 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((data) => {
         if (data.success) {
           clearOtpTimers();
+          if (data.mustChangePassword && window.showRequiredPasswordModal) {
+            hideOtpStep();
+            window.showRequiredPasswordModal(data.redirect);
+            return;
+          }
           const target = data.redirect || "/Final_EncryptionFiles/public/dashboard.php";
           window.location.href = target;
         } else {

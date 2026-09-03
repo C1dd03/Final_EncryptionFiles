@@ -23,6 +23,7 @@ class User
         $this->ensureDeleteRequestsAndApprovalSchema();
         $this->ensurePrivilegeSchema();
         $this->ensureViewDetailsSchema();
+        $this->ensureAccountManagementSchema();
         $this->ensurePendingRegistrationsSchema();
     }
 
@@ -272,10 +273,15 @@ class User
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function updatePassword(string $id_number, string $password_hash)
+    public function updatePassword(string $id_number, string $password_hash, bool $clearRequiredChange = true)
     {
         // Bump session_version so any existing sessions are invalidated after a password change.
-        $stmt = $this->conn->prepare("UPDATE users SET password_hash=:password, session_version = session_version + 1 WHERE id_number=:id_number");
+        $sql = "UPDATE users SET password_hash=:password, session_version = session_version + 1";
+        if ($clearRequiredChange) {
+            $sql .= ", must_change_password = 0";
+        }
+        $sql .= " WHERE id_number=:id_number";
+        $stmt = $this->conn->prepare($sql);
         return $stmt->execute([':password' => $password_hash, ':id_number' => $id_number]);
     }
 
@@ -484,12 +490,12 @@ class User
     public function createAdmin(array $data): string
     {
         $id_number = !empty($data['id_number']) ? trim($data['id_number']) : $this->generateIdNumber();
-        $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
+        $passwordHash = password_hash('@Abcde12345', PASSWORD_BCRYPT);
         $birthdate = !empty($data['birthdate']) ? $data['birthdate'] : '2000-01-01';
         $age = !empty($data['birthdate']) ? $this->calculateAge($data['birthdate']) : 0;
 
-        $sql = "INSERT INTO users (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status)
-                VALUES (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, 'admin', :status)";
+        $sql = "INSERT INTO users (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status, must_change_password)
+                VALUES (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, 'admin', :status, 1)";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([
@@ -555,6 +561,7 @@ class User
 
         if (!empty($data['password'])) {
             $fields[] = 'password_hash = :password_hash';
+            $fields[] = 'must_change_password = 1';
             $params[':password_hash'] = password_hash($data['password'], PASSWORD_BCRYPT);
         }
 
@@ -734,12 +741,12 @@ class User
     public function createStandardUser(array $data): string
     {
         $id_number = !empty($data['id_number']) ? trim($data['id_number']) : $this->generateIdNumber();
-        $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
+        $passwordHash = password_hash('@Abcde12345', PASSWORD_BCRYPT);
         $birthdate = !empty($data['birthdate']) ? $data['birthdate'] : '2000-01-01';
         $age = !empty($data['birthdate']) ? $this->calculateAge($data['birthdate']) : 0;
 
-        $sql = "INSERT INTO users (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status)
-                VALUES (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, 'user', :status)";
+        $sql = "INSERT INTO users (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age, username, email, password_hash, role, status, must_change_password)
+                VALUES (:id_number, :first_name, :middle_name, :last_name, :extension, :birthdate, :gender, :age, :username, :email, :password_hash, 'user', :status, 1)";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([
@@ -805,6 +812,7 @@ class User
 
         if (!empty($data['password'])) {
             $fields[] = 'password_hash = :password_hash';
+            $fields[] = 'must_change_password = 1';
             $params[':password_hash'] = password_hash($data['password'], PASSWORD_BCRYPT);
         }
 
@@ -1083,7 +1091,7 @@ class User
      */
     public function getAccountAuthState(string $id_number): ?array
     {
-        $stmt = $this->conn->prepare("SELECT id_number, username, role, status, session_version FROM users WHERE id_number = :id_number");
+        $stmt = $this->conn->prepare("SELECT id_number, username, role, status, session_version, must_change_password FROM users WHERE id_number = :id_number");
         $stmt->execute([':id_number' => $id_number]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -1099,11 +1107,8 @@ class User
      * Changes the role of an account while keeping role, privileges,
      * session invalidation and audit logs synchronized.
      *
-     * Special behaviour when a Super Admin promotes an Admin to Super Admin:
-     *   - The previous Super Admin is downgraded to role = 'admin' and
-     *     status = 'blocked' and their session_version is bumped so
-     *     their existing session cannot continue using Super Admin privileges.
-     *   - The promoted account becomes the new Super Admin.
+     * A promotion to Super Admin always creates an eligible blocked account.
+     * It cannot replace the active Super Admin outside the logout handoff.
      *
      * @param string $targetId            id_number of the account to change
      * @param string $newRole             user | admin | superadmin
@@ -1128,61 +1133,47 @@ class User
             return ['success' => false, 'message' => 'Role is already set to ' . $newRole . '.'];
         }
 
-        $autoLogout = false;
-
         try {
             $this->conn->beginTransaction();
-
-            // Special case: A Super Admin is being demoted because a new Super Admin is being promoted.
-            // This happens when the operator is a Super Admin and the new role for the target is 'superadmin'.
-            $isPromotingNewSuperAdmin = ($newRole === 'superadmin' && $performedById !== $targetId);
-            if ($isPromotingNewSuperAdmin) {
-                // 1. Downgrade the previous Super Admin to 'admin' and mark them as Blocked
-                $this->conn->prepare(
-                    "UPDATE users SET role = 'admin', status = 'blocked', session_version = session_version + 1
-                     WHERE id_number = :id_number AND role = 'superadmin'"
-                )->execute([':id_number' => $performedById]);
-
-                // Sync block_list entry for the previous Super Admin
-                $this->syncBlockListOnBlock(
-                    $performedById,
-                    'System',
-                    'Auto-blocked: Super Admin role transferred to another account',
-                    $_SERVER['REMOTE_ADDR'] ?? ''
-                );
-
-                // The previous Super Admin can no longer hold admin privileges either,
-                // since their status is now Blocked.
-                $this->removeAllPrivileges($performedById);
-
-                $this->logAuditAction(
-                    $performedById,
-                    $performedByUsername,
-                    'superadmin',
-                    'Self Demotion',
-                    "Auto demoted to Admin and Blocked after transferring Super Admin role to {$target['username']} (ID: {$targetId})"
-                );
-
-                $autoLogout = true;
+            if ($targetId === $performedById && $oldRole === 'superadmin' && $newRole !== 'superadmin') {
+                $this->conn->rollBack();
+                return ['success' => false, 'message' => 'The active Super Admin can only rotate through Logout.'];
             }
 
-            // 2. Update the target account role and bump session version (invalidates its existing sessions)
-            $this->conn->prepare("UPDATE users SET role = :role, session_version = session_version + 1 WHERE id_number = :id_number")
-                ->execute([':role' => $newRole, ':id_number' => $targetId]);
+            $targetStatus = $target['status'];
+            if ($newRole === 'superadmin') {
+                $targetStatus = 'blocked';
+                $this->conn->prepare(
+                    "UPDATE users SET role = 'superadmin', status = 'blocked', superadmin_eligible = 1,
+                        superadmin_queue_at = COALESCE(superadmin_queue_at, NOW()),
+                        session_version = session_version + 1 WHERE id_number = :id_number"
+                )->execute([':id_number' => $targetId]);
+                $this->syncBlockListOnBlock(
+                    $targetId,
+                    $performedByUsername,
+                    'Queued as an eligible Super Admin; the oldest eligible account activates on logout.',
+                    $_SERVER['REMOTE_ADDR'] ?? ''
+                );
+            } else {
+                $this->conn->prepare(
+                    "UPDATE users SET role = :role, superadmin_eligible = 0, superadmin_queue_at = NULL,
+                        session_version = session_version + 1 WHERE id_number = :id_number"
+                )->execute([':role' => $newRole, ':id_number' => $targetId]);
+            }
 
-            // 3. Keep block_list role in sync (if a record exists)
+            // Keep block_list role in sync (if a record exists).
             $this->conn->prepare("UPDATE block_list SET role = :role WHERE id_number = :id_number")
                 ->execute([':role' => $newRole, ':id_number' => $targetId]);
 
-            // 4. Non-admin roles must never retain admin privileges
-            if ($newRole !== 'admin') {
+            // User accounts must never retain administrative privileges.
+            if ($newRole === 'user') {
                 $this->removeAllPrivileges($targetId);
             }
 
-            // 5. Audit log the role change
+            // Audit the role change and any queueing decision.
             $details = "Changed By: {$performedByUsername} | Target User: {$target['username']} | Old Role: {$oldRole} | New Role: {$newRole}";
-            if ($autoLogout) {
-                $details .= ' | Note: previous Super Admin automatically demoted & blocked';
+            if ($newRole === 'superadmin') {
+                $details .= ' | Status: blocked and queued for logout handoff';
             }
             $this->logAuditAction($performedById, $performedByUsername, 'superadmin', 'Change Role', $details);
 
@@ -1190,8 +1181,11 @@ class User
 
             return [
                 'success' => true,
-                'message' => 'Role updated to ' . $newRole . '.',
-                'auto_logout' => $autoLogout
+                'message' => $newRole === 'superadmin'
+                    ? 'Role updated to superadmin. The account is blocked and queued for the next eligible handoff.'
+                    : 'Role updated to ' . $newRole . '.',
+                'auto_logout' => false,
+                'status' => $targetStatus
             ];
         } catch (Exception $e) {
             $this->conn->rollBack();
@@ -2051,6 +2045,420 @@ class User
             }
             error_log("Failed to approve registration: " . $e->getMessage());
             return ['success' => false, 'message' => 'Failed to approve registration. Please try again.'];
+        }
+    }
+
+    /**
+     * Columns used by administrator-created accounts, first-login password
+     * changes, and the deterministic Super Admin rotation queue.
+     */
+    public function ensureAccountManagementSchema(): void
+    {
+        try {
+            $columns = [
+                'must_change_password' => "ALTER TABLE users ADD COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0 AFTER session_version",
+                'superadmin_eligible'  => "ALTER TABLE users ADD COLUMN superadmin_eligible TINYINT(1) NOT NULL DEFAULT 0 AFTER must_change_password",
+                'superadmin_queue_at'  => "ALTER TABLE users ADD COLUMN superadmin_queue_at DATETIME DEFAULT NULL AFTER superadmin_eligible",
+                'created_by'           => "ALTER TABLE users ADD COLUMN created_by VARCHAR(20) DEFAULT NULL AFTER superadmin_queue_at"
+            ];
+
+            foreach ($columns as $name => $sql) {
+                $stmt = $this->conn->query("SHOW COLUMNS FROM users LIKE " . $this->conn->quote($name));
+                if (!$stmt->fetch()) {
+                    $this->conn->exec($sql);
+                }
+            }
+
+            $this->conn->exec("UPDATE users SET superadmin_eligible = 1 WHERE role = 'superadmin'");
+            $this->conn->exec("UPDATE users SET superadmin_queue_at = created_at WHERE role = 'superadmin' AND superadmin_queue_at IS NULL");
+
+            // Repair legacy databases that happen to contain more than one
+            // active Super Admin. The oldest account stays active.
+            $active = $this->conn->query(
+                "SELECT id_number FROM users WHERE role = 'superadmin' AND status = 'active' ORDER BY created_at ASC, id_number ASC"
+            )->fetchAll(PDO::FETCH_COLUMN);
+            if (count($active) > 1) {
+                $keep = array_shift($active);
+                $placeholders = implode(',', array_fill(0, count($active), '?'));
+                $stmt = $this->conn->prepare(
+                    "UPDATE users SET status = 'blocked', session_version = session_version + 1,
+                     superadmin_queue_at = COALESCE(superadmin_queue_at, created_at)
+                     WHERE id_number IN ({$placeholders}) AND id_number <> ?"
+                );
+                $stmt->execute(array_merge($active, [$keep]));
+            }
+        } catch (Throwable $e) {
+            error_log('Account-management schema sync warning: ' . $e->getMessage());
+        }
+    }
+
+    public function verifyAccountPassword(string $idNumber, string $password): bool
+    {
+        if ($idNumber === '' || $password === '') {
+            return false;
+        }
+        $stmt = $this->conn->prepare("SELECT password_hash FROM users WHERE id_number = :id_number LIMIT 1");
+        $stmt->execute([':id_number' => $idNumber]);
+        $hash = $stmt->fetchColumn();
+        return is_string($hash) && $hash !== '' && password_verify($password, $hash);
+    }
+
+    public function getManagedAccounts(
+        string $search = '',
+        string $status = 'all',
+        string $role = 'all',
+        int $offset = 0,
+        int $limit = 10,
+        bool $usersOnly = false
+    ): array {
+        $sql = "SELECT id_number, first_name, middle_name, last_name, extension, username, email,
+                       role, status, created_at, must_change_password
+                FROM users WHERE 1 = 1";
+        $params = [];
+        if ($usersOnly) {
+            $sql .= " AND role = 'user'";
+        } elseif (in_array($role, ['user', 'admin', 'superadmin'], true)) {
+            $sql .= " AND role = :role";
+            $params[':role'] = $role;
+        }
+        if (in_array($status, ['active', 'blocked', 'pending', 'pending_approval', 'pending_deletion', 'inactive'], true)) {
+            $sql .= " AND status = :status";
+            $params[':status'] = $status;
+        }
+        if ($search !== '') {
+            $sql .= " AND (id_number LIKE :search OR username LIKE :search OR email LIKE :search
+                      OR CONCAT_WS(' ', first_name, middle_name, last_name, extension) LIKE :search)";
+            $params[':search'] = '%' . $search . '%';
+        }
+        $sql .= " ORDER BY created_at DESC, id_number DESC LIMIT :limit OFFSET :offset";
+        $stmt = $this->conn->prepare($sql);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $row['name'] = trim(implode(' ', array_filter([
+                $row['first_name'] ?? '', $row['middle_name'] ?? '', $row['last_name'] ?? '', $row['extension'] ?? ''
+            ]))) ?: 'Details not completed';
+        }
+        unset($row);
+        return $rows;
+    }
+
+    public function getManagedAccountsCount(string $search = '', string $status = 'all', string $role = 'all', bool $usersOnly = false): int
+    {
+        $sql = "SELECT COUNT(*) FROM users WHERE 1 = 1";
+        $params = [];
+        if ($usersOnly) {
+            $sql .= " AND role = 'user'";
+        } elseif (in_array($role, ['user', 'admin', 'superadmin'], true)) {
+            $sql .= " AND role = :role";
+            $params[':role'] = $role;
+        }
+        if (in_array($status, ['active', 'blocked', 'pending', 'pending_approval', 'pending_deletion', 'inactive'], true)) {
+            $sql .= " AND status = :status";
+            $params[':status'] = $status;
+        }
+        if ($search !== '') {
+            $sql .= " AND (id_number LIKE :search OR username LIKE :search OR email LIKE :search
+                      OR CONCAT_WS(' ', first_name, middle_name, last_name, extension) LIKE :search)";
+            $params[':search'] = '%' . $search . '%';
+        }
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function getManagedAccountById(string $idNumber): ?array
+    {
+        $stmt = $this->conn->prepare(
+            "SELECT u.id_number, u.first_name, u.middle_name, u.last_name, u.extension,
+                    u.birthdate, u.gender, u.age, u.username, u.email, u.contact_number,
+                    u.role, u.status, u.created_at, u.updated_at, u.last_login,
+                    u.must_change_password, a.purok_street AS street, a.barangay,
+                    a.city_municipality AS city, a.province, a.country, a.zip_code AS zip
+             FROM users u LEFT JOIN addresses a ON a.id_number = u.id_number
+             WHERE u.id_number = :id_number LIMIT 1"
+        );
+        $stmt->execute([':id_number' => $idNumber]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+        $row['full_name'] = trim(implode(' ', array_filter([
+            $row['first_name'] ?? '', $row['middle_name'] ?? '', $row['last_name'] ?? '', $row['extension'] ?? ''
+        ])));
+        $row['privileges'] = in_array($row['role'], ['admin', 'superadmin'], true)
+            ? $this->getAdminPrivileges($idNumber)
+            : [];
+        return $row;
+    }
+
+    public function hasOtherActiveSuperAdmin(string $excludeId = ''): bool
+    {
+        $sql = "SELECT COUNT(*) FROM users WHERE role = 'superadmin' AND status = 'active'";
+        $params = [];
+        if ($excludeId !== '') {
+            $sql .= " AND id_number <> :exclude_id";
+            $params[':exclude_id'] = $excludeId;
+        }
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
+    public function createManagedAccount(array $data, string $createdBy): array
+    {
+        $role = strtolower((string)($data['role'] ?? 'user'));
+        if (!in_array($role, ['user', 'admin', 'superadmin'], true)) {
+            return ['success' => false, 'message' => 'Invalid account role.'];
+        }
+        $status = $role === 'superadmin' ? 'blocked' : 'active';
+        $idNumber = trim((string)($data['id_number'] ?? ''));
+        $username = trim((string)($data['username'] ?? ''));
+        $password = (string)($data['password'] ?? '');
+        $privileges = array_values(array_intersect(array_keys(self::PRIVILEGES), $data['privileges'] ?? []));
+
+        try {
+            $this->conn->beginTransaction();
+            $stmt = $this->conn->prepare(
+                "INSERT INTO users
+                    (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age,
+                     username, email, password_hash, role, status, session_version, must_change_password,
+                     superadmin_eligible, superadmin_queue_at, created_by, created_at)
+                 VALUES
+                    (:id_number, '', NULL, '', NULL, '1970-01-01', 'male', 0,
+                     :username, NULL, :password_hash, :role, :status, 0, 1,
+                     :eligible, :queue_at, :created_by, NOW())"
+            );
+            $stmt->execute([
+                ':id_number' => $idNumber,
+                ':username' => $username,
+                ':password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                ':role' => $role,
+                ':status' => $status,
+                ':eligible' => $role === 'superadmin' ? 1 : 0,
+                ':queue_at' => $role === 'superadmin' ? date('Y-m-d H:i:s') : null,
+                ':created_by' => $createdBy
+            ]);
+
+            if (in_array($role, ['admin', 'superadmin'], true)) {
+                $insertPrivilege = $this->conn->prepare(
+                    "INSERT INTO admin_privileges (id_number, privilege_key, granted_at)
+                     VALUES (:id_number, :privilege_key, NOW())"
+                );
+                foreach ($privileges as $privilege) {
+                    $insertPrivilege->execute([':id_number' => $idNumber, ':privilege_key' => $privilege]);
+                }
+            }
+            $this->conn->commit();
+            return ['success' => true, 'id_number' => $idNumber, 'status' => $status];
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('Managed account creation failed: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Unable to create the account. The ID Number or Username may already be in use.'];
+        }
+    }
+
+    public function updateManagedAccount(string $idNumber, array $data): bool
+    {
+        $fields = [
+            'first_name = :first_name', 'middle_name = :middle_name', 'last_name = :last_name',
+            'extension = :extension', 'username = :username', 'role = :role', 'status = :status',
+            'superadmin_eligible = :eligible',
+            "superadmin_queue_at = CASE WHEN :role_queue = 'superadmin' THEN COALESCE(superadmin_queue_at, NOW()) ELSE NULL END",
+            'updated_at = NOW()', 'session_version = session_version + 1'
+        ];
+        $params = [
+            ':first_name' => $data['first_name'], ':middle_name' => $data['middle_name'],
+            ':last_name' => $data['last_name'], ':extension' => $data['extension'],
+            ':username' => $data['username'], ':role' => $data['role'], ':status' => $data['status'],
+            ':eligible' => $data['role'] === 'superadmin' ? 1 : 0, ':role_queue' => $data['role'], ':id_number' => $idNumber
+        ];
+        if (!empty($data['password'])) {
+            $fields[] = 'password_hash = :password_hash';
+            $fields[] = 'must_change_password = 1';
+            $params[':password_hash'] = password_hash($data['password'], PASSWORD_DEFAULT);
+        }
+        $stmt = $this->conn->prepare("UPDATE users SET " . implode(', ', $fields) . " WHERE id_number = :id_number");
+        $ok = $stmt->execute($params);
+        if ($ok) {
+            if (in_array($data['role'], ['admin', 'superadmin'], true)) {
+                $this->saveAdminPrivileges($idNumber, $data['privileges'] ?? []);
+            } else {
+                $this->removeAllPrivileges($idNumber);
+            }
+            if ($data['status'] === 'blocked') {
+                $this->syncBlockListOnBlock($idNumber, $data['operator'] ?? 'superadmin', $data['reason'] ?? null, $_SERVER['REMOTE_ADDR'] ?? '');
+            } elseif ($data['status'] === 'active') {
+                $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number")
+                    ->execute([':id_number' => $idNumber]);
+            }
+        }
+        return $ok;
+    }
+
+    public function setManagedAccountStatus(string $idNumber, string $status, string $operator, string $operatorRole, ?string $reason = null): bool
+    {
+        $stmt = $this->conn->prepare(
+            "UPDATE users SET status = :status, session_version = session_version + 1, updated_at = NOW()
+             WHERE id_number = :id_number"
+        );
+        $ok = $stmt->execute([':status' => $status, ':id_number' => $idNumber]);
+        if (!$ok) {
+            return false;
+        }
+        if ($status === 'blocked') {
+            $this->syncBlockListOnBlock($idNumber, $operator, $reason, $_SERVER['REMOTE_ADDR'] ?? '');
+        } else {
+            $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number")
+                ->execute([':id_number' => $idNumber]);
+        }
+        return true;
+    }
+
+    public function deactivateManagedAccount(string $idNumber): bool
+    {
+        $stmt = $this->conn->prepare(
+            "UPDATE users SET status = 'inactive', session_version = session_version + 1, updated_at = NOW()
+             WHERE id_number = :id_number AND status <> 'inactive'"
+        );
+        return $stmt->execute([':id_number' => $idNumber]) && $stmt->rowCount() === 1;
+    }
+
+    public function getPersonalDetails(string $idNumber): ?array
+    {
+        $account = $this->getManagedAccountById($idNumber);
+        if (!$account) {
+            return null;
+        }
+        unset($account['privileges'], $account['must_change_password']);
+        $account['security_questions'] = array_map(static function (array $row): array {
+            return [
+                'question_id' => (int)$row['question_id'],
+                'question_text' => (string)$row['question_text']
+            ];
+        }, $this->getUserAuthAnswers($idNumber));
+        return $account;
+    }
+
+    public function replaceSecurityAnswers(string $idNumber, array $answers): bool
+    {
+        try {
+            $this->conn->beginTransaction();
+            $this->saveSecurityAnswers($idNumber, $answers);
+            $this->conn->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('Security question update failed: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function updatePersonalDetails(string $idNumber, array $data): bool
+    {
+        try {
+            $this->conn->beginTransaction();
+            $stmt = $this->conn->prepare(
+                "UPDATE users SET first_name = :first_name, middle_name = :middle_name,
+                    last_name = :last_name, extension = :extension, birthdate = :birthdate,
+                    gender = :gender, age = :age, username = :username, email = :email,
+                    contact_number = :contact_number, updated_at = NOW()
+                 WHERE id_number = :id_number"
+            );
+            $stmt->execute([
+                ':first_name' => $data['first_name'], ':middle_name' => $data['middle_name'],
+                ':last_name' => $data['last_name'], ':extension' => $data['extension'],
+                ':birthdate' => $data['birthdate'], ':gender' => $data['gender'], ':age' => $data['age'],
+                ':username' => $data['username'], ':email' => $data['email'],
+                ':contact_number' => $data['contact_number'], ':id_number' => $idNumber
+            ]);
+            $this->saveOrUpdateAddress($idNumber, $data);
+            $this->conn->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('Personal details update failed: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Blocks the logging-out Super Admin and activates the oldest eligible
+     * blocked Super Admin. If the queue is empty, no Super Admin remains active
+     * until an eligible account is made available administratively.
+     */
+    public function rotateSuperAdminOnLogout(string $currentId, string $currentUsername): ?array
+    {
+        try {
+            $this->conn->beginTransaction();
+            $stmt = $this->conn->prepare(
+                "SELECT id_number FROM users
+                 WHERE id_number = :id_number AND role = 'superadmin' AND status = 'active' FOR UPDATE"
+            );
+            $stmt->execute([':id_number' => $currentId]);
+            if (!$stmt->fetchColumn()) {
+                $this->conn->rollBack();
+                return null;
+            }
+            $stmt = $this->conn->prepare(
+                "SELECT id_number, username FROM users
+                 WHERE role = 'superadmin' AND status = 'blocked' AND superadmin_eligible = 1
+                   AND id_number <> :current_id
+                 ORDER BY COALESCE(superadmin_queue_at, created_at) ASC, created_at ASC, id_number ASC
+                 LIMIT 1 FOR UPDATE"
+            );
+            $stmt->execute([':current_id' => $currentId]);
+            $next = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $this->conn->prepare(
+                "UPDATE users SET status = 'blocked', session_version = session_version + 1,
+                    superadmin_queue_at = NOW() WHERE id_number = :id_number"
+            )->execute([':id_number' => $currentId]);
+
+            if ($next) {
+                $this->conn->prepare(
+                    "UPDATE users SET status = 'active', session_version = session_version + 1
+                     WHERE id_number = :id_number"
+                )->execute([':id_number' => $next['id_number']]);
+                $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number")
+                    ->execute([':id_number' => $next['id_number']]);
+            }
+
+            $rotationDetails = $next
+                ? "Logged out and transferred active Super Admin access to {$next['username']} (ID: {$next['id_number']}). Queue policy: oldest eligible account first."
+                : 'Logged out and was automatically blocked. No eligible blocked Super Admin was available for activation.';
+            $this->logAuditAction(
+                $currentId,
+                $currentUsername,
+                'superadmin',
+                'Rotate Super Admin',
+                $rotationDetails
+            );
+            $this->conn->commit();
+            $this->syncBlockListOnBlock(
+                $currentId,
+                'System',
+                'Automatically blocked after logout; placed at the back of the Super Admin rotation queue.',
+                $_SERVER['REMOTE_ADDR'] ?? ''
+            );
+            return $next;
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('Super Admin rotation failed: ' . $e->getMessage());
+            return null;
         }
     }
 

@@ -44,6 +44,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const closeConfirmModalBtn = document.getElementById("closeConfirmModalBtn");
 
   let activeConfirmCallback = null;
+  let unblockConfirmed = false;
 
   // Initial Load: both sections separately
   loadBlockList("admin");
@@ -81,8 +82,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (confirmModalBtn) {
     confirmModalBtn.addEventListener("click", function () {
+      if (!unblockConfirmed) {
+        unblockConfirmed = true;
+        const group = document.getElementById("unblockPasswordGroup");
+        if (group) group.style.display = "block";
+        confirmModalBtn.textContent = "Verify & Unblock";
+        const password = document.getElementById("unblockOperatorPassword");
+        if (password) password.focus();
+        return;
+      }
       if (activeConfirmCallback) {
-        activeConfirmCallback();
+        if (activeConfirmCallback() === false) return;
       }
       closeConfirmModal();
     });
@@ -320,6 +330,12 @@ document.addEventListener("DOMContentLoaded", function () {
     if (confirmModalMessage) {
       confirmModalMessage.textContent = "Are you sure you want to unblock this account?";
     }
+    const password = document.getElementById("unblockOperatorPassword");
+    if (password) password.value = "";
+    const group = document.getElementById("unblockPasswordGroup");
+    if (group) group.style.display = "none";
+    unblockConfirmed = false;
+    if (confirmModalBtn) confirmModalBtn.textContent = "Yes, Continue";
 
     activeConfirmCallback = function () {
       executeUnblock(id);
@@ -331,12 +347,20 @@ document.addEventListener("DOMContentLoaded", function () {
   function closeConfirmModal() {
     if (confirmModal) confirmModal.classList.remove("active");
     activeConfirmCallback = null;
+    unblockConfirmed = false;
   }
 
   // Execute Unblock Action AJAX
   function executeUnblock(id) {
     const formData = new FormData();
     formData.append("id", id);
+    const password = document.getElementById("unblockOperatorPassword");
+    if (!password || !password.value) {
+      alert("Enter your current password to unblock this account.");
+      if (password) password.focus();
+      return false;
+    }
+    formData.append("operator_password", password.value);
 
     fetch("../../php/auth/index.php?action=unblockAccount", {
       method: "POST",
