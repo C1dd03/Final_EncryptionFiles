@@ -75,11 +75,17 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.username)}</td>
         <td><span class="am-badge ${escapeHtml(row.role)}">${escapeHtml(row.role === "superadmin" ? "Super Admin" : row.role)}</span></td>
         <td><span class="am-badge ${escapeHtml(row.status)}">${escapeHtml(row.status.replaceAll("_", " "))}</span></td>
-        <td><div class="am-row-actions">
-          <button class="am-icon-btn" data-action="view" data-id="${escapeHtml(row.id_number)}" title="View details"><i class="fa-solid fa-eye"></i></button>
-          <button class="am-icon-btn" data-action="edit" data-id="${escapeHtml(row.id_number)}" title="Edit account"><i class="fa-solid fa-pen"></i></button>
-          ${row.status !== "inactive" ? `<button class="am-icon-btn" data-action="${blocked ? "unblock" : "block"}" data-id="${escapeHtml(row.id_number)}" title="${blocked ? "Unblock" : "Block"}"><i class="fa-solid fa-${blocked ? "unlock" : "ban"}"></i></button>` : ""}
-          ${row.status !== "inactive" ? `<button class="am-icon-btn danger" data-action="delete" data-id="${escapeHtml(row.id_number)}" title="Delete account"><i class="fa-solid fa-trash"></i></button>` : ""}
+        <td><div class="action-dropdown">
+          <button type="button" class="action-dropdown-btn" aria-expanded="false" aria-label="Options for ${escapeHtml(row.id_number)}">
+            Options <i class="fa-solid fa-chevron-down dropdown-chevron" aria-hidden="true"></i>
+          </button>
+          <div class="action-dropdown-menu">
+            <button type="button" class="action-menu-item view" data-action="view" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-eye" aria-hidden="true"></i> View Details</button>
+            <div class="action-menu-divider"></div>
+            <button type="button" class="action-menu-item edit" data-action="edit" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit Account</button>
+            ${row.status !== "inactive" ? `<button type="button" class="action-menu-item ${blocked ? "unblock" : "block"}" data-action="${blocked ? "unblock" : "block"}" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-${blocked ? "unlock" : "ban"}" aria-hidden="true"></i> ${blocked ? "Unblock" : "Block"} Account</button>` : ""}
+            ${row.status !== "inactive" ? `<button type="button" class="action-menu-item delete" data-action="delete" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-trash" aria-hidden="true"></i> Delete Account</button>` : ""}
+          </div>
         </div></td></tr>`;
     }).join("");
   }
@@ -111,10 +117,25 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!visible) container.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
   }
 
+  const createValidator = window.SharedValidator
+    ? window.SharedValidator.attachRealtimeValidation(createForm, {
+        ajaxCheckUrl: "../auth/index.php",
+      })
+    : null;
+
+  let currentEditDetail = null;
+  const editValidator = window.SharedValidator
+    ? window.SharedValidator.attachRealtimeValidation(editForm, {
+        getInitialData: () => currentEditDetail || {},
+        ajaxCheckUrl: "../auth/index.php",
+      })
+    : null;
+
   document.getElementById("amOpenCreate").addEventListener("click", () => {
     createForm.reset();
     createForm.elements.default_password.value = "@Abcde12345";
     if (!isSuperAdmin) createForm.elements.role.value = "user";
+    if (createValidator) createValidator.clearAll();
     formMessage(createForm);
     setPrivilegeVisibility(document.getElementById("amCreateRole"), document.getElementById("amCreatePrivileges"));
     open(createModal);
@@ -125,13 +146,23 @@ document.addEventListener("DOMContentLoaded", () => {
   createForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     formMessage(createForm);
+    if (createValidator && !createValidator.validateAll()) {
+      return formMessage(createForm, "Please correct the highlighted fields.");
+    }
     const dataForm = new FormData(createForm);
     if (!isSuperAdmin) dataForm.set("role", "user");
     const submit = createForm.querySelector('[type="submit"]');
     submit.disabled = true;
     try {
       const data = await request("createManagedAccount", {method:"POST", body:dataForm});
-      if (!data.success) return formMessage(createForm, data.message || "Unable to create account.");
+      if (!data.success) {
+        if (data.fieldErrors && typeof data.fieldErrors === "object") {
+          Object.entries(data.fieldErrors).forEach(([field, msg]) => {
+            if (createValidator) createValidator.setFieldError(field, msg);
+          });
+        }
+        return formMessage(createForm, data.message || "Unable to create account.");
+      }
       close(createModal); toast(data.message); loadAccounts();
     } catch (error) { formMessage(createForm, "Unable to connect. Please try again."); }
     finally { submit.disabled = false; }
@@ -153,6 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
         open(viewModal);
       } else if (button.dataset.action === "edit") {
         const detail = await getDetail(row.id_number);
+        currentEditDetail = detail;
         editForm.elements.id_number.value = detail.id_number;
         editForm.elements.full_name.value = detail.full_name || "";
         editForm.elements.username.value = detail.username;
@@ -164,6 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
         editForm.dataset.originalRole = detail.role;
         editForm.dataset.originalStatus = detail.status;
         editForm.dataset.originalPrivileges = JSON.stringify([...(detail.privileges || [])].sort());
+        if (editValidator) editValidator.clearAll();
         formMessage(editForm); open(editModal);
       } else {
         beginSecureAction(button.dataset.action, row);
@@ -173,6 +206,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   editForm.addEventListener("submit", (event) => {
     event.preventDefault();
+    formMessage(editForm);
+    if (editValidator && !editValidator.validateAll()) {
+      return formMessage(editForm, "Please correct the highlighted fields.");
+    }
     const roleChanged = editForm.elements.role.value !== editForm.dataset.originalRole;
     const statusChanged = editForm.elements.status.value !== editForm.dataset.originalStatus;
     let kind = "edit";
@@ -227,7 +264,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const button = document.getElementById("amExecuteSecure"); button.disabled = true;
     try {
       const data = await request(action, {method:"POST", body:payload});
-      if (!data.success) { message.textContent = data.message || "The action could not be completed."; return; }
+      if (!data.success) {
+        if (secureAction.type === "edit" && data.fieldErrors && typeof data.fieldErrors === "object") {
+          close(secureModal);
+          Object.entries(data.fieldErrors).forEach(([field, msg]) => {
+            if (editValidator) editValidator.setFieldError(field, msg);
+          });
+          formMessage(editForm, data.message || "Please correct the highlighted fields.");
+          return;
+        }
+        message.textContent = data.message || "The action could not be completed.";
+        return;
+      }
       close(secureModal); close(editModal); toast(data.message); loadAccounts();
     } catch (error) { message.textContent = "Unable to connect. Please try again."; }
     finally { button.disabled = false; }

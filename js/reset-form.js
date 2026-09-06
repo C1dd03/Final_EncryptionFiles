@@ -769,9 +769,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return false;
     }
 
-    // Show spinner on the Register button while the account + OTP email are prepared
+    // Disable the Register button while account is being created
     const submitBtn = form.querySelector(".btn_submit");
-    otpSetButtonLoading(submitBtn, true, "Creating account...", "Register");
+    if (submitBtn) submitBtn.disabled = true;
 
     return true;
   };

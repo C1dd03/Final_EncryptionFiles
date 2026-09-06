@@ -847,20 +847,29 @@ class UserController
         $questions = $this->userModel->getUserAuthAnswers($pending['id_number']);
         if (!$questions) {
             unset($_SESSION['otp_pending']);
-            echo json_encode(['success' => false, 'message' => 'No security question is configured for this account.']);
+            echo json_encode(['success' => false, 'message' => 'No security questions are configured for this account.']);
             exit;
         }
-        $selected = $questions[random_int(0, count($questions) - 1)];
         session_regenerate_id(true);
         $_SESSION['otp_pending']['otp_verified'] = true;
         $_SESSION['otp_pending']['otp_verified_at'] = time();
-        $_SESSION['otp_pending']['security_question_id'] = (int)$selected['question_id'];
+        $_SESSION['otp_pending']['security_question_ids'] = array_map(static function ($q) {
+            return (int)$q['question_id'];
+        }, $questions);
+        $_SESSION['otp_pending']['security_question_id'] = (int)$questions[0]['question_id'];
+
         echo json_encode([
             'success' => true,
-            'message' => 'OTP verified. Please answer your security question.',
+            'message' => 'OTP verified. Please answer your security questions.',
+            'questions' => array_map(static function ($q) {
+                return [
+                    'question_id' => (int)$q['question_id'],
+                    'question_text' => $q['question_text']
+                ];
+            }, $questions),
             'question' => [
-                'question_id' => (int)$selected['question_id'],
-                'question_text' => $selected['question_text']
+                'question_id' => (int)$questions[0]['question_id'],
+                'question_text' => $questions[0]['question_text']
             ]
         ]);
         exit;
@@ -1006,32 +1015,64 @@ class UserController
             echo json_encode(['success' => false, 'message' => 'Too many incorrect security-answer attempts. Please start again.']);
             exit;
         }
-        $questionId = (int)($_POST['question_id'] ?? 0);
-        $expectedQuestionId = (int)($pending['security_question_id'] ?? 0);
-        $answer = trim($_POST['security_answer'] ?? '');
-        if ($questionId !== $expectedQuestionId || $answer === '') {
-            echo json_encode(['success' => false, 'message' => 'Select the displayed security question and enter your answer.']);
+        $q1 = (int)($_POST['security_question_1'] ?? $_POST['question_1'] ?? 0);
+        $a1 = trim($_POST['security_answer_1'] ?? $_POST['answer_1'] ?? '');
+
+        $q2 = (int)($_POST['security_question_2'] ?? $_POST['question_2'] ?? 0);
+        $a2 = trim($_POST['security_answer_2'] ?? $_POST['answer_2'] ?? '');
+
+        $q3 = (int)($_POST['security_question_3'] ?? $_POST['question_3'] ?? 0);
+        $a3 = trim($_POST['security_answer_3'] ?? $_POST['answer_3'] ?? '');
+
+        // Fallback if legacy single question was passed
+        if (!$q1 && isset($_POST['question_id'])) {
+            $q1 = (int)$_POST['question_id'];
+            $a1 = trim($_POST['security_answer'] ?? '');
+        }
+
+        $items = [];
+        if ($q1 > 0 && $a1 !== '') {
+            $items[] = ['qid' => $q1, 'ans' => $a1];
+        }
+        if ($q2 > 0 && $a2 !== '') {
+            $items[] = ['qid' => $q2, 'ans' => $a2];
+        }
+        if ($q3 > 0 && $a3 !== '') {
+            $items[] = ['qid' => $q3, 'ans' => $a3];
+        }
+
+        if (count($items) < 3) {
+            echo json_encode(['success' => false, 'message' => 'Please select all 3 security questions and provide answers for each.']);
             exit;
         }
-        $record = $this->userModel->getUserAuthAnswer($pending['id_number'], $questionId);
-        if (!$record || !password_verify($answer, $record['answer_hash'])) {
+
+        $correctCount = 0;
+        foreach ($items as $item) {
+            $record = $this->userModel->getUserAuthAnswer($pending['id_number'], $item['qid']);
+            if ($record && password_verify($item['ans'], $record['answer_hash'])) {
+                $correctCount++;
+            }
+        }
+
+        if ($correctCount < 2) {
             $_SESSION['otp_pending']['security_attempts'] = $attempts + 1;
             $remaining = 5 - $_SESSION['otp_pending']['security_attempts'];
             if ($remaining <= 0) {
                 unset($_SESSION['otp_pending']);
                 echo json_encode(['success' => false, 'message' => 'Too many incorrect security-answer attempts. Please start again.']);
             } else {
-                echo json_encode(['success' => false, 'message' => "Incorrect security answer. {$remaining} attempt(s) remaining."]);
+                echo json_encode(['success' => false, 'message' => "At least 2 questions must be answered correctly. {$remaining} attempt(s) remaining."]);
             }
             exit;
         }
+
         session_regenerate_id(true);
         $_SESSION['otp_pending']['security_verified'] = true;
         $_SESSION['otp_pending']['security_verified_at'] = time();
         $_SESSION['otp_pending']['reset_token'] = bin2hex(random_bytes(32));
         echo json_encode([
             'success' => true,
-            'message' => 'Security answer verified. You may now change your password.',
+            'message' => 'Security answers verified. You may now change your password.',
             'reset_token' => $_SESSION['otp_pending']['reset_token']
         ]);
         exit;
@@ -3301,18 +3342,18 @@ class UserController
 
         $username = trim($_POST['username'] ?? $target['username']);
         if (!preg_match('/^[A-Za-z0-9._@-]{3,50}$/', $username)) {
-            echo json_encode(['success' => false, 'message' => 'Username must be 3-50 characters and contain no spaces.']);
+            echo json_encode(['success' => false, 'message' => 'Username must be 3-50 characters and contain no spaces.', 'fieldErrors' => ['username' => 'Username must be 3-50 characters and contain no spaces.']]);
             exit;
         }
         if ($username !== $target['username'] && $this->userModel->usernameExists($username)) {
-            echo json_encode(['success' => false, 'message' => 'Username is already registered.']);
+            echo json_encode(['success' => false, 'message' => 'Username is already registered.', 'fieldErrors' => ['username' => 'Username is already registered.']]);
             exit;
         }
 
         $fullName = trim($_POST['full_name'] ?? $target['full_name']);
         $nameParts = preg_split('/\s+/', $fullName, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         if (count($nameParts) < 2) {
-            echo json_encode(['success' => false, 'message' => 'Full Name must include at least a first and last name.']);
+            echo json_encode(['success' => false, 'message' => 'Full Name must include at least a first and last name.', 'fieldErrors' => ['full_name' => 'Full Name must include at least a first and last name.']]);
             exit;
         }
         $firstName = $nameParts ? array_shift($nameParts) : '';
@@ -3342,11 +3383,11 @@ class UserController
 
         $newPassword = (string)($_POST['password'] ?? '');
         if ($newPassword !== '' && ($error = $this->passwordPolicyError($newPassword))) {
-            echo json_encode(['success' => false, 'message' => $error]);
+            echo json_encode(['success' => false, 'message' => $error, 'fieldErrors' => ['password' => $error]]);
             exit;
         }
         if ($newPassword !== '' && password_verify($newPassword, (string)($this->userModel->findById($targetId)['password_hash'] ?? ''))) {
-            echo json_encode(['success' => false, 'message' => 'The replacement password must be different from the current password.']);
+            echo json_encode(['success' => false, 'message' => 'The replacement password must be different from the current password.', 'fieldErrors' => ['password' => 'The replacement password must be different from the current password.']]);
             exit;
         }
         $submitted = $_POST['privileges'] ?? [];
@@ -3501,7 +3542,6 @@ class UserController
             echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
             exit;
         }
-        $this->requireActorPassword($authState);
         $current = $this->userModel->getPersonalDetails($authState['id_number']);
         $firstName = trim($_POST['first_name'] ?? '');
         $lastName = trim($_POST['last_name'] ?? '');
@@ -3538,24 +3578,37 @@ class UserController
         $securityAnswers = [];
         $currentQuestions = $current['security_questions'] ?? [];
         $currentQuestionIds = array_map(static fn(array $question): int => (int)$question['question_id'], $currentQuestions);
-        $securityUpdateRequested = count($currentQuestionIds) < 3;
+        $hasAnyAnswer = false;
+        $hasQuestionChanged = false;
         for ($i = 1; $i <= 3; $i++) {
             $questionId = (int)($_POST["security_question_{$i}"] ?? 0);
             $answer = trim($_POST["security_answer_{$i}"] ?? '');
-            if ($answer !== '' || $questionId !== ($currentQuestionIds[$i - 1] ?? 0)) {
-                $securityUpdateRequested = true;
+            if ($answer !== '') {
+                $hasAnyAnswer = true;
+            }
+            if ($questionId > 0 && $questionId !== ($currentQuestionIds[$i - 1] ?? 0)) {
+                $hasQuestionChanged = true;
             }
             $securityAnswers[] = ['question_id' => $questionId, 'answer' => $answer];
         }
+        $securityUpdateRequested = $hasAnyAnswer || $hasQuestionChanged;
         if ($securityUpdateRequested) {
             foreach ($securityAnswers as $index => $entry) {
-                if ($entry['question_id'] <= 0 || $entry['answer'] === '') {
-                    $number = $index + 1;
-                    $errors["security_question_{$number}"] = "Question {$number} and its new answer are required when updating security questions.";
+                $number = $index + 1;
+                if ($entry['question_id'] <= 0) {
+                    $errors["security_question_{$number}"] = "Question {$number} is required.";
+                }
+                if ($entry['answer'] === '') {
+                    $errors["security_answer_{$number}"] = "Answer {$number} is required.";
+                } elseif (preg_match('/\s/', $entry['answer'])) {
+                    $errors["security_answer_{$number}"] = "Answer cannot contain spaces.";
                 }
             }
             $questionIds = array_column($securityAnswers, 'question_id');
             if (count(array_unique($questionIds)) !== 3) {
+                $errors['security_question_1'] = 'Choose three different security questions.';
+                $errors['security_question_2'] = 'Choose three different security questions.';
+                $errors['security_question_3'] = 'Choose three different security questions.';
                 $errors['security_questions'] = 'Choose three different security questions.';
             }
         }

@@ -115,13 +115,17 @@ p {
   transition: width 0.4s ease; /* smooth resize */
 }
 
-/* The registration form is hidden after a successful submission. Keep its
-   container tall enough for the existing success modal instead of collapsing. */
+/* Let the confirmation and its surrounding panel grow with their content. */
 .form-container.registration-success-container {
-  width: min(700px, calc(100vw - 32px));
-  height: 460px;
-  max-height: calc(100vh - 32px);
-  max-height: calc(100dvh - 32px);
+  width: min(700px, 100%);
+  height: auto;
+  max-height: none;
+  padding: 0;
+  overflow: visible;
+}
+
+.column:has(.registration-success-container) {
+  min-width: 0;
 }
 
 @keyframes fadeIn {
@@ -135,7 +139,11 @@ p {
 .form-container:has(.forgot-password) {
   width: 410px;
 }
-.register-form .step-3.active {
+.form-container:has(.forgot-password .step-3.active) {
+  width: min(700px, calc(100vw - 32px));
+}
+.register-form .step-3.active,
+.forgot-password .step-3.active {
   width: 635px;
 }
 /* When forgot-password form is shown */
@@ -1065,22 +1073,36 @@ ul {
   animation: slideDown 0.4s ease;
 }
 
-/* Registration success sizing: slightly taller on larger screens, while the
-   viewport limits and fallback scrolling keep the whole dialog usable on
-   phones, tablets, landscape screens, and browser zoom. */
+/* Keep the success card in flow so the page can accommodate the complete
+   message and login button without a scrollbar inside the confirmation. */
+.form-container.registration-success-container .success-modal {
+  position: relative;
+  height: auto;
+  padding: 32px;
+  border-radius: inherit;
+}
+
 .form-container.registration-success-container .success-modal-content {
-  width: min(350px, calc(100% - 32px));
-  height: 390px;
-  max-height: calc(100% - 32px);
-  background: linear-gradient(
-    180deg,
-    #9dc86f 0,
-    #9dc86f 175px,
-    #ffffff 175px,
-    #ffffff 100%
-  );
-  overflow-x: hidden;
-  overflow-y: auto;
+  display: flow-root;
+  width: min(350px, 100%);
+  height: auto;
+  max-height: none;
+  background: #ffffff;
+  overflow: visible;
+}
+
+.form-container.registration-success-container .success-icon,
+.form-container.registration-success-container .success-title {
+  background: #9dc86f;
+}
+
+.form-container.registration-success-container .success-icon {
+  border-radius: 15px 15px 0 0;
+}
+
+.form-container.registration-success-container .success-id {
+  padding: 0 12px;
+  overflow-wrap: anywhere;
 }
 
 @keyframes slideDown {
@@ -1160,28 +1182,20 @@ ul {
 
 @media (max-width: 480px), (max-height: 520px) {
   .form-container.registration-success-container {
-    width: calc(100vw - 20px);
-    max-height: calc(100vh - 20px);
-    max-height: calc(100dvh - 20px);
-    padding: 10px;
     border-radius: 16px;
   }
 
+  .form-container.registration-success-container .success-modal {
+    padding: 16px;
+  }
+
   .form-container.registration-success-container .success-modal-content {
-    width: min(350px, calc(100% - 20px));
-    max-height: calc(100% - 20px);
-    background: linear-gradient(
-      180deg,
-      #9dc86f 0,
-      #9dc86f 125px,
-      #ffffff 125px,
-      #ffffff 100%
-    );
     border-radius: 12px;
   }
 
   .form-container.registration-success-container .success-icon {
     padding: 24px 0 12px;
+    border-radius: 12px 12px 0 0;
   }
 
   .form-container.registration-success-container .success-icon i {
@@ -1207,6 +1221,13 @@ ul {
     margin-bottom: 20px;
     padding: 12px 24px;
     font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .column:has(.registration-success-container) {
+    flex: 0 0 100%;
+    padding: 10px 0;
   }
 }
 

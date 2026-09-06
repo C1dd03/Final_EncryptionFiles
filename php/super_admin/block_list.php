@@ -20,6 +20,7 @@ $activePage = 'block_list';
   <title>Block List - Super Admin</title>
   <link rel="stylesheet" href="../../css/super_admin/superadmin.css" />
   <link rel="stylesheet" href="../../css/super_admin/block_list.css" />
+  <link rel="stylesheet" href="../../css/action_dropdown.css?v=20260906" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" />
 </head>
@@ -222,6 +223,7 @@ $activePage = 'block_list';
   </div>
 
   <script src="../../js/super_admin/superadmin.js"></script>
+  <script src="../../js/action_dropdown.js?v=20260906"></script>
   <script src="../../js/super_admin/block_list.js?v=<?= time() ?>"></script>
 </body>
 

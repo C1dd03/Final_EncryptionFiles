@@ -85,14 +85,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Loading state on the Login button while the OTP is being prepared and emailed
+  // Disable the Login button while the OTP is being prepared and emailed
   function setSubmitLoading(loading) {
-    otpSetButtonLoading(
-      submitBtn,
-      loading,
-      "Sending code...",
-      submitBtn ? submitBtn.textContent : "Login"
-    );
+    if (!submitBtn) return;
+    submitBtn.disabled = loading;
   }
 
   function setFieldError(type, text) {

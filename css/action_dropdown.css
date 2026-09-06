@@ -1,0 +1,128 @@
+/* Shared Approval-style actions for account management and the block list. */
+.action-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.action-dropdown-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 100px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--farm-card-1, #588157), var(--farm-card-3, #7e9b65));
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(88, 129, 87, 0.25);
+  transition: box-shadow 0.2s ease;
+}
+
+.action-dropdown-btn:hover,
+.action-dropdown-btn.active {
+  box-shadow: 0 4px 10px rgba(88, 129, 87, 0.35);
+}
+
+.action-dropdown-btn .dropdown-chevron {
+  font-size: 11px;
+  transition: transform 0.2s ease;
+}
+
+.action-dropdown-btn.active .dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+.action-dropdown-menu {
+  /* Viewport positioning keeps menus clear of scrolling table edges. */
+  position: fixed;
+  inset: auto;
+  display: none;
+  box-sizing: border-box;
+  min-width: 180px;
+  max-width: calc(100vw - 16px);
+  margin: 0;
+  padding: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  overflow-y: auto;
+  z-index: 1050;
+  opacity: 0;
+  visibility: hidden;
+  transform: none;
+  transition: none;
+}
+
+.action-dropdown-menu.open {
+  display: block;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+.action-dropdown-menu .action-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #334155;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.action-menu-item i {
+  width: 16px;
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+}
+
+.action-dropdown-menu .action-menu-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.action-menu-item.view i { color: #0284c7; }
+.action-dropdown-menu .action-menu-item.view:hover { background: #f0f9ff; color: #0369a1; }
+.action-menu-item.edit i { color: #d97706; }
+.action-dropdown-menu .action-menu-item.edit:hover { background: #fffbeb; color: #b45309; }
+.action-menu-item.unblock i { color: #10b981; }
+.action-dropdown-menu .action-menu-item.unblock:hover { background: #ecfdf5; color: #047857; }
+.action-menu-item.block i,
+.action-menu-item.delete i { color: #ef4444; }
+.action-dropdown-menu .action-menu-item.block:hover,
+.action-dropdown-menu .action-menu-item.delete:hover { background: #fef2f2; color: #b91c1c; }
+
+.action-dropdown-btn:focus-visible,
+.action-menu-item:focus-visible {
+  outline: 2px solid #588157;
+  outline-offset: 2px;
+}
+
+.action-dropdown-menu .action-menu-item:disabled {
+  opacity: 0.5;
+  background: transparent;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.action-menu-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: #f1f5f9;
+}

@@ -148,7 +148,7 @@ class User
             ");
             $stmt->execute([':yearPrefix' => $yearPrefix]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($row && preg_match('/^' . $yearPrefix . '(\d{4})$/', $row[array_keys($row)[0]], $matches)) {
+            if ($row && preg_match('/^\d{4}-(\d{4})$/', reset($row), $matches)) {
                 $maxNum = (int)$matches[1];
             }
 
@@ -1646,14 +1646,16 @@ class User
 
     public function ensurePendingRegistrationsSchema(): void
     {
+        $pendingDatabase = Database::getInstance()->getPendingDatabaseName();
+        $preferredTable = "`{$pendingDatabase}`.`pending_registrations`";
+
         try {
-            $pendingDatabase = Database::getInstance()->getPendingDatabaseName();
             $this->conn->exec(
                 "CREATE DATABASE IF NOT EXISTS `{$pendingDatabase}`
                  CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
             );
             $this->conn->exec(
-                    "CREATE TABLE IF NOT EXISTS {$this->pendingTable} (
+                    "CREATE TABLE IF NOT EXISTS {$preferredTable} (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         user_id VARCHAR(20) NOT NULL,
                         first_name VARCHAR(50) NOT NULL,
@@ -1687,7 +1689,40 @@ class User
                         KEY idx_pr_created (created_at)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
             );
+        } catch (PDOException $schemaError) {
+            // DDL can fail even when an existing table is usable (for example,
+            // with restricted CREATE privileges). Check it before falling back.
+            try {
+                $this->conn->query("SELECT user_id FROM {$preferredTable} LIMIT 0");
+            } catch (PDOException $preferredError) {
+                // Older installations keep this table in the main database.
+                // Use it consistently for every pending-registration operation
+                // if the separate database cannot be initialized or opened.
+                try {
+                    $this->conn->query("SELECT user_id FROM `pending_registrations` LIMIT 0");
+                } catch (PDOException $legacyError) {
+                    throw new RuntimeException(
+                        'Pending registration storage is unavailable. Restore the pending database '
+                        . 'or initialize it using pending_encryption_system.sql. See the database error log.',
+                        0,
+                        $schemaError
+                    );
+                }
 
+                $this->pendingTable = '`pending_registrations`';
+                error_log(
+                    'Pending registrations: using the existing main-database table because '
+                    . 'the separate table is unavailable: ' . $schemaError->getMessage()
+                );
+                return;
+            }
+
+            error_log('Pending registrations schema sync warning: ' . $schemaError->getMessage());
+        }
+
+        $this->pendingTable = $preferredTable;
+
+        try {
             // Preserve and copy records from older installations where the
             // pending table lived inside the main database. The legacy table
             // is intentionally retained as a recoverable backup.

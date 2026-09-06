@@ -48,13 +48,14 @@ $isSuperAdminManagement = $managementScope === 'superadmin';
     <h3 id="amCreateTitle">Create Account</h3>
     <p class="am-subtitle">Only the required account fields are shown. Personal information is completed by the owner in Personal Details.</p>
     <form id="amCreateForm" novalidate>
-      <label>ID Number<input name="id_number" maxlength="20" required /></label>
-      <label>Username<input name="username" maxlength="50" required /></label>
+      <label>ID Number<input name="id_number" maxlength="20" required /><span class="field-error"></span></label>
+      <label>Username<input name="username" maxlength="50" required /><span class="field-error"></span></label>
       <label>Role
         <select name="role" id="amCreateRole" <?= $isSuperAdminManagement ? '' : 'disabled' ?>>
           <option value="user">User</option>
           <?php if ($isSuperAdminManagement): ?><option value="admin">Admin</option><option value="superadmin">Super Admin</option><?php endif; ?>
         </select>
+        <span class="field-error"></span>
       </label>
       <label>Default Password<input name="default_password" value="@Abcde12345" readonly /></label>
       <div class="am-privileges" id="amCreatePrivileges" hidden>
@@ -93,19 +94,21 @@ $isSuperAdminManagement = $managementScope === 'superadmin';
     <form id="amEditForm" novalidate>
       <div class="am-grid">
         <label>ID Number<input name="id_number" readonly /></label>
-        <label>Full Name<input name="full_name" placeholder="First Middle Last" /></label>
-        <label>Username<input name="username" required /></label>
-        <label>New Password <small>(optional)</small><input type="password" name="password" autocomplete="new-password" placeholder="Leave blank to keep current" /></label>
+        <label>Full Name<input name="full_name" placeholder="First Middle Last" /><span class="field-error"></span></label>
+        <label>Username<input name="username" required /><span class="field-error"></span></label>
+        <label>New Password <small>(optional)</small><input type="password" name="password" autocomplete="new-password" placeholder="Leave blank to keep current" /><span class="field-error"></span></label>
         <label>Role
           <select name="role" id="amEditRole" <?= $isSuperAdminManagement ? '' : 'disabled' ?>>
             <option value="user">User</option><option value="admin">Admin</option><option value="superadmin">Super Admin</option>
           </select>
+          <span class="field-error"></span>
         </label>
         <label>Account Status
           <select name="status" id="amEditStatus" <?= $isSuperAdminManagement ? '' : 'disabled' ?>>
             <option value="active">Active</option><option value="blocked">Blocked</option>
             <option value="pending_approval">Pending Approval</option><option value="pending_deletion">Pending Deletion</option><option value="inactive">Inactive</option>
           </select>
+          <span class="field-error"></span>
         </label>
       </div>
       <div class="am-privileges" id="amEditPrivileges" hidden>

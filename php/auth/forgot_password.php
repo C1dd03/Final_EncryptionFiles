@@ -9,7 +9,7 @@
     </div>
     <div class="title-container-forgot-pass">
         <div class="title">ID Number</div><div class="title">OTP</div>
-        <div class="title">Security Question</div><div class="title">New Password</div>
+        <div class="title">Security Questions</div><div class="title">New Password</div>
     </div>
 
     <div class="forgot-account-summary" id="forgotAccountSummary" hidden>
@@ -46,19 +46,78 @@
     </section>
 
     <section class="step step-3" aria-labelledby="forgotStep3Title">
-        <span id="forgotStep3Title">Security Question</span>
-        <p class="forgot-help">This is one of the questions selected during registration.</p>
-        <div class="input-field static-label" style="margin:3px;">
-            <label for="forgotSecurityQuestion">Security Question</label>
-            <select id="forgotSecurityQuestion" name="question_id" required></select>
-        </div>
-        <div class="input-field password-field" style="margin:12px 3px 3px;">
-            <input type="password" id="forgotSecurityAnswer" name="security_answer" placeholder=" " autocomplete="off" />
-            <label>Security Answer</label>
-            <i class="fas fa-eye-slash toggle-password"></i>
+        <span id="forgotStep3Title">Security Questions</span>
+        <p class="forgot-help">Select and answer all 3 security questions. At least 2 must be answered correctly to proceed.</p>
+        <div class="forgot-security-grid">
+            <div class="forgot-security-col">
+                <div class="form-field">
+                    <div class="input-field">
+                        <select id="forgotSecurityQuestion1" name="security_question_1" required>
+                            <option value="" disabled selected hidden>Select a question</option>
+                            <option value="1">Who is your best friend in elementary?</option>
+                            <option value="2">What is the name of your favorite pet?</option>
+                            <option value="3">Who is your favorite teacher in high school?</option>
+                        </select>
+                        <label style="width: 120px; text-align: start;">Question 1</label>
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <div class="input-field">
+                        <select id="forgotSecurityQuestion2" name="security_question_2" required>
+                            <option value="" disabled selected hidden>Select a question</option>
+                            <option value="4">What is your mother’s maiden name?</option>
+                            <option value="5">What city were you born in?</option>
+                            <option value="6">What is your favorite color?</option>
+                        </select>
+                        <label style="width: 120px; text-align: start;">Question 2</label>
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <div class="input-field">
+                        <select id="forgotSecurityQuestion3" name="security_question_3" required>
+                            <option value="" disabled selected hidden>Select a question</option>
+                            <option value="7">What is your favorite food?</option>
+                            <option value="8">What was the name of your first school?</option>
+                            <option value="9">What is your father’s middle name?</option>
+                        </select>
+                        <label style="width: 120px; text-align: start;">Question 3</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="forgot-security-col">
+                <div class="form-field">
+                    <div class="input-field password-field">
+                        <input type="password" id="forgotSecurityAnswer1" name="security_answer_1" required placeholder=" " autocomplete="off" />
+                        <label>Answer 1</label>
+                        <i class="fas fa-eye-slash toggle-password"></i>
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <div class="input-field password-field">
+                        <input type="password" id="forgotSecurityAnswer2" name="security_answer_2" required placeholder=" " autocomplete="off" />
+                        <label>Answer 2</label>
+                        <i class="fas fa-eye-slash toggle-password"></i>
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <div class="input-field password-field">
+                        <input type="password" id="forgotSecurityAnswer3" name="security_answer_3" required placeholder=" " autocomplete="off" />
+                        <label>Answer 3</label>
+                        <i class="fas fa-eye-slash toggle-password"></i>
+                    </div>
+                </div>
+            </div>
         </div>
         <p class="message-error" id="securityError" aria-live="polite"></p>
-        <button type="button" class="btn next-btn" id="forgotVerifySecurityBtn">Verify Answer &gt;</button>
+        <div class="flex justify-between mt-3">
+            <button type="button" class="btn prev-btn" data-step="2">&lt; Prev</button>
+            <button type="button" class="btn next-btn" id="forgotVerifySecurityBtn">Verify Answers &gt;</button>
+        </div>
     </section>
 
     <section class="step step-4" aria-labelledby="forgotStep4Title">
@@ -88,4 +147,14 @@
     .forgot-password .forgot-account-summary p{margin:4px 0;color:#555;font-size:13px}
     .forgot-password .otp-timer,.forgot-password .otp-resend,.forgot-help{text-align:center;font-size:12px;color:#6b7280}
     .forgot-password .dev-otp-banner{background:#fef9c3;color:#854d0e;font-size:12px;text-align:center;padding:8px;border-radius:6px;margin-top:8px}
+    .forgot-security-grid{display:flex;align-items:flex-start;gap:15px;margin-top:12px;text-align:left}
+    .forgot-security-col{display:flex;flex-direction:column;width:100%;gap:6px}
+    .forgot-security-col .form-field{margin-bottom:4px}
+    .forgot-security-col .input-field select{width:100%;font-size:13px}
+    .forgot-password .step-3.active{width:635px;max-width:100%}
+    .form-container:has(.forgot-password .step-3.active){width:min(700px,calc(100vw - 32px))}
+    @media (max-width: 650px){
+        .forgot-security-grid{flex-direction:column;gap:8px}
+        .forgot-password .step-3.active{width:100%}
+    }
 </style>

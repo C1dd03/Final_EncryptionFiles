@@ -1,6 +1,9 @@
 <?php
 
-require_once __DIR__ . '/../vendor/autoload.php';
+$autoload = __DIR__ . '/../vendor/autoload.php';
+if (file_exists($autoload)) {
+    require_once $autoload;
+}
 
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 use PHPMailer\PHPMailer\PHPMailer;
@@ -22,6 +25,11 @@ class Mailer
     {
         $host = trim((string)($this->config['host'] ?? ''));
         if ($host === '') {
+            return $this->developmentFallback($to, $subject, $htmlBody);
+        }
+
+        if (!class_exists(PHPMailer::class)) {
+            error_log('PHPMailer is not installed. Please run "composer install".');
             return $this->developmentFallback($to, $subject, $htmlBody);
         }
 

@@ -187,11 +187,11 @@ document.addEventListener("DOMContentLoaded", function () {
       const blockedAtDisplay = formatDate(row.blocked_at);
 
       const unblockBtnHtml = isBlocked
-        ? `<button type="button" class="btn-icon btn-unblock btn-unblock-trigger" data-id="${row.id}" data-name="${escapeHtml(nameDisplay)}" title="Unblock Account">
-            <i class="fa-solid fa-key"></i> Unblock
+        ? `<button type="button" class="action-menu-item unblock btn-unblock-trigger" data-id="${row.id}" data-name="${escapeHtml(nameDisplay)}">
+            <i class="fa-solid fa-key" aria-hidden="true"></i> Unblock Account
            </button>`
-        : `<button type="button" class="btn-icon btn-unblock" disabled title="Already Unblocked">
-            <i class="fa-solid fa-check"></i> Unblocked
+        : `<button type="button" class="action-menu-item unblock" disabled title="Already Unblocked">
+            <i class="fa-solid fa-check" aria-hidden="true"></i> Unblocked
            </button>`;
 
       rowsHtml += `
@@ -205,11 +205,17 @@ document.addEventListener("DOMContentLoaded", function () {
           <td>${escapeHtml(blockedAtDisplay)}</td>
           <td>${statusBadge}</td>
           <td>
-            <div class="action-buttons">
-              <button type="button" class="btn-icon btn-view btn-view-trigger" data-id="${row.id}" title="View Details">
-                <i class="fa-solid fa-eye"></i>
+            <div class="action-dropdown">
+              <button type="button" class="action-dropdown-btn" aria-expanded="false" aria-label="Options for ${escapeHtml(nameDisplay)}">
+                Options <i class="fa-solid fa-chevron-down dropdown-chevron" aria-hidden="true"></i>
               </button>
-              ${unblockBtnHtml}
+              <div class="action-dropdown-menu">
+                <button type="button" class="action-menu-item view btn-view-trigger" data-id="${row.id}">
+                  <i class="fa-solid fa-eye" aria-hidden="true"></i> View Details
+                </button>
+                <div class="action-menu-divider"></div>
+                ${unblockBtnHtml}
+              </div>
             </div>
           </td>
         </tr>
