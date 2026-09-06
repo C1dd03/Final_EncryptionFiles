@@ -34,6 +34,6 @@ $managementScope = 'superadmin';
   <script src="../../js/super_admin/superadmin.js"></script>
   <script src="../../js/shared_validator.js?v=20260904b"></script>
   <script src="../../js/action_dropdown.js?v=20260906"></script>
-  <script src="../../js/account_management.js?v=20260906"></script>
+  <script src="../../js/account_management.js?v=20260907-otp-btns"></script>
 </body>
 </html>

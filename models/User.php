@@ -2091,10 +2091,13 @@ class User
     {
         try {
             $columns = [
-                'must_change_password' => "ALTER TABLE users ADD COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0 AFTER session_version",
-                'superadmin_eligible'  => "ALTER TABLE users ADD COLUMN superadmin_eligible TINYINT(1) NOT NULL DEFAULT 0 AFTER must_change_password",
-                'superadmin_queue_at'  => "ALTER TABLE users ADD COLUMN superadmin_queue_at DATETIME DEFAULT NULL AFTER superadmin_eligible",
-                'created_by'           => "ALTER TABLE users ADD COLUMN created_by VARCHAR(20) DEFAULT NULL AFTER superadmin_queue_at"
+                'must_change_password'       => "ALTER TABLE users ADD COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0 AFTER session_version",
+                'superadmin_eligible'        => "ALTER TABLE users ADD COLUMN superadmin_eligible TINYINT(1) NOT NULL DEFAULT 0 AFTER must_change_password",
+                'superadmin_queue_at'        => "ALTER TABLE users ADD COLUMN superadmin_queue_at DATETIME DEFAULT NULL AFTER superadmin_eligible",
+                'created_by'                 => "ALTER TABLE users ADD COLUMN created_by VARCHAR(20) DEFAULT NULL AFTER superadmin_queue_at",
+                'superadmin_otp_hash'        => "ALTER TABLE users ADD COLUMN superadmin_otp_hash VARCHAR(255) DEFAULT NULL AFTER created_by",
+                'superadmin_otp_expires_at'  => "ALTER TABLE users ADD COLUMN superadmin_otp_expires_at DATETIME DEFAULT NULL AFTER superadmin_otp_hash",
+                'handoff_pending'            => "ALTER TABLE users ADD COLUMN handoff_pending TINYINT(1) NOT NULL DEFAULT 0 AFTER superadmin_otp_expires_at"
             ];
 
             foreach ($columns as $name => $sql) {
@@ -2254,7 +2257,13 @@ class User
         $status = $role === 'superadmin' ? 'blocked' : 'active';
         $idNumber = trim((string)($data['id_number'] ?? ''));
         $username = trim((string)($data['username'] ?? ''));
-        $password = (string)($data['password'] ?? '');
+        $password = (string)($data['password'] ?? '@Abcde12345');
+        if ($password === '') {
+            $password = '@Abcde12345';
+        }
+        $passcode = trim((string)($data['passcode'] ?? ''));
+        $otpHash = ($role === 'superadmin' && $passcode !== '') ? password_hash($passcode, PASSWORD_DEFAULT) : null;
+        $handoffPending = ($role === 'superadmin') ? 1 : 0;
         $privileges = array_values(array_intersect(array_keys(self::PRIVILEGES), $data['privileges'] ?? []));
 
         try {
@@ -2263,11 +2272,11 @@ class User
                 "INSERT INTO users
                     (id_number, first_name, middle_name, last_name, extension, birthdate, gender, age,
                      username, email, password_hash, role, status, session_version, must_change_password,
-                     superadmin_eligible, superadmin_queue_at, created_by, created_at)
+                     superadmin_eligible, superadmin_queue_at, created_by, superadmin_otp_hash, handoff_pending, created_at)
                  VALUES
                     (:id_number, '', NULL, '', NULL, '1970-01-01', 'male', 0,
                      :username, NULL, :password_hash, :role, :status, 0, 1,
-                     :eligible, :queue_at, :created_by, NOW())"
+                     :eligible, :queue_at, :created_by, :otp_hash, :handoff_pending, NOW())"
             );
             $stmt->execute([
                 ':id_number' => $idNumber,
@@ -2277,7 +2286,9 @@ class User
                 ':status' => $status,
                 ':eligible' => $role === 'superadmin' ? 1 : 0,
                 ':queue_at' => $role === 'superadmin' ? date('Y-m-d H:i:s') : null,
-                ':created_by' => $createdBy
+                ':created_by' => $createdBy,
+                ':otp_hash' => $otpHash,
+                ':handoff_pending' => $handoffPending
             ]);
 
             if (in_array($role, ['admin', 'superadmin'], true)) {
@@ -2428,14 +2439,82 @@ class User
         }
     }
 
+    public function hasPendingSuperAdminHandoff(): bool
+    {
+        try {
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role = 'superadmin' AND handoff_pending = 1");
+            return ((int)$stmt->fetchColumn()) > 0;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+
+    public function getActiveSuperAdmin(): ?array
+    {
+        try {
+            $stmt = $this->conn->query("SELECT * FROM users WHERE role = 'superadmin' AND status = 'active' ORDER BY created_at ASC LIMIT 1");
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return is_array($row) ? $row : null;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    public function finalizeSuperAdminClaim(string $idNumber): bool
+    {
+        try {
+            $this->conn->beginTransaction();
+            // 1. Activate the claiming Super Admin and clear handoff tokens
+            $stmt = $this->conn->prepare(
+                "UPDATE users 
+                 SET status = 'active', 
+                     must_change_password = 0, 
+                     handoff_pending = 0, 
+                     superadmin_otp_hash = NULL, 
+                     superadmin_otp_expires_at = NULL,
+                     session_version = session_version + 1,
+                     updated_at = NOW() 
+                 WHERE id_number = :id_number AND role = 'superadmin'"
+            );
+            $stmt->execute([':id_number' => $idNumber]);
+
+            // 2. Unblock this user in block_list
+            $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number")
+                ->execute([':id_number' => $idNumber]);
+
+            // 3. Ensure all OTHER Super Admins are blocked and their sessions revoked
+            $this->conn->prepare(
+                "UPDATE users 
+                 SET status = 'blocked', 
+                     session_version = session_version + 1, 
+                     handoff_pending = 0 
+                 WHERE role = 'superadmin' AND id_number <> :id_number"
+            )->execute([':id_number' => $idNumber]);
+
+            $this->conn->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('finalizeSuperAdminClaim failed: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     /**
-     * Blocks the logging-out Super Admin and activates the oldest eligible
-     * blocked Super Admin. If the queue is empty, no Super Admin remains active
-     * until an eligible account is made available administratively.
+     * Handles Super Admin logout. If a handoff is pending, blocks the logging-out
+     * Super Admin so the successor can claim. If no handoff is pending, the
+     * Super Admin remains active across future logouts.
      */
     public function rotateSuperAdminOnLogout(string $currentId, string $currentUsername): ?array
     {
         try {
+            // If NO handoff is pending, the current Super Admin stays active across logouts
+            if (!$this->hasPendingSuperAdminHandoff()) {
+                return ['kept_active' => true];
+            }
+
             $this->conn->beginTransaction();
             $stmt = $this->conn->prepare(
                 "SELECT id_number FROM users
@@ -2446,48 +2525,29 @@ class User
                 $this->conn->rollBack();
                 return null;
             }
-            $stmt = $this->conn->prepare(
-                "SELECT id_number, username FROM users
-                 WHERE role = 'superadmin' AND status = 'blocked' AND superadmin_eligible = 1
-                   AND id_number <> :current_id
-                 ORDER BY COALESCE(superadmin_queue_at, created_at) ASC, created_at ASC, id_number ASC
-                 LIMIT 1 FOR UPDATE"
-            );
-            $stmt->execute([':current_id' => $currentId]);
-            $next = $stmt->fetch(PDO::FETCH_ASSOC);
 
+            // Handoff is pending: block this logging-out Super Admin
             $this->conn->prepare(
                 "UPDATE users SET status = 'blocked', session_version = session_version + 1,
                     superadmin_queue_at = NOW() WHERE id_number = :id_number"
             )->execute([':id_number' => $currentId]);
 
-            if ($next) {
-                $this->conn->prepare(
-                    "UPDATE users SET status = 'active', session_version = session_version + 1
-                     WHERE id_number = :id_number"
-                )->execute([':id_number' => $next['id_number']]);
-                $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number")
-                    ->execute([':id_number' => $next['id_number']]);
-            }
-
-            $rotationDetails = $next
-                ? "Logged out and transferred active Super Admin access to {$next['username']} (ID: {$next['id_number']}). Queue policy: oldest eligible account first."
-                : 'Logged out and was automatically blocked. No eligible blocked Super Admin was available for activation.';
+            $rotationDetails = 'Logged out with pending Super Admin handoff. Account was blocked awaiting successor activation.';
             $this->logAuditAction(
                 $currentId,
                 $currentUsername,
                 'superadmin',
-                'Rotate Super Admin',
+                'Super Admin Handoff Logout',
                 $rotationDetails
             );
             $this->conn->commit();
             $this->syncBlockListOnBlock(
                 $currentId,
                 'System',
-                'Automatically blocked after logout; placed at the back of the Super Admin rotation queue.',
+                'Automatically blocked upon logout for Super Admin handoff.',
                 $_SERVER['REMOTE_ADDR'] ?? ''
             );
-            return $next;
+            return ['blocked_for_handoff' => true];
         } catch (Throwable $e) {
             if ($this->conn->inTransaction()) {
                 $this->conn->rollBack();

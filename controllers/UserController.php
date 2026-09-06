@@ -549,6 +549,73 @@ class UserController
             }
 
             if ($userStatus === 'blocked') {
+                // Check if this is a Super Admin in pending handoff claim
+                if (strtolower($user['role'] ?? '') === 'superadmin' && !empty($user['handoff_pending'])) {
+                    $activeSuperAdmin = $this->userModel->getActiveSuperAdmin();
+                    if ($activeSuperAdmin && $activeSuperAdmin['id_number'] !== $user['id_number']) {
+                        echo json_encode([
+                            'success' => false,
+                            'message' => 'The previous Super Admin has not logged out yet. Please wait for them to log out before claiming this account.',
+                            'errorType' => 'accountBlocked'
+                        ]);
+                        return;
+                    }
+
+                    $passcode = trim($_POST['passcode'] ?? $_POST['otp'] ?? '');
+                    if ($passcode === '') {
+                        echo json_encode([
+                            'success' => true,
+                            'needHandoffOtp' => true,
+                            'message' => 'Please enter the 6-digit One-Time Passcode generated during account creation.'
+                        ]);
+                        return;
+                    }
+
+                    if (empty($user['superadmin_otp_hash']) || !password_verify($passcode, $user['superadmin_otp_hash'])) {
+                        echo json_encode([
+                            'success' => false,
+                            'message' => 'Invalid One-Time Passcode. Please check the 6-digit code and try again.',
+                            'errorType' => 'invalidPasscode'
+                        ]);
+                        return;
+                    }
+
+                    // Passcode verified! Establish initial claiming session:
+                    $_SESSION['user_id'] = $user['id_number'];
+                    $_SESSION['username'] = $user['username'];
+                    $_SESSION['role'] = 'superadmin';
+                    $_SESSION['email'] = $user['email'] ?? '';
+                    $_SESSION['session_version'] = (int)($user['session_version'] ?? 0);
+                    $_SESSION['claiming_superadmin'] = true;
+
+                    date_default_timezone_set('Asia/Manila');
+                    $loginTime = date('Y-m-d H:i:s');
+                    $ip = $_SERVER['REMOTE_ADDR'] ?? '::1';
+                    if ($ip === '127.0.0.1') $ip = '::1';
+                    $host = gethostname() ?: 'DESKTOP-SYSTEM';
+                    $agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Browser';
+                    $device = 'Browser';
+                    if (strpos($agent, 'Chrome') !== false) $device = 'Google Chrome';
+                    elseif (strpos($agent, 'Firefox') !== false) $device = 'Mozilla Firefox';
+
+                    $this->userModel->logAuditAction(
+                        $user['id_number'],
+                        $user['username'],
+                        'superadmin',
+                        'Login (Handoff)',
+                        "Super Admin initial claim login via One-Time Passcode. IP: {$ip} | Host: {$host}",
+                        $loginTime,
+                        null
+                    );
+
+                    echo json_encode([
+                        'success' => true,
+                        'redirect' => '../super_admin/dashboard.php',
+                        'mustChangePassword' => true
+                    ]);
+                    return;
+                }
+
                 echo json_encode(['success' => false, 'message' => 'Your account has been blocked. Please contact the Super Admin.', 'errorType' => 'accountBlocked']);
                 return;
             }
@@ -3283,6 +3350,23 @@ class UserController
         if (!in_array($role, ['user', 'admin', 'superadmin'], true) || ($isAdmin && $role !== 'user')) {
             $errors['role'] = 'You are not allowed to create this account role.';
         }
+        $rawPassword = trim((string)($_POST['password'] ?? ''));
+        if ($rawPassword === '') {
+            $rawPassword = '@Abcde12345';
+        } else {
+            if ($err = $this->passwordPolicyError($rawPassword)) {
+                $errors['password'] = $err;
+            }
+        }
+
+        $passcode = '';
+        if ($role === 'superadmin') {
+            $passcode = trim((string)($_POST['passcode'] ?? ''));
+            if (!preg_match('/^\d{6}$/', $passcode)) {
+                $errors['passcode'] = 'A 6-digit One-Time Passcode is required for Super Admin creation.';
+            }
+        }
+
         if ($errors) {
             echo json_encode(['success' => false, 'message' => 'Please correct the highlighted fields.', 'fieldErrors' => $errors]);
             exit;
@@ -3296,21 +3380,26 @@ class UserController
             'id_number' => $idNumber,
             'username' => $username,
             'role' => $role,
-            'password' => '@Abcde12345',
+            'password' => $rawPassword,
+            'passcode' => $passcode,
             'privileges' => $role === 'user' ? [] : array_map('strval', $submitted)
         ], $authState['id_number']);
         if ($result['success']) {
             $statusText = $role === 'superadmin'
-                ? 'Blocked and queued behind the active Super Admin (oldest eligible first)'
+                ? 'Pending claim (awaiting previous Super Admin logout & OTP activation)'
                 : 'Active';
             $this->userModel->logAuditAction(
                 $authState['id_number'],
                 $authState['username'],
                 $authState['role'],
                 'Create Account',
-                "Created {$role} {$username} (ID: {$idNumber}). Initial status: {$statusText}. First-login password change required."
+                "Created {$role} {$username} (ID: {$idNumber}). Status: {$statusText}. First-login password change required."
             );
-            $result['message'] = "Account created with default password @Abcde12345. Status: {$statusText}.";
+            $result['message'] = "Account {$username} created successfully. Status: {$statusText}.";
+            $result['role'] = $role;
+            if ($role === 'superadmin') {
+                $result['passcode'] = $passcode;
+            }
         }
         echo json_encode($result);
         exit;
@@ -3656,8 +3745,9 @@ class UserController
             session_start();
         }
         $idNumber = (string)($_SESSION['user_id'] ?? '');
+        $isClaiming = !empty($_SESSION['claiming_superadmin']);
         $authState = $idNumber !== '' ? $this->userModel->getAccountAuthState($idNumber) : null;
-        if (!$authState || !in_array($authState['status'], ['active', 'pending_deletion'], true)) {
+        if (!$authState || (!in_array($authState['status'], ['active', 'pending_deletion'], true) && !$isClaiming)) {
             echo json_encode(['success' => false, 'message' => 'Session expired. Please log in again.']);
             exit;
         }
@@ -3682,13 +3772,18 @@ class UserController
         }
         $ok = $this->userModel->updatePassword($idNumber, password_hash($password, PASSWORD_DEFAULT));
         if ($ok) {
+            if ($isClaiming || strtolower($authState['role'] ?? '') === 'superadmin') {
+                $this->userModel->finalizeSuperAdminClaim($idNumber);
+                unset($_SESSION['claiming_superadmin']);
+            }
             $fresh = $this->userModel->getAccountAuthState($idNumber);
             $_SESSION['session_version'] = (int)($fresh['session_version'] ?? 0);
-            $this->userModel->logAuditAction($idNumber, $authState['username'], $authState['role'], 'Change Default Password', 'Required first-login password change completed.');
+            $_SESSION['role'] = $fresh['role'] ?? 'superadmin';
+            $this->userModel->logAuditAction($idNumber, $authState['username'], $authState['role'], 'Change Default Password', 'Required first-login password change completed. Super Admin role activated.');
         }
         $redirect = 'index.php?action=dashboard';
-        if ($authState['role'] === 'superadmin') $redirect = '../super_admin/dashboard.php';
-        if ($authState['role'] === 'admin') $redirect = '../admin/dashboard.php';
+        if (strtolower($authState['role'] ?? '') === 'superadmin' || $isClaiming) $redirect = '../super_admin/dashboard.php';
+        elseif (strtolower($authState['role'] ?? '') === 'admin') $redirect = '../admin/dashboard.php';
         echo json_encode(['success' => $ok, 'message' => $ok ? 'Password changed successfully.' : 'Unable to change password.', 'redirect' => $redirect]);
         exit;
     }

@@ -279,6 +279,11 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
           }
 
+          if (data.needHandoffOtp && window.showSuperAdminOtpModal) {
+            window.showSuperAdminOtpModal(formData);
+            return;
+          }
+
           // Credentials accepted -> show the OTP verification step
           if (data.needOtp) {
             showOtpStep(data);

@@ -131,16 +131,74 @@ document.addEventListener("DOMContentLoaded", () => {
       })
     : null;
 
+  const togglePassBtn = document.getElementById("amToggleCreatePassword");
+  if (togglePassBtn) {
+    togglePassBtn.addEventListener("click", () => {
+      const input = document.getElementById("amCreatePassword");
+      if (!input) return;
+      const isPass = input.type === "password";
+      input.type = isPass ? "text" : "password";
+      togglePassBtn.classList.toggle("fa-eye", isPass);
+      togglePassBtn.classList.toggle("fa-eye-slash", !isPass);
+    });
+  }
+
+  const genPasswordBtn = document.getElementById("amGeneratePasswordBtn");
+  if (genPasswordBtn) {
+    genPasswordBtn.addEventListener("click", () => {
+      const randNums = Math.floor(10000 + Math.random() * 90000);
+      const generated = "@Abcde" + randNums;
+      const input = document.getElementById("amCreatePassword");
+      if (input) {
+        input.value = generated;
+        input.type = "text";
+        if (togglePassBtn) {
+          togglePassBtn.classList.remove("fa-eye-slash");
+          togglePassBtn.classList.add("fa-eye");
+        }
+      }
+    });
+  }
+
+  const genPasscodeBtn = document.getElementById("amGeneratePasscodeBtn");
+  if (genPasscodeBtn) {
+    genPasscodeBtn.addEventListener("click", () => {
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      const input = document.getElementById("amCreatePasscode");
+      if (input) input.value = code;
+    });
+  }
+
+  function updatePasscodeVisibility() {
+    const roleSelect = document.getElementById("amCreateRole");
+    const group = document.getElementById("amPasscodeGroup");
+    if (!group || !roleSelect) return;
+    const isSuper = isSuperAdmin && roleSelect.value === "superadmin";
+    group.style.display = isSuper ? "block" : "none";
+    const passInput = document.getElementById("amCreatePasscode");
+    if (isSuper && passInput && !passInput.value) {
+      passInput.value = String(Math.floor(100000 + Math.random() * 900000));
+    }
+  }
+
   document.getElementById("amOpenCreate").addEventListener("click", () => {
     createForm.reset();
-    createForm.elements.default_password.value = "@Abcde12345";
+    if (createForm.elements.default_password) {
+      createForm.elements.default_password.value = "@Abcde12345";
+    }
+    const passInput = document.getElementById("amCreatePassword") || createForm.elements.password;
+    if (passInput) passInput.value = "@Abcde12345";
     if (!isSuperAdmin) createForm.elements.role.value = "user";
     if (createValidator) createValidator.clearAll();
     formMessage(createForm);
     setPrivilegeVisibility(document.getElementById("amCreateRole"), document.getElementById("amCreatePrivileges"));
+    updatePasscodeVisibility();
     open(createModal);
   });
-  document.getElementById("amCreateRole").addEventListener("change", (event) => setPrivilegeVisibility(event.target, document.getElementById("amCreatePrivileges")));
+  document.getElementById("amCreateRole").addEventListener("change", (event) => {
+    setPrivilegeVisibility(event.target, document.getElementById("amCreatePrivileges"));
+    updatePasscodeVisibility();
+  });
   document.getElementById("amEditRole").addEventListener("change", (event) => setPrivilegeVisibility(event.target, document.getElementById("amEditPrivileges")));
 
   createForm.addEventListener("submit", async (event) => {
@@ -151,6 +209,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const dataForm = new FormData(createForm);
     if (!isSuperAdmin) dataForm.set("role", "user");
+    if (dataForm.get("role") === "superadmin") {
+      const code = (dataForm.get("passcode") || "").trim();
+      if (!/^\d{6}$/.test(code)) {
+        return formMessage(createForm, "Please enter or generate a 6-digit One-Time Passcode.");
+      }
+    }
     const submit = createForm.querySelector('[type="submit"]');
     submit.disabled = true;
     try {
@@ -163,7 +227,16 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         return formMessage(createForm, data.message || "Unable to create account.");
       }
-      close(createModal); toast(data.message); loadAccounts();
+      close(createModal);
+      if (data.passcode && data.role === "superadmin") {
+        document.getElementById("amCredUsername").textContent = dataForm.get("username") || "-";
+        document.getElementById("amCredPassword").textContent = dataForm.get("password") || "@Abcde12345";
+        document.getElementById("amCredPasscode").textContent = data.passcode;
+        open(document.getElementById("amCredentialsModal"));
+      } else {
+        toast(data.message);
+      }
+      loadAccounts();
     } catch (error) { formMessage(createForm, "Unable to connect. Please try again."); }
     finally { submit.disabled = false; }
   });
