@@ -2383,13 +2383,40 @@ class User
         return true;
     }
 
-    public function deactivateManagedAccount(string $idNumber): bool
+    public function permanentlyDeleteManagedAccount(string $idNumber): bool
     {
-        $stmt = $this->conn->prepare(
-            "UPDATE users SET status = 'inactive', session_version = session_version + 1, updated_at = NOW()
-             WHERE id_number = :id_number AND status <> 'inactive'"
-        );
-        return $stmt->execute([':id_number' => $idNumber]) && $stmt->rowCount() === 1;
+        try {
+            $this->conn->beginTransaction();
+
+            foreach (['user_auth_answers', 'addresses', 'admin_privileges', 'block_list', 'delete_requests'] as $table) {
+                $column = $table === 'delete_requests' ? 'user_id_number' : 'id_number';
+                $stmt = $this->conn->prepare("DELETE FROM `{$table}` WHERE `{$column}` = :id_number");
+                $stmt->execute([':id_number' => $idNumber]);
+            }
+
+            // Some older installations still have user_logs with a foreign key to users.
+            $hasUserLogs = $this->conn->query("SHOW TABLES LIKE 'user_logs'")->fetchColumn();
+            if ($hasUserLogs) {
+                $stmt = $this->conn->prepare("DELETE FROM user_logs WHERE id_number = :id_number");
+                $stmt->execute([':id_number' => $idNumber]);
+            }
+
+            $stmt = $this->conn->prepare("DELETE FROM users WHERE id_number = :id_number");
+            $stmt->execute([':id_number' => $idNumber]);
+            if ($stmt->rowCount() !== 1) {
+                $this->conn->rollBack();
+                return false;
+            }
+
+            $this->conn->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('Permanent managed account deletion failed: ' . $e->getMessage());
+            return false;
+        }
     }
 
     public function getPersonalDetails(string $idNumber): ?array

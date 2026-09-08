@@ -3637,14 +3637,14 @@ class UserController
             echo json_encode(['success' => false, 'message' => 'You cannot delete your own account.']);
             exit;
         }
-        $ok = $this->userModel->deactivateManagedAccount($targetId);
+        $ok = $this->userModel->permanentlyDeleteManagedAccount($targetId);
         if ($ok) {
             $this->userModel->logAuditAction(
                 $authState['id_number'], $authState['username'], $authState['role'],
-                'Delete Account', "Soft-deleted {$target['username']} (ID: {$targetId}). Reason: {$reason}"
+                'Delete Account', "Permanently deleted {$target['username']} (ID: {$targetId}). Reason: {$reason}"
             );
         }
-        echo json_encode(['success' => $ok, 'message' => $ok ? 'Account deleted (marked Inactive).' : 'Unable to delete the account.']);
+        echo json_encode(['success' => $ok, 'message' => $ok ? 'Account permanently deleted.' : 'Unable to permanently delete the account.']);
         exit;
     }
 

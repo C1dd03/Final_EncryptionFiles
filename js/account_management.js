@@ -394,7 +394,7 @@ document.addEventListener("DOMContentLoaded", () => {
     secureAction = {type, row, needsReason:["block", "delete"].includes(type)};
     const message = type === "block" ? "Are you sure you want to block this account?"
       : type === "unblock" ? "Are you sure you want to unblock this account?"
-      : "Are you sure you want to delete this account?";
+      : "Are you sure you want to permanently delete this account? This cannot be undone.";
     showSecureConfirmation(`${message} ${row.username} (${row.id_number})`);
   }
   function showSecureConfirmation(message) {
