@@ -180,6 +180,7 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
   }
 
   .rp-password-group {
+    position: relative;
     margin-bottom: 14px;
   }
 
@@ -189,19 +190,21 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
 
   /* Same three-pixel strength indicator used by Registration. */
   .rp-strength-bar {
+    position: relative;
+    z-index: 2;
     width: 100%;
-    height: 5px;
-    margin-top: 7px;
+    height: 3px;
+    margin-top: -3px;
     background: #e0e0e0;
-    border-radius: 999px;
+    border-radius: 0 0 5px 5px;
     overflow: hidden;
   }
   .rp-strength-bar span {
     display: none;
-    height: 5px;
+    height: 3px;
     margin: 0;
     border: 0;
-    border-radius: 999px;
+    border-radius: 0 0 5px 5px;
     width: 0%;
     background: red;
     transition: width 0.5s ease, background-color 0.5s ease;
