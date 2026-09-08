@@ -471,6 +471,7 @@
     if (!form) return null;
     const initialDataGetter = options.getInitialData || (() => ({}));
     const ajaxCheckUrl = options.ajaxCheckUrl || "../auth/index.php";
+    const ignoredFields = new Set(options.ignoreFields || []);
 
     let debounceTimers = {};
     // Track in-flight AJAX checks: { fieldName: generation }
@@ -484,6 +485,10 @@
 
       const name = input.name;
       if (!name) return null;
+      if (ignoredFields.has(name)) {
+        clearFieldError(input);
+        return null;
+      }
 
       // Special handling for birthdate -> calculate age
       if (name === "birthdate" && input.value) {

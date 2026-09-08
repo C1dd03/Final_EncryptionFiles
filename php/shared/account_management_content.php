@@ -48,7 +48,7 @@ $isSuperAdminManagement = $managementScope === 'superadmin';
     <h3 id="amCreateTitle">Create Account</h3>
     <p class="am-subtitle">Only the required account fields are shown. Personal information is completed by the owner in Personal Details.</p>
     <form id="amCreateForm" novalidate>
-      <label>ID Number<input name="id_number" maxlength="20" required /><span class="field-error"></span></label>
+      <label>ID Number<input name="id_number" maxlength="20" autocomplete="off" required /><small class="am-field-hint">Latest available ID is filled automatically. You can edit it.</small><span class="field-error"></span></label>
       <label>Username<input name="username" maxlength="50" required /><span class="field-error"></span></label>
       <label>Role
         <select name="role" id="amCreateRole" <?= $isSuperAdminManagement ? '' : 'disabled' ?>>
@@ -60,14 +60,18 @@ $isSuperAdminManagement = $managementScope === 'superadmin';
       <label>Initial Password
         <input type="hidden" name="default_password" value="@Abcde12345" />
         <div style="display: flex; gap: 8px; align-items: center;">
-          <div style="position: relative; flex: 1; display: flex; align-items: center;">
-            <input type="password" name="password" id="amCreatePassword" value="@Abcde12345" autocomplete="new-password" style="width: 100%; padding-right: 38px;" />
-            <i class="fas fa-eye-slash toggle-password" id="amToggleCreatePassword" style="position: absolute; right: 12px; cursor: pointer; color: #64748b;" title="Toggle Password"></i>
+          <div class="am-password-input-stack">
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" name="password" id="amCreatePassword" value="@Abcde12345" autocomplete="new-password" style="width: 100%; padding-right: 38px;" />
+              <i class="fas fa-eye-slash toggle-password" id="amToggleCreatePassword" style="position: absolute; right: 12px; cursor: pointer; color: #64748b;" title="Toggle Password"></i>
+            </div>
+            <div class="am-password-meter" data-password-meter="amCreatePassword" aria-hidden="true"><span></span></div>
           </div>
           <button type="button" class="am-btn" id="amGeneratePasswordBtn" title="Generate password" style="white-space: nowrap; font-size: 11px; padding: 7px 10px;">
             <i class="fa-solid fa-wand-magic-sparkles"></i> Generate
           </button>
         </div>
+        <small class="am-password-feedback" data-password-feedback="amCreatePassword" aria-live="polite"></small>
         <small style="color: #64748b; font-size: 11px;">Default is @Abcde12345. You can enter a password or click Generate.</small>
         <span class="field-error"></span>
       </label>
@@ -117,7 +121,7 @@ $isSuperAdminManagement = $managementScope === 'superadmin';
         <label>Last Name<input name="last_name" placeholder="Last Name" required /><span class="field-error"></span></label>
         <label>Gmail<input type="email" name="email" placeholder="example@gmail.com" /><span class="field-error"></span></label>
         <label style="grid-column: 1 / -1;">Address<input name="address" placeholder="Purok/Street, Barangay, City, Province, Country, Zip Code" /><span class="field-error"></span></label>
-        <label>New Password <small>(optional)</small><input type="password" name="password" autocomplete="new-password" placeholder="Leave blank to keep current" /><span class="field-error"></span></label>
+        <label>New Password <small>(optional)</small><input type="password" name="password" id="amEditPassword" autocomplete="new-password" placeholder="Leave blank to keep current" /><div class="am-password-meter" data-password-meter="amEditPassword" aria-hidden="true"><span></span></div><small class="am-password-feedback" data-password-feedback="amEditPassword" aria-live="polite"></small><span class="field-error"></span></label>
         <label>Role
           <select name="role" id="amEditRole" <?= $isSuperAdminManagement ? '' : 'disabled' ?>>
             <option value="user">User</option><option value="admin">Admin</option><option value="superadmin">Super Admin</option>

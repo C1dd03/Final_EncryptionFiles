@@ -18,6 +18,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let records = [];
   let secureAction = null;
   let debounce;
+  let nextIds = null;
+  let idRequestSequence = 0;
 
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]);
   const open = (modal) => modal.classList.add("active");
@@ -161,9 +163,74 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!visible) container.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
   }
 
+  function suggestedIdForRole(role) {
+    if (!nextIds) return "";
+    return role === "user" ? (nextIds.standard_id || "") : (nextIds.admin_id || "");
+  }
+
+  function applySuggestedId(force = false) {
+    const input = createForm.elements.id_number;
+    const suggestion = suggestedIdForRole(createForm.elements.role.value);
+    if (!suggestion) return;
+    const previousSuggestion = input.dataset.suggestedId || "";
+    if (force || input.value.trim() === "" || input.value === previousSuggestion) {
+      input.value = suggestion;
+      input.dataset.suggestedId = suggestion;
+      input.dispatchEvent(new Event("input", {bubbles:true}));
+    }
+  }
+
+  async function loadLatestIds() {
+    const sequence = ++idRequestSequence;
+    const input = createForm.elements.id_number;
+    input.placeholder = "Loading latest ID...";
+    try {
+      const data = await request("getNextIds");
+      if (sequence !== idRequestSequence || !data.success) return;
+      nextIds = data;
+      applySuggestedId(false);
+    } catch (error) {
+      // The administrator can still enter a custom ID when the suggestion cannot load.
+    } finally {
+      if (sequence === idRequestSequence) input.placeholder = "Enter an ID Number";
+    }
+  }
+
+  function passwordState(value, optional = false) {
+    if (!value && optional) return {score:0, level:"", message:"Leave blank to keep the current password.", valid:true};
+    const checks = [value.length >= 8, /[a-z]/.test(value), /[A-Z]/.test(value), /\d/.test(value), /[^a-zA-Z0-9]/.test(value)];
+    const score = checks.filter(Boolean).length;
+    if (/\s/.test(value)) return {score, level:"weak", message:"Password cannot contain spaces.", valid:false};
+    const missing = ["at least 8 characters", "a lowercase letter", "an uppercase letter", "a number", "a special character"].filter((_, index) => !checks[index]);
+    if (score === 5) return {score, level:"strong", message:"Strong password.", valid:true};
+    if (!value) return {score, level:"", message:"Enter a password.", valid:false};
+    return {score, level:score >= 4 ? "medium" : "weak", message:`Missing: ${missing.join(", ")}.`, valid:false};
+  }
+
+  function updatePasswordMeter(input, optional = false) {
+    const meter = document.querySelector(`[data-password-meter="${input.id}"]`);
+    const feedback = document.querySelector(`[data-password-feedback="${input.id}"]`);
+    const state = passwordState(input.value, optional);
+    if (meter) {
+      meter.className = `am-password-meter ${state.level}`.trim();
+      meter.querySelector("span").style.width = `${state.score * 20}%`;
+    }
+    if (feedback) {
+      feedback.className = `am-password-feedback ${state.level}`.trim();
+      feedback.textContent = state.message;
+    }
+    return state.valid;
+  }
+
+  const createPassword = document.getElementById("amCreatePassword");
+  const editPassword = document.getElementById("amEditPassword");
+  createPassword?.addEventListener("input", () => updatePasswordMeter(createPassword));
+  editPassword?.addEventListener("input", () => updatePasswordMeter(editPassword, true));
+
   const createValidator = window.SharedValidator
     ? window.SharedValidator.attachRealtimeValidation(createForm, {
         ajaxCheckUrl: "../auth/index.php",
+        ignoreFields: ["password"],
       })
     : null;
 
@@ -172,6 +239,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ? window.SharedValidator.attachRealtimeValidation(editForm, {
         getInitialData: () => currentEditDetail || {},
         ajaxCheckUrl: "../auth/index.php",
+        ignoreFields: ["password"],
       })
     : null;
 
@@ -200,6 +268,7 @@ document.addEventListener("DOMContentLoaded", () => {
           togglePassBtn.classList.remove("fa-eye-slash");
           togglePassBtn.classList.add("fa-eye");
         }
+        input.dispatchEvent(new Event("input", {bubbles:true}));
       }
     });
   }
@@ -210,6 +279,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("amOpenCreate").addEventListener("click", () => {
     createForm.reset();
+    createForm.elements.id_number.value = "";
+    createForm.elements.id_number.dataset.suggestedId = "";
     if (createForm.elements.default_password) {
       createForm.elements.default_password.value = "@Abcde12345";
     }
@@ -219,17 +290,20 @@ document.addEventListener("DOMContentLoaded", () => {
     if (createValidator) createValidator.clearAll();
     formMessage(createForm);
     setPrivilegeVisibility(document.getElementById("amCreateRole"), document.getElementById("amCreatePrivileges"));
+    if (passInput) updatePasswordMeter(passInput);
     open(createModal);
+    loadLatestIds();
   });
   document.getElementById("amCreateRole").addEventListener("change", (event) => {
     setPrivilegeVisibility(event.target, document.getElementById("amCreatePrivileges"));
+    applySuggestedId(false);
   });
   document.getElementById("amEditRole").addEventListener("change", (event) => setPrivilegeVisibility(event.target, document.getElementById("amEditPrivileges")));
 
   createForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     formMessage(createForm);
-    if (createValidator && !createValidator.validateAll()) {
+    if (!updatePasswordMeter(createPassword) || (createValidator && !createValidator.validateAll())) {
       return formMessage(createForm, "Please correct the highlighted fields.");
     }
     const dataForm = new FormData(createForm);
@@ -291,6 +365,7 @@ document.addEventListener("DOMContentLoaded", () => {
         editForm.dataset.originalStatus = detail.status;
         editForm.dataset.originalPrivileges = JSON.stringify([...(detail.privileges || [])].sort());
         if (editValidator) editValidator.clearAll();
+        updatePasswordMeter(editPassword, true);
         formMessage(editForm); open(editModal);
       } else {
         beginSecureAction(button.dataset.action, row);
@@ -301,7 +376,7 @@ document.addEventListener("DOMContentLoaded", () => {
   editForm.addEventListener("submit", (event) => {
     event.preventDefault();
     formMessage(editForm);
-    if (editValidator && !editValidator.validateAll()) {
+    if (!updatePasswordMeter(editPassword, true) || (editValidator && !editValidator.validateAll())) {
       return formMessage(editForm, "Please correct the highlighted fields.");
     }
     const roleChanged = editForm.elements.role.value !== editForm.dataset.originalRole;
