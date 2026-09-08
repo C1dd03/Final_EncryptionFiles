@@ -765,6 +765,10 @@ class UserController
             echo json_encode(['success' => false, 'message' => 'Please enter your registered ID Number.']);
             exit;
         }
+        if (!preg_match('/^\d{4}-\d{4}$/', $idNumber)) {
+            echo json_encode(['success' => false, 'message' => 'ID Number must contain exactly 8 digits.']);
+            exit;
+        }
 
         $user = $this->userModel->findById($idNumber);
         if (!$user) {
@@ -1131,9 +1135,54 @@ class UserController
     public function validateSecurityAnswer()
     {
         header('Content-Type: application/json; charset=utf-8');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['valid' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $pending = $_SESSION['otp_pending'] ?? null;
+        $otpVerifiedAt = (int)($pending['otp_verified_at'] ?? 0);
+        if (!$pending || ($pending['purpose'] ?? '') !== 'forgot_password' ||
+            empty($pending['otp_verified']) || $otpVerifiedAt <= 0 ||
+            (time() - $otpVerifiedAt) > Otp::CODE_LIFETIME) {
+            echo json_encode(['valid' => false, 'message' => 'OTP verification is required first.']);
+            exit;
+        }
+
+        $questionId = (int)($_POST['question_id'] ?? 0);
+        $answer = trim((string)($_POST['security_answer'] ?? ''));
+        $allowedQuestionIds = array_map('intval', $pending['security_question_ids'] ?? []);
+        if ($questionId <= 0 || !in_array($questionId, $allowedQuestionIds, true)) {
+            echo json_encode(['valid' => false, 'message' => 'This is not one of your registered security questions.']);
+            exit;
+        }
+        if ($answer === '') {
+            echo json_encode(['valid' => false, 'message' => 'Enter your security answer.']);
+            exit;
+        }
+
+        // Cache repeated checks from blur/input events and cap distinct guesses
+        // during one OTP-verified recovery session.
+        $answerKey = hash('sha256', $questionId . "\0" . $answer);
+        $cachedChecks = $_SESSION['otp_pending']['security_live_checks'] ?? [];
+        if (array_key_exists($answerKey, $cachedChecks)) {
+            $valid = (bool)$cachedChecks[$answerKey];
+        } else {
+            if (count($cachedChecks) >= 30) {
+                echo json_encode(['valid' => false, 'message' => 'Too many answer checks. Please start again.']);
+                exit;
+            }
+            $record = $this->userModel->getUserAuthAnswer($pending['id_number'], $questionId);
+            $valid = (bool)($record && password_verify($answer, $record['answer_hash']));
+            $_SESSION['otp_pending']['security_live_checks'][$answerKey] = $valid;
+        }
+
         echo json_encode([
-            'valid' => false,
-            'message' => 'Security answers are verified together when the form is submitted.'
+            'valid' => $valid,
+            'message' => $valid ? 'Correct answer.' : 'Incorrect answer.'
         ]);
         exit;
     }

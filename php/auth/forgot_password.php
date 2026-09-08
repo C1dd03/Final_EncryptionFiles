@@ -19,10 +19,9 @@
 
     <section class="step step-1 active" aria-labelledby="forgotStep1Title">
         <span id="forgotStep1Title">Enter your registered ID Number</span>
-        <div class="input-field password-field" style="margin:3px;">
-            <input type="password" name="id_number" id="forgotIdInput" placeholder=" " autocomplete="off" />
+        <div class="input-field" id="forgotIdField" style="margin:3px;">
+            <input type="text" name="id_number" id="forgotIdInput" placeholder=" " autocomplete="off" inputmode="numeric" maxlength="9" pattern="[0-9]{4}-[0-9]{4}" aria-describedby="idError" />
             <label>ID Number</label>
-            <i class="fas fa-eye-slash toggle-password"></i>
         </div>
         <p class="message-error" id="idError" aria-live="polite"></p>
         <button type="button" class="btn next-btn" id="forgotStartBtn">Send OTP &gt;</button>
@@ -94,6 +93,7 @@
                         <label>Answer 1</label>
                         <i class="fas fa-eye-slash toggle-password"></i>
                     </div>
+                    <p class="forgot-field-feedback" id="securityAnswerFeedback1" aria-live="polite"></p>
                 </div>
 
                 <div class="form-field">
@@ -102,6 +102,7 @@
                         <label>Answer 2</label>
                         <i class="fas fa-eye-slash toggle-password"></i>
                     </div>
+                    <p class="forgot-field-feedback" id="securityAnswerFeedback2" aria-live="polite"></p>
                 </div>
 
                 <div class="form-field">
@@ -110,6 +111,7 @@
                         <label>Answer 3</label>
                         <i class="fas fa-eye-slash toggle-password"></i>
                     </div>
+                    <p class="forgot-field-feedback" id="securityAnswerFeedback3" aria-live="polite"></p>
                 </div>
             </div>
         </div>
@@ -122,17 +124,22 @@
 
     <section class="step step-4" aria-labelledby="forgotStep4Title">
         <span id="forgotStep4Title">Change Password</span>
-        <div class="pass-input-field">
-            <input type="password" name="new_password" id="newPassword" placeholder=" " autocomplete="new-password" />
-            <label>New Password</label>
-            <i class="fas fa-eye-slash toggle-password"></i>
+        <div class="forgot-password-group">
+            <div class="pass-input-field" id="forgotNewPasswordField">
+                <input type="password" name="new_password" id="newPassword" placeholder=" " autocomplete="new-password" />
+                <label>New Password</label>
+                <i class="fas fa-eye-slash toggle-password"></i>
+            </div>
+            <div class="forgot-strength-track" aria-hidden="true"><div class="forgot-strength-bar" id="passwordStrengthBar"></div></div>
+            <div class="forgot-password-feedback" id="passwordStrengthMessage" aria-live="polite"></div>
         </div>
-        <div class="password-strength-container"><div class="password-strength" id="passwordStrengthBar"></div></div>
-        <div id="passwordStrengthMessage" style="visibility:hidden;"></div>
-        <div class="input-field password-field" style="margin-top:14px;">
-            <input type="password" name="confirm_password" id="confirmPassword" placeholder=" " autocomplete="new-password" />
-            <label>Confirm New Password</label>
-            <i class="fas fa-eye-slash toggle-password"></i>
+        <div class="forgot-password-group forgot-confirm-group">
+            <div class="input-field password-field" id="forgotConfirmPasswordField">
+                <input type="password" name="confirm_password" id="confirmPassword" placeholder=" " autocomplete="new-password" />
+                <label>Confirm New Password</label>
+                <i class="fas fa-eye-slash toggle-password"></i>
+            </div>
+            <div class="forgot-password-feedback" id="confirmPasswordMessage" aria-live="polite"></div>
         </div>
         <p class="message-error" id="passwordError" aria-live="polite"></p>
         <button type="submit" class="btn_submit" id="forgotPasswordSubmit">Change Password</button>
@@ -149,8 +156,20 @@
     .forgot-password .dev-otp-banner{background:#fef9c3;color:#854d0e;font-size:12px;text-align:center;padding:8px;border-radius:6px;margin-top:8px}
     .forgot-security-grid{display:flex;align-items:flex-start;gap:15px;margin-top:12px;text-align:left}
     .forgot-security-col{display:flex;flex-direction:column;width:100%;gap:6px}
-    .forgot-security-col .form-field{margin-bottom:4px}
+    .forgot-security-col .form-field{position:relative;margin-bottom:15px}
     .forgot-security-col .input-field select{width:100%;font-size:13px}
+    .forgot-field-feedback{position:absolute;top:40px;left:0;width:100%;margin:0;text-align:center;font-size:11px;font-weight:500;line-height:1.35}
+    .forgot-password-feedback{min-height:15px;margin:2px 0 0;text-align:center;font-size:11px;font-weight:500;line-height:1.35}
+    .forgot-field-feedback.is-valid,.forgot-password-feedback.is-valid{color:#23ad5c}
+    .forgot-field-feedback.is-invalid,.forgot-password-feedback.is-invalid{color:#dc2626}
+    .forgot-field-feedback.is-checking{color:#64748b}
+    .forgot-password-group{position:relative;margin-bottom:10px}
+    .forgot-confirm-group{margin-top:10px}
+    .forgot-password-group .pass-input-field,.forgot-password-group .input-field{margin-bottom:0}
+    .forgot-strength-track{position:relative;z-index:2;width:100%;height:3px;margin-top:-3px;background:#e0e0e0;border-radius:0 0 5px 5px;overflow:hidden}
+    .forgot-strength-bar{display:none;width:0;height:3px;margin:0;border:0;border-radius:0 0 5px 5px;background:red;transition:width .5s ease,background-color .5s ease}
+    #forgotIdField.is-valid{border-color:#23ad5c}
+    #forgotIdField.is-invalid{border-color:#dc2626}
     .forgot-password .step-3.active{width:635px;max-width:100%}
     .form-container:has(.forgot-password .step-3.active){width:min(700px,calc(100vw - 32px))}
     @media (max-width: 650px){
