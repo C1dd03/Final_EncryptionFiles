@@ -8,6 +8,11 @@ if (strtolower($_SESSION['role'] ?? '') !== 'admin') {
 $pageTitle = 'User Management';
 $activePage = 'manage_users';
 $managementScope = 'admin';
+$accountManagementUserModel = new User();
+$canCreateAccounts = $accountManagementUserModel->hasAdminPrivilege(
+  (string)($_SESSION['user_id'] ?? ''),
+  'create_accounts'
+);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,6 +39,6 @@ $managementScope = 'admin';
   <script src="../../js/admin/admin.js"></script>
   <script src="../../js/shared_validator.js?v=20260908c"></script>
   <script src="../../js/action_dropdown.js?v=20260906"></script>
-  <script src="../../js/account_management.js?v=20260908d"></script>
+  <script src="../../js/account_management.js?v=20260908e"></script>
 </body>
 </html>

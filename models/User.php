@@ -1029,6 +1029,7 @@ class User
         'view_user_logs' => 'View User Activity Logs',
         'view_admin_logs' => 'View Admin Activity Logs',
         'view_users' => 'View All User Accounts',
+        'create_accounts' => 'Create User Accounts',
         'block_users' => 'Block/Unblock Users',
         'delete_users' => 'Delete User Accounts',
         'edit_users' => 'Edit User Information'

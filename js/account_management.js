@@ -45,7 +45,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const privilegeLabels = {
     approve_registrations:"Approve/Reject Registrations", view_user_logs:"View User Activity Logs",
     view_admin_logs:"View Admin Activity Logs", view_users:"View All User Accounts",
-    block_users:"Block/Unblock Users", delete_users:"Delete User Accounts", edit_users:"Edit User Information"
+    create_accounts:"Create User Accounts", block_users:"Block/Unblock Users",
+    delete_users:"Delete User Accounts", edit_users:"Edit User Information"
   };
 
   async function loadAccounts() {
@@ -277,7 +278,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-  document.getElementById("amOpenCreate").addEventListener("click", () => {
+  document.getElementById("amOpenCreate")?.addEventListener("click", () => {
     createForm.reset();
     createForm.elements.id_number.value = "";
     createForm.elements.id_number.dataset.suggestedId = "";

@@ -1777,7 +1777,10 @@ class UserController
      */
     public function getNextIds()
     {
-        $this->validateLiveSession(['superadmin', 'admin']);
+        $authState = $this->validateLiveSession(['superadmin', 'admin']);
+        if (strtolower($authState['role']) === 'admin') {
+            $this->requireAdminPrivilege('create_accounts', $authState['id_number']);
+        }
         header('Content-Type: application/json; charset=utf-8');
 
         $type = strtolower(trim($_GET['type'] ?? $_POST['type'] ?? 'all'));
@@ -3360,7 +3363,7 @@ class UserController
         }
         $isAdmin = strtolower($authState['role']) === 'admin';
         if ($isAdmin) {
-            $this->requireAdminPrivilege('edit_users', $authState['id_number']);
+            $this->requireAdminPrivilege('create_accounts', $authState['id_number']);
         }
 
         $idNumber = trim($_POST['id_number'] ?? '');

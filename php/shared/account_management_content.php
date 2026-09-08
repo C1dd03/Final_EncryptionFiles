@@ -1,6 +1,7 @@
 <?php
 $managementScope = $managementScope ?? 'admin';
 $isSuperAdminManagement = $managementScope === 'superadmin';
+$canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
 ?>
 <section class="account-management" data-scope="<?= $isSuperAdminManagement ? 'superadmin' : 'admin' ?>">
   <div class="am-heading">
@@ -10,7 +11,9 @@ $isSuperAdminManagement = $managementScope === 'superadmin';
         ? 'Manage Users, Admins, and queued Super Admins from one page.'
         : 'Authorized Admins can manage User accounts only.' ?></p>
     </div>
-    <button type="button" class="am-btn primary" id="amOpenCreate"><i class="fa-solid fa-user-plus"></i> Create Account</button>
+    <?php if ($canCreateAccounts): ?>
+      <button type="button" class="am-btn primary" id="amOpenCreate"><i class="fa-solid fa-user-plus"></i> Create Account</button>
+    <?php endif; ?>
   </div>
 
   <?php if ($isSuperAdminManagement): ?>

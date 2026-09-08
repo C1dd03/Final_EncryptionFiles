@@ -8,6 +8,7 @@ if (strtolower($_SESSION['role'] ?? '') !== 'superadmin') {
 $pageTitle = 'Account Management';
 $activePage = 'account_management';
 $managementScope = 'superadmin';
+$canCreateAccounts = true;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,6 +35,6 @@ $managementScope = 'superadmin';
   <script src="../../js/super_admin/superadmin.js"></script>
   <script src="../../js/shared_validator.js?v=20260908c"></script>
   <script src="../../js/action_dropdown.js?v=20260906"></script>
-  <script src="../../js/account_management.js?v=20260908d"></script>
+  <script src="../../js/account_management.js?v=20260908e"></script>
 </body>
 </html>
