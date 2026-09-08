@@ -76,17 +76,27 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
   <div class="required-password-card">
     <div class="required-password-icon"><i class="fa-solid fa-key"></i></div>
     <h2 id="requiredPasswordTitle">Change Your Default Password</h2>
-    <p>For security, replace the temporary/default password before entering the portal. New accounts use <strong>@Abcde12345</strong>.</p>
-    <div class="input-field password-field">
-      <input type="password" id="requiredNewPassword" placeholder=" " autocomplete="new-password" />
-      <label>New Password</label>
-      <i class="fas fa-eye-slash toggle-password"></i>
+    <p>For security, replace the temporary password before entering the portal.<br><strong style="color:#477246;">Default: @Abcde12345</strong></p>
+
+    <div class="rp-password-group">
+      <div class="input-field password-field" id="requiredNewPasswordField">
+        <input type="password" id="requiredNewPassword" placeholder=" " autocomplete="new-password" />
+        <label>New Password</label>
+        <i class="fas fa-eye-slash toggle-password"></i>
+      </div>
+      <div class="rp-strength-bar" aria-hidden="true"><span id="rpStrengthBar"></span></div>
+      <div class="rp-password-feedback" id="rpStrengthHint" aria-live="polite"></div>
     </div>
-    <div class="input-field password-field">
-      <input type="password" id="requiredConfirmPassword" placeholder=" " autocomplete="new-password" />
-      <label>Confirm New Password</label>
-      <i class="fas fa-eye-slash toggle-password"></i>
+
+    <div class="rp-password-group rp-confirm-group">
+      <div class="input-field password-field" id="requiredConfirmPasswordField">
+        <input type="password" id="requiredConfirmPassword" placeholder=" " autocomplete="new-password" />
+        <label>Confirm New Password</label>
+        <i class="fas fa-eye-slash toggle-password"></i>
+      </div>
+      <div class="rp-password-feedback" id="rpMatchHint" aria-live="polite"></div>
     </div>
+
     <div id="requiredPasswordMessage" class="field-error" role="alert"></div>
     <button type="button" class="btn_submit" id="requiredPasswordSubmit">Change Password</button>
     <a class="required-password-logout" href="logout.php">Log out instead</a>
@@ -96,9 +106,10 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
 
 
 <style>
+  /* ── Required-password overlay ── */
   .required-password-modal {
     display: none;
-    position: absolute;
+    position: fixed;          /* fill the whole viewport, not just the card */
     inset: 0;
     z-index: 9999;
     background: rgba(15, 23, 42, 0.72);
@@ -106,97 +117,263 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
     justify-content: center;
     padding: 24px 18px;
     box-sizing: border-box;
+    backdrop-filter: blur(3px);
   }
   .required-password-modal.active {
     display: flex;
+    animation: rpFadeIn 0.25s ease forwards;
   }
+  @keyframes rpFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
   .required-password-card {
     width: 100%;
-    max-width: 400px;
+    max-width: 420px;
     background: #fff;
-    border-radius: 18px;
-    padding: 24px 22px;
+    border-radius: 20px;
+    padding: 32px 28px 28px;
     box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
     text-align: center;
     box-sizing: border-box;
-    max-height: 100%;
+    max-height: calc(100dvh - 48px);
     overflow-y: auto;
+    animation: rpSlideUp 0.28s ease forwards;
   }
-  .required-password-card h2 {
-    font-size: 20px;
-    color: var(--farm-text, #1f2937);
-    margin: 0 0 8px;
-    line-height: 1.3;
+  @keyframes rpSlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
   }
+
   .required-password-icon {
-    width: 50px;
-    height: 50px;
+    width: 58px;
+    height: 58px;
     border-radius: 50%;
-    background: #e8f3e5;
+    background: linear-gradient(135deg, #e8f3e5, #d4edda);
     color: #477246;
     display: grid;
     place-items: center;
-    margin: 0 auto 10px;
-    font-size: 22px;
+    margin: 0 auto 14px;
+    font-size: 24px;
+    box-shadow: 0 4px 14px rgba(71, 114, 70, 0.18);
   }
-  .required-password-card p {
+
+  .required-password-card h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 6px;
+    line-height: 1.3;
+  }
+
+  .required-password-card > p {
     font-size: 13px;
     color: #64748b;
-    margin: 0 0 16px;
-    line-height: 1.4;
+    margin: 0 0 20px;
+    line-height: 1.5;
   }
+
   .required-password-card .input-field {
-    margin-bottom: 12px;
+    margin-bottom: 0;
     text-align: left;
   }
+
+  .rp-password-group {
+    margin-bottom: 14px;
+  }
+
+  .rp-confirm-group {
+    margin-top: 8px;
+  }
+
+  /* Same three-pixel strength indicator used by Registration. */
+  .rp-strength-bar {
+    width: 100%;
+    height: 5px;
+    margin-top: 7px;
+    background: #e0e0e0;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .rp-strength-bar span {
+    display: none;
+    height: 5px;
+    margin: 0;
+    border: 0;
+    border-radius: 999px;
+    width: 0%;
+    background: red;
+    transition: width 0.5s ease, background-color 0.5s ease;
+  }
+
+  .rp-password-feedback {
+    font-size: 11px;
+    line-height: 1.35;
+    text-align: center;
+    min-height: 15px;
+    margin-top: 2px;
+    font-weight: 500;
+  }
+
   .required-password-card .field-error {
     min-height: 18px;
     color: #dc2626;
     font-size: 12px;
-    margin: 2px 0 6px;
+    margin: 4px 0 8px;
+    text-align: left;
+    line-height: 1.4;
   }
+
   .required-password-card .btn_submit {
     width: 100%;
-    margin-top: 4px;
+    margin-top: 6px;
+    padding: 12px;
+    font-size: 15px;
+    border-radius: 10px;
   }
+
   .required-password-logout {
     display: inline-block;
-    margin-top: 12px;
+    margin-top: 14px;
     font-size: 12px;
-    color: #64748b;
+    color: #94a3b8;
     text-decoration: underline;
+    cursor: pointer;
+    transition: color 0.15s;
   }
   .required-password-logout:hover {
-    color: #1e293b;
+    color: #dc2626;
   }
 </style>
 
 <script>
   (() => {
-    const modal = document.getElementById('requiredPasswordModal');
+    const modal  = document.getElementById('requiredPasswordModal');
     const submit = document.getElementById('requiredPasswordSubmit');
     const message = document.getElementById('requiredPasswordMessage');
+    const newPassInput  = document.getElementById('requiredNewPassword');
+    const confPassInput = document.getElementById('requiredConfirmPassword');
+    const newPassField  = document.getElementById('requiredNewPasswordField');
+    const confPassField = document.getElementById('requiredConfirmPasswordField');
+    const strengthBar   = document.getElementById('rpStrengthBar');
+    const strengthHint  = document.getElementById('rpStrengthHint');
+    const matchHint     = document.getElementById('rpMatchHint');
     let targetRedirect = 'index.php?action=dashboard';
 
+    // --- Password strength meter ---
+    const criteria = [
+      { test: (v) => v.length >= 8,              label: '8+ chars' },
+      { test: (v) => /[a-z]/.test(v),            label: 'lowercase' },
+      { test: (v) => /[A-Z]/.test(v),            label: 'uppercase' },
+      { test: (v) => /\d/.test(v),               label: 'number' },
+      { test: (v) => /[!@#$%^&*(),.?":{}|<>_\-]/.test(v), label: 'special char' },
+    ];
+    function updateRegistrationStyleStrength(value) {
+      const val = value || '';
+      if (/\s/.test(val)) {
+        newPassField.style.borderColor = 'red';
+        strengthBar.style.display = 'none';
+        strengthHint.style.color = 'red';
+        strengthHint.textContent = 'Password cannot contain spaces';
+        return;
+      }
+      if (!val) {
+        newPassField.style.borderColor = '';
+        strengthBar.style.display = 'none';
+        strengthHint.textContent = '';
+        return;
+      }
+
+      const score = criteria.filter(c => c.test(val)).length;
+      const missing = criteria.filter(c => !c.test(val)).map(c => c.label);
+      strengthBar.style.display = 'block';
+      if (score < 4) {
+        newPassField.style.borderColor = 'red';
+        strengthBar.style.width = '25%';
+        strengthBar.style.backgroundColor = 'red';
+        strengthHint.style.color = 'red';
+        strengthHint.textContent = 'Missing: ' + missing.join(', ');
+      } else if (score === 4) {
+        newPassField.style.borderColor = 'orange';
+        strengthBar.style.width = '75%';
+        strengthBar.style.backgroundColor = 'orange';
+        strengthHint.style.color = 'orange';
+        strengthHint.textContent = 'Add ' + missing.join(', ') + ' for stronger password';
+      } else {
+        newPassField.style.borderColor = '#23ad5c';
+        strengthBar.style.width = '100%';
+        strengthBar.style.backgroundColor = '#23ad5c';
+        strengthHint.style.color = '#23ad5c';
+        strengthHint.textContent = 'Your password is strong';
+      }
+    }
+
+    function updatePasswordMatch() {
+      const password = newPassInput.value;
+      const confirm = confPassInput.value;
+      if (/\s/.test(confirm)) {
+        confPassField.style.borderColor = 'red';
+        matchHint.style.color = 'red';
+        matchHint.textContent = 'Confirm password cannot contain spaces';
+      } else if (!confirm) {
+        confPassField.style.borderColor = '';
+        matchHint.textContent = '';
+      } else if (password === confirm) {
+        confPassField.style.borderColor = '#23ad5c';
+        matchHint.style.color = '#23ad5c';
+        matchHint.textContent = 'Password match.';
+      } else {
+        confPassField.style.borderColor = 'red';
+        matchHint.style.color = 'red';
+        matchHint.textContent = 'Password does not match.';
+      }
+    }
+
+    newPassInput.addEventListener('input', () => {
+      updateRegistrationStyleStrength(newPassInput.value);
+      updatePasswordMatch();
+      message.textContent = '';
+    });
+    confPassInput.addEventListener('input', () => {
+      updatePasswordMatch();
+      message.textContent = '';
+    });
+
+    // --- Show modal ---
     window.showRequiredPasswordModal = function (redirect) {
       targetRedirect = redirect || targetRedirect;
-      modal.classList.add('active');
-      const container = document.querySelector('.form-container');
-      if (container) {
-        container.classList.add('required-password-container');
+
+      // The .form-container has a CSS transform animation which creates a new
+      // stacking context — fixed-position children get clipped to that container
+      // instead of the viewport. Move the modal to <body> to escape it.
+      if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
       }
-      document.querySelector('.login-form').style.display = 'none';
-      document.getElementById('requiredNewPassword').focus();
+
+      modal.classList.add('active');
+      const loginForm = document.querySelector('.login-form');
+      if (loginForm) loginForm.style.display = 'none';
+
+      // Check initial password value (e.g. if browser autofilled)
+      updateRegistrationStyleStrength(newPassInput.value || '');
+      updatePasswordMatch();
+
+      newPassInput.focus();
     };
 
-    submit.addEventListener('click', async () => {
-      const password = document.getElementById('requiredNewPassword').value;
-      const confirm = document.getElementById('requiredConfirmPassword').value;
+    // --- Submit handler ---
+    async function doSubmit() {
+      const password = newPassInput.value;
+      const confirm  = confPassInput.value;
       message.textContent = '';
+      if (!password) { message.textContent = 'Please enter a new password.'; return; }
+      if (password.length < 8) { message.textContent = 'Password must be at least 8 characters.'; return; }
+      if (password !== confirm) { message.textContent = 'Passwords do not match.'; return; }
       submit.disabled = true;
       try {
-        const body = new URLSearchParams({new_password: password, confirm_password: confirm});
-        const response = await fetch('index.php?action=changeRequiredPassword', {method:'POST', body, credentials:'same-origin'});
+        const body = new URLSearchParams({ new_password: password, confirm_password: confirm });
+        const response = await fetch('index.php?action=changeRequiredPassword', { method: 'POST', body, credentials: 'same-origin' });
         const data = await response.json();
         if (!data.success) {
           message.textContent = data.message || 'Unable to change password.';
@@ -208,14 +385,15 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
         message.textContent = 'Unable to connect. Please try again.';
         submit.disabled = false;
       }
-    });
+    }
+
+    submit.addEventListener('click', doSubmit);
+    // Allow pressing Enter in either field to submit
+    [newPassInput, confPassInput].forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') doSubmit(); }));
 
     <?php if ($forcePasswordChange): ?>
     window.addEventListener('DOMContentLoaded', () => window.showRequiredPasswordModal());
     <?php endif; ?>
-  })();
-
-  (() => {
   })();
 </script>
 

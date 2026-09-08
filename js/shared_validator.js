@@ -518,18 +518,23 @@
       if ((name === "username" || name === "email") && input.value.trim() !== "") {
         const initial = initialDataGetter()[name];
         if (input.value.trim() === (initial || "").trim()) {
+          // Value matches the original — no check needed
+          clearTimeout(debounceTimers[name]);
+          debounceTimers[name] = null;
           pendingChecks[name] = false;
           clearFieldError(input);
           return null;
         }
 
-        // Mark as pending and bump generation so stale responses are discarded
-        pendingChecks[name] = true;
+        // Bump generation so any previous in-flight fetch is discarded
         ajaxGeneration[name] = (ajaxGeneration[name] || 0) + 1;
         const gen = ajaxGeneration[name];
 
+        // Cancel any previously queued (not-yet-sent) debounce
         clearTimeout(debounceTimers[name]);
+        // pendingChecks is set to true ONLY when the fetch actually starts (inside setTimeout)
         debounceTimers[name] = setTimeout(async () => {
+          pendingChecks[name] = true; // Mark in-flight only when fetch is about to be sent
           try {
             const action = name === "username" ? "checkUsername" : "checkEmail";
             const body = new URLSearchParams({ [name]: input.value.trim() });
@@ -604,6 +609,15 @@
 
     return {
       validateAll: () => {
+        // Cancel any debounce timers that haven't sent their fetch yet.
+        // (pendingChecks is only true when a fetch is actually in-flight.)
+        Object.keys(debounceTimers).forEach((name) => {
+          if (debounceTimers[name] !== null && !pendingChecks[name]) {
+            clearTimeout(debounceTimers[name]);
+            debounceTimers[name] = null;
+          }
+        });
+
         let firstInvalid = null;
         let hasError = false;
         inputs.forEach((input) => {
@@ -613,7 +627,8 @@
             if (!firstInvalid) firstInvalid = input;
           }
         });
-        // If an AJAX availability check is still in flight, block submission
+
+        // Only block if a fetch is genuinely in-flight (not just a queued debounce)
         const stillPending = Object.entries(pendingChecks).find(([, v]) => v);
         if (stillPending) {
           const pendingInput = form.elements[stillPending[0]];
