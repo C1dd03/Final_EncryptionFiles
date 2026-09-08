@@ -525,15 +525,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Username validation - check for spaces and double spaces
+    // Username validation
     if (input.name === 'username') {
-      // Check if username contains any spaces
-      if (/\s/.test(rawValue)) {
-        return "Username cannot contain spaces.";
+      if (/(.)\1\1/i.test(rawValue.trim())) {
+        return "Username must follow this example format: juan.delacruz01.";
       }
-      // Check if username contains double spaces
-      else if (/\s{2,}/.test(rawValue)) {
-        return "Username cannot contain double spaces.";
+      if (rawValue.trim() !== "" && !/^(?=.{3,50}$)[a-z]+(?:\.[a-z]+)+\d{2}$/i.test(rawValue.trim())) {
+        return "Username must follow this example format: juan.delacruz01.";
       }
     }
 
@@ -546,6 +544,9 @@ document.addEventListener("DOMContentLoaded", () => {
       // Check if email contains double spaces
       else if (/\s{2,}/.test(rawValue)) {
         return "Email cannot contain double spaces.";
+      }
+      else if (rawValue.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawValue.trim())) {
+        return "Enter a valid email. Example: juan.delacruz@gmail.com";
       }
     }
 
@@ -816,6 +817,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /*** Username and Email Real-time Validation ***/
   let usernameTimeout;
+  let usernameValidationGeneration = 0;
   let emailTimeout;
 
   const usernameInput = form?.querySelector('input[name="username"]');
@@ -825,23 +827,22 @@ document.addEventListener("DOMContentLoaded", () => {
   if (usernameInput) {
     usernameInput.addEventListener("input", function () {
       clearTimeout(usernameTimeout);
+      const generation = ++usernameValidationGeneration;
       const username = this.value;
-
-      // Check for spaces
-      if (/\s/.test(username)) {
-        setFieldError(this, "Username cannot contain spaces.", true);
-        return;
-      }
-
-      // Check for double spaces
-      if (/\s{2,}/.test(username)) {
-        setFieldError(this, "Username cannot contain double spaces.", true);
-        return;
-      }
 
       // Clear message if empty
       if (username.trim() === "") {
-        clearFieldError(this);
+        setFieldError(this, "Username is required.", true);
+        return;
+      }
+
+      if (/(.)\1\1/i.test(username.trim())) {
+        setFieldError(this, "Username must follow this example format: juan.delacruz01.", true);
+        return;
+      }
+
+      if (!/^(?=.{3,50}$)[a-z]+(?:\.[a-z]+)+\d{2}$/i.test(username.trim())) {
+        setFieldError(this, "Username must follow this example format: juan.delacruz01.", true);
         return;
       }
 
@@ -856,6 +857,7 @@ document.addEventListener("DOMContentLoaded", () => {
         })
           .then((res) => res.json())
           .then((data) => {
+            if (generation !== usernameValidationGeneration || this.value !== username || /(.)\1\1/i.test(this.value.trim()) || !/^(?=.{3,50}$)[a-z]+(?:\.[a-z]+)+\d{2}$/i.test(this.value.trim())) return;
             if (data.available) {
               // Only show success message when username is available
               setFieldError(this, data.message, false);
@@ -872,21 +874,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     usernameInput.addEventListener("blur", function () {
       const username = this.value;
-      
-      // Check for spaces
-      if (/\s/.test(username)) {
-        setFieldError(this, "Username cannot contain spaces.", true);
-        return;
-      }
-
-      // Check for double spaces
-      if (/\s{2,}/.test(username)) {
-        setFieldError(this, "Username cannot contain double spaces.", true);
-        return;
-      }
 
       if (username.trim() === "") {
-        clearFieldError(this);
+        setFieldError(this, "Username is required.", true);
+      } else if (/(.)\1\1/i.test(username.trim())) {
+        setFieldError(this, "Username must follow this example format: juan.delacruz01.", true);
+      } else if (!/^(?=.{3,50}$)[a-z]+(?:\.[a-z]+)+\d{2}$/i.test(username.trim())) {
+        setFieldError(this, "Username must follow this example format: juan.delacruz01.", true);
       }
     });
   }
@@ -899,7 +893,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Check for spaces
       if (/\s/.test(email)) {
-        setFieldError(this, "Email cannot contain spaces.", true);
+        setFieldError(this, "Email cannot contain spaces. Example: juan.delacruz@gmail.com", true);
         return;
       }
 
@@ -918,7 +912,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Basic email format check before API call
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.trim())) {
-        setFieldError(this, "Invalid email format.", true);
+        setFieldError(this, "Enter a valid email. Example: juan.delacruz@gmail.com", true);
         return;
       }
 
@@ -952,7 +946,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // Check for spaces
       if (/\s/.test(email)) {
-        setFieldError(this, "Email cannot contain spaces.", true);
+        setFieldError(this, "Email cannot contain spaces. Example: juan.delacruz@gmail.com", true);
         return;
       }
 

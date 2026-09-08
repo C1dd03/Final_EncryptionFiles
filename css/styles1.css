@@ -751,6 +751,11 @@ input:-webkit-autofill:focus {
   visibility: hidden; /* Keep the space but hide content */
 }
 
+.form-field .username-format-error {
+  white-space: nowrap;
+  font-size: clamp(8px, 1.25vw, 10px);
+}
+
 /* Password match message */
 .password-match-message {
   font-size: 12px;

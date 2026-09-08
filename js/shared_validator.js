@@ -18,6 +18,8 @@
   };
 
   const addressNoSpecialCharFields = new Set(["city", "province", "country"]);
+  const usernameFormatMessage = "Username must follow this example format: juan.delacruz01.";
+  const usernameFormatPattern = /^(?=.{3,50}$)[a-z]+(?:\.[a-z]+)+\d{2}$/i;
 
   function capitalizeFirst(str) {
     if (!str) return "";
@@ -343,14 +345,17 @@
 
     // --- Username ---
     if (fieldName === "username") {
+      if (/(.)\1\1/i.test(value)) {
+        return usernameFormatMessage;
+      }
       if (/\s/.test(rawValue)) {
-        return "Username cannot contain spaces.";
+        return usernameFormatMessage;
       }
       if (/\s{2,}/.test(rawValue)) {
-        return "Username cannot contain double spaces.";
+        return usernameFormatMessage;
       }
-      if (!/^[A-Za-z0-9._@-]{3,50}$/.test(value)) {
-        return "Username must be 3-50 characters and contain no spaces.";
+      if (!usernameFormatPattern.test(value)) {
+        return usernameFormatMessage;
       }
       return null;
     }
@@ -358,14 +363,14 @@
     // --- Email ---
     if (fieldName === "email") {
       if (/\s/.test(rawValue)) {
-        return "Email cannot contain spaces.";
+        return "Email cannot contain spaces. Example: juan.delacruz@gmail.com";
       }
       if (/\s{2,}/.test(rawValue)) {
         return "Email cannot contain double spaces.";
       }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(value)) {
-        return "Invalid email format.";
+        return "Enter a valid email. Example: juan.delacruz@gmail.com";
       }
       return null;
     }
@@ -485,7 +490,15 @@
 
       const name = input.name;
       if (!name) return null;
+      if (trigger === "input" && (name === "username" || name === "email")) {
+        ajaxGeneration[name] = (ajaxGeneration[name] || 0) + 1;
+      }
       if (ignoredFields.has(name)) {
+        clearFieldError(input);
+        return null;
+      }
+      const initialUsername = name === "username" ? String(initialDataGetter()[name] || "").trim() : "";
+      if (initialUsername !== "" && input.value.trim() === initialUsername) {
         clearFieldError(input);
         return null;
       }

@@ -296,7 +296,7 @@
             <input type="text" name="username" required placeholder=" " />
             <label>Username</label>
           </div>
-          <div class="input-error-container" aria-live="polite"></div>
+          <div class="input-error-container username-format-error" aria-live="polite"></div>
         </div>
 
         <div class="form-field">

@@ -138,14 +138,8 @@ class UserController
             $email = trim($_POST['email'] ?? '');
             $password = $_POST['password'] ?? '';
 
-            // Check for spaces in username
-            if (preg_match('/\s/', $_POST['username'] ?? '')) {
-                $errors[] = "Username cannot contain spaces.";
-            }
-
-            // Check for double spaces in username
-            if (preg_match('/\s{2,}/', $_POST['username'] ?? '')) {
-                $errors[] = "Username cannot contain double spaces.";
+            if (!preg_match('/^(?=.{3,50}$)[a-z]+(?:\.[a-z]+)+\d{2}$/i', $username)) {
+                $errors[] = "Username must follow this example format: juan.delacruz01.";
             }
 
             // Check for spaces in email
@@ -187,10 +181,6 @@ class UserController
                 } else {
                     $errors[] = "Password is too weak. Must be 8+ characters with uppercase, lowercase, number, and special character.";
                 }
-            }
-
-            if (preg_match('/([a-zA-Z])\1\1/i', $username)) {
-                $errors[] = "Username cannot contain 3 identical letters in a row.";
             }
 
             if (preg_match('/([a-zA-Z])\1\1/i', $password)) {
@@ -1312,6 +1302,11 @@ class UserController
 
             if (empty($username)) {
                 echo json_encode(['available' => false, 'message' => 'Username is required.']);
+                exit;
+            }
+
+            if (!preg_match('/^(?=.{3,50}$)[a-z]+(?:\.[a-z]+)+\d{2}$/i', $username) || preg_match('/(.)\1\1/i', $username)) {
+                echo json_encode(['available' => false, 'message' => 'Username must follow this example format: juan.delacruz01.']);
                 exit;
             }
 
@@ -3375,8 +3370,8 @@ class UserController
         } elseif ($this->userModel->findById($idNumber) || $this->userModel->pendingUserIdExists($idNumber)) {
             $errors['id_number'] = 'This ID Number is already registered.';
         }
-        if (!preg_match('/^[A-Za-z0-9._@-]{3,50}$/', $username)) {
-            $errors['username'] = 'Username must be 3-50 characters and contain no spaces.';
+        if (!preg_match('/^(?=.{3,50}$)[a-z]+(?:\.[a-z]+)+\d{2}$/i', $username) || preg_match('/(.)\1\1/i', $username)) {
+            $errors['username'] = 'Username must follow this example format: juan.delacruz01.';
         } elseif ($this->userModel->usernameExists($username) || $this->userModel->pendingUsernameExists($username)) {
             $errors['username'] = 'This Username is already registered.';
         }
@@ -3450,8 +3445,8 @@ class UserController
         $this->requireActorPassword($authState);
 
         $username = trim($_POST['username'] ?? $target['username']);
-        if (!preg_match('/^[A-Za-z0-9._@-]{3,50}$/', $username)) {
-            echo json_encode(['success' => false, 'message' => 'Username must be 3-50 characters and contain no spaces.', 'fieldErrors' => ['username' => 'Username must be 3-50 characters and contain no spaces.']]);
+        if ($username !== $target['username'] && (!preg_match('/^(?=.{3,50}$)[a-z]+(?:\.[a-z]+)+\d{2}$/i', $username) || preg_match('/(.)\1\1/i', $username))) {
+            echo json_encode(['success' => false, 'message' => 'Username must follow this example format: juan.delacruz01.', 'fieldErrors' => ['username' => 'Username must follow this example format: juan.delacruz01.']]);
             exit;
         }
         if ($username !== $target['username'] && $this->userModel->usernameExists($username)) {
@@ -3693,8 +3688,8 @@ class UserController
             if ($age < 18) $errors['birthdate'] = 'You must be at least 18 years old.';
         }
         if (!in_array($gender, ['male', 'female'], true)) $errors['gender'] = 'Select a valid Gender.';
-        if (!preg_match('/^[A-Za-z0-9._@-]{3,50}$/', $username)) {
-            $errors['username'] = 'Username must be 3-50 characters and contain no spaces.';
+        if ($username !== ($current['username'] ?? '') && (!preg_match('/^(?=.{3,50}$)[a-z]+(?:\.[a-z]+)+\d{2}$/i', $username) || preg_match('/(.)\1\1/i', $username))) {
+            $errors['username'] = 'Username must follow this example format: juan.delacruz01.';
         } elseif ($username !== ($current['username'] ?? '') && $this->userModel->usernameExists($username)) {
             $errors['username'] = 'Username is already registered.';
         }
