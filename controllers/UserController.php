@@ -561,26 +561,7 @@ class UserController
                         return;
                     }
 
-                    $passcode = trim($_POST['passcode'] ?? $_POST['otp'] ?? '');
-                    if ($passcode === '') {
-                        echo json_encode([
-                            'success' => true,
-                            'needHandoffOtp' => true,
-                            'message' => 'Please enter the 6-digit One-Time Passcode generated during account creation.'
-                        ]);
-                        return;
-                    }
-
-                    if (empty($user['superadmin_otp_hash']) || !password_verify($passcode, $user['superadmin_otp_hash'])) {
-                        echo json_encode([
-                            'success' => false,
-                            'message' => 'Invalid One-Time Passcode. Please check the 6-digit code and try again.',
-                            'errorType' => 'invalidPasscode'
-                        ]);
-                        return;
-                    }
-
-                    // Passcode verified! Establish initial claiming session:
+                    // Previous Super Admin has logged out. Credentials verified, establish claiming session:
                     $_SESSION['user_id'] = $user['id_number'];
                     $_SESSION['username'] = $user['username'];
                     $_SESSION['role'] = 'superadmin';
@@ -603,7 +584,7 @@ class UserController
                         $user['username'],
                         'superadmin',
                         'Login (Handoff)',
-                        "Super Admin initial claim login via One-Time Passcode. IP: {$ip} | Host: {$host}",
+                        "Super Admin initial claim login. IP: {$ip} | Host: {$host}",
                         $loginTime,
                         null
                     );
@@ -3358,15 +3339,6 @@ class UserController
                 $errors['password'] = $err;
             }
         }
-
-        $passcode = '';
-        if ($role === 'superadmin') {
-            $passcode = trim((string)($_POST['passcode'] ?? ''));
-            if (!preg_match('/^\d{6}$/', $passcode)) {
-                $errors['passcode'] = 'A 6-digit One-Time Passcode is required for Super Admin creation.';
-            }
-        }
-
         if ($errors) {
             echo json_encode(['success' => false, 'message' => 'Please correct the highlighted fields.', 'fieldErrors' => $errors]);
             exit;
@@ -3381,12 +3353,11 @@ class UserController
             'username' => $username,
             'role' => $role,
             'password' => $rawPassword,
-            'passcode' => $passcode,
             'privileges' => $role === 'user' ? [] : array_map('strval', $submitted)
         ], $authState['id_number']);
         if ($result['success']) {
             $statusText = $role === 'superadmin'
-                ? 'Pending claim (awaiting previous Super Admin logout & OTP activation)'
+                ? 'Pending claim (awaiting previous Super Admin logout & password change)'
                 : 'Active';
             $this->userModel->logAuditAction(
                 $authState['id_number'],
@@ -3397,9 +3368,6 @@ class UserController
             );
             $result['message'] = "Account {$username} created successfully. Status: {$statusText}.";
             $result['role'] = $role;
-            if ($role === 'superadmin') {
-                $result['passcode'] = $passcode;
-            }
         }
         echo json_encode($result);
         exit;
@@ -3439,15 +3407,36 @@ class UserController
             exit;
         }
 
-        $fullName = trim($_POST['full_name'] ?? $target['full_name']);
-        $nameParts = preg_split('/\s+/', $fullName, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        if (count($nameParts) < 2) {
-            echo json_encode(['success' => false, 'message' => 'Full Name must include at least a first and last name.', 'fieldErrors' => ['full_name' => 'Full Name must include at least a first and last name.']]);
+        $firstName = trim($_POST['first_name'] ?? '');
+        $middleName = trim($_POST['middle_name'] ?? '') ?: null;
+        $lastName = trim($_POST['last_name'] ?? '');
+        if ($firstName === '' && $lastName === '' && isset($_POST['full_name'])) {
+            $fullName = trim($_POST['full_name']);
+            $nameParts = preg_split('/\s+/', $fullName, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            $firstName = $nameParts ? array_shift($nameParts) : '';
+            $lastName = $nameParts ? array_pop($nameParts) : '';
+            $middleName = $nameParts ? implode(' ', $nameParts) : null;
+        }
+        if ($firstName === '') {
+            $firstName = $target['first_name'] ?? '';
+        }
+        if ($lastName === '') {
+            $lastName = $target['last_name'] ?? '';
+        }
+
+        $email = trim($_POST['email'] ?? $target['email'] ?? '');
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid email address format.', 'fieldErrors' => ['email' => 'Invalid email address format.']]);
             exit;
         }
-        $firstName = $nameParts ? array_shift($nameParts) : '';
-        $lastName = $nameParts ? array_pop($nameParts) : '';
-        $middleName = $nameParts ? implode(' ', $nameParts) : null;
+        if ($email !== '' && strtolower($email) !== strtolower($target['email'] ?? '')) {
+            if ($this->userModel->emailExistsExcluding($email, $targetId)) {
+                echo json_encode(['success' => false, 'message' => 'This email is already registered to another account.', 'fieldErrors' => ['email' => 'This email is already registered.']]);
+                exit;
+            }
+        }
+        $address = trim($_POST['address'] ?? '');
+
         $role = $isAdmin ? 'user' : strtolower(trim($_POST['role'] ?? $target['role']));
         $status = $isAdmin ? $target['status'] : strtolower(trim($_POST['status'] ?? $target['status']));
         if (!in_array($role, ['user', 'admin', 'superadmin'], true) ||
@@ -3492,6 +3481,8 @@ class UserController
             'middle_name' => $middleName,
             'last_name' => $lastName,
             'extension' => $target['extension'] ?? null,
+            'email' => $email,
+            'address' => $address,
             'username' => $username,
             'role' => $role,
             'status' => $status,

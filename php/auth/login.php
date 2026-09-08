@@ -93,20 +93,7 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
   </div>
 </div>
 
-<div id="superAdminOtpModal" class="required-password-modal" aria-modal="true" role="dialog" aria-labelledby="superAdminOtpTitle">
-  <div class="required-password-card">
-    <div class="required-password-icon"><i class="fa-solid fa-shield-halved"></i></div>
-    <h2 id="superAdminOtpTitle">Super Admin Activation</h2>
-    <p>Please enter the 6-digit One-Time Passcode generated during this Super Admin account creation.</p>
-    <div class="input-field" style="margin-bottom: 10px;">
-      <input type="text" id="superAdminOtpInput" placeholder=" " maxlength="6" style="text-align:center; font-size:20px; letter-spacing:4px; font-weight:bold;" autocomplete="one-time-code" />
-      <label>One-Time Passcode</label>
-    </div>
-    <div id="superAdminOtpMessage" class="field-error" role="alert" style="display:none; color:#dc3545; font-size:12px; margin-bottom:8px;"></div>
-    <button type="button" class="btn_submit" id="superAdminOtpSubmit">Verify &amp; Proceed</button>
-    <a class="required-password-logout" href="#" id="superAdminOtpCancel">Cancel</a>
-  </div>
-</div>
+
 
 <style>
   .required-password-modal {
@@ -229,94 +216,6 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
   })();
 
   (() => {
-    const otpModal = document.getElementById('superAdminOtpModal');
-    const otpInput = document.getElementById('superAdminOtpInput');
-    const otpSubmit = document.getElementById('superAdminOtpSubmit');
-    const otpMessage = document.getElementById('superAdminOtpMessage');
-    const otpCancel = document.getElementById('superAdminOtpCancel');
-    let cachedFormData = null;
-
-    window.showSuperAdminOtpModal = function(formData) {
-      cachedFormData = formData;
-      if (otpInput) otpInput.value = '';
-      if (otpMessage) {
-        otpMessage.textContent = '';
-        otpMessage.style.display = 'none';
-      }
-      if (otpModal) otpModal.classList.add('active');
-      const container = document.querySelector('.form-container');
-      if (container) container.classList.add('required-password-container');
-      if (otpInput) otpInput.focus();
-    };
-
-    if (otpCancel) {
-      otpCancel.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (otpModal) otpModal.classList.remove('active');
-        const container = document.querySelector('.form-container');
-        if (container) container.classList.remove('required-password-container');
-      });
-    }
-
-    if (otpSubmit) {
-      otpSubmit.addEventListener('click', async () => {
-        const code = otpInput ? otpInput.value.trim() : '';
-        if (!/^\d{6}$/.test(code)) {
-          if (otpMessage) {
-            otpMessage.textContent = 'Please enter the 6-digit passcode.';
-            otpMessage.style.display = 'block';
-          }
-          return;
-        }
-        otpSubmit.disabled = true;
-        if (otpMessage) otpMessage.style.display = 'none';
-
-        try {
-          const body = new FormData();
-          if (cachedFormData) {
-            for (const [k, v] of cachedFormData.entries()) {
-              body.append(k, v);
-            }
-          } else {
-            const form = document.querySelector('.login-form');
-            if (form) {
-              const fd = new FormData(form);
-              for (const [k, v] of fd.entries()) body.append(k, v);
-            }
-          }
-          body.set('passcode', code);
-
-          const response = await fetch('index.php?action=loginUser', {
-            method: 'POST',
-            body: body,
-            credentials: 'same-origin'
-          });
-          const data = await response.json();
-          otpSubmit.disabled = false;
-
-          if (!data.success) {
-            if (otpMessage) {
-              otpMessage.textContent = data.message || 'Invalid passcode.';
-              otpMessage.style.display = 'block';
-            }
-            return;
-          }
-
-          if (otpModal) otpModal.classList.remove('active');
-          if (data.mustChangePassword && window.showRequiredPasswordModal) {
-            window.showRequiredPasswordModal(data.redirect);
-            return;
-          }
-          window.location.href = data.redirect || '../super_admin/dashboard.php';
-        } catch (err) {
-          otpSubmit.disabled = false;
-          if (otpMessage) {
-            otpMessage.textContent = 'Connection error. Please try again.';
-            otpMessage.style.display = 'block';
-          }
-        }
-      });
-    }
   })();
 </script>
 

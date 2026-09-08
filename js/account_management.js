@@ -91,18 +91,62 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderPagination(data) {
-    const start = data.totalRecords ? (data.currentPage - 1) * data.limit + 1 : 0;
-    document.getElementById("amPageInfo").textContent = `Showing ${start}-${Math.min(data.currentPage * data.limit, data.totalRecords)} of ${data.totalRecords}`;
-    const controls = document.getElementById("amPageButtons");
-    controls.innerHTML = "";
-    for (let number = 1; number <= data.totalPages; number += 1) {
-      if (number !== 1 && number !== data.totalPages && Math.abs(number - data.currentPage) > 1) continue;
-      const button = document.createElement("button");
-      button.className = `am-btn${number === data.currentPage ? " primary" : ""}`;
-      button.textContent = number;
-      button.addEventListener("click", () => { page = number; loadAccounts(); });
-      controls.appendChild(button);
+    const totalRecords = data.totalRecords || 0;
+    const totalPages = data.totalPages || 1;
+    const currentPage = data.currentPage || page || 1;
+    const limitVal = data.limit || 10;
+
+    const infoEl = document.getElementById("amPageInfo");
+    const controlsEl = document.getElementById("amPageButtons");
+    if (!infoEl || !controlsEl) return;
+
+    if (totalRecords === 0) {
+      infoEl.textContent = "Showing 0 to 0 of 0 entries";
+      controlsEl.innerHTML = "";
+      return;
     }
+
+    const start = (currentPage - 1) * limitVal + 1;
+    const end = Math.min(currentPage * limitVal, totalRecords);
+    infoEl.textContent = `Showing ${start} to ${end} of ${totalRecords} entries`;
+
+    let controlsHtml = "";
+
+    // Previous Button
+    const prevDisabled = currentPage <= 1 ? "disabled" : "";
+    controlsHtml += `<button type="button" class="page-link ${prevDisabled}" data-page="${currentPage - 1}">Previous</button>`;
+
+    // Page Numbers
+    for (let p = 1; p <= totalPages; p++) {
+      if (
+        p === 1 ||
+        p === totalPages ||
+        (p >= currentPage - 2 && p <= currentPage + 2)
+      ) {
+        const activeClass = p === currentPage ? "active" : "";
+        controlsHtml += `<button type="button" class="page-link ${activeClass}" data-page="${p}">${p}</button>`;
+      } else if (p === currentPage - 3 || p === currentPage + 3) {
+        controlsHtml += `<span class="page-link disabled">...</span>`;
+      }
+    }
+
+    // Next Button
+    const nextDisabled = currentPage >= totalPages ? "disabled" : "";
+    controlsHtml += `<button type="button" class="page-link ${nextDisabled}" data-page="${currentPage + 1}">Next</button>`;
+
+    controlsEl.innerHTML = controlsHtml;
+
+    // Attach Click Handlers
+    controlsEl.querySelectorAll("button.page-link").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        if (this.classList.contains("disabled") || this.classList.contains("active")) return;
+        const targetPage = parseInt(this.getAttribute("data-page"), 10);
+        if (targetPage && targetPage > 0 && targetPage <= totalPages) {
+          page = targetPage;
+          loadAccounts();
+        }
+      });
+    });
   }
 
   async function getDetail(id) {
@@ -160,26 +204,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  const genPasscodeBtn = document.getElementById("amGeneratePasscodeBtn");
-  if (genPasscodeBtn) {
-    genPasscodeBtn.addEventListener("click", () => {
-      const code = String(Math.floor(100000 + Math.random() * 900000));
-      const input = document.getElementById("amCreatePasscode");
-      if (input) input.value = code;
-    });
-  }
 
-  function updatePasscodeVisibility() {
-    const roleSelect = document.getElementById("amCreateRole");
-    const group = document.getElementById("amPasscodeGroup");
-    if (!group || !roleSelect) return;
-    const isSuper = isSuperAdmin && roleSelect.value === "superadmin";
-    group.style.display = isSuper ? "block" : "none";
-    const passInput = document.getElementById("amCreatePasscode");
-    if (isSuper && passInput && !passInput.value) {
-      passInput.value = String(Math.floor(100000 + Math.random() * 900000));
-    }
-  }
+
+
 
   document.getElementById("amOpenCreate").addEventListener("click", () => {
     createForm.reset();
@@ -192,12 +219,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (createValidator) createValidator.clearAll();
     formMessage(createForm);
     setPrivilegeVisibility(document.getElementById("amCreateRole"), document.getElementById("amCreatePrivileges"));
-    updatePasscodeVisibility();
     open(createModal);
   });
   document.getElementById("amCreateRole").addEventListener("change", (event) => {
     setPrivilegeVisibility(event.target, document.getElementById("amCreatePrivileges"));
-    updatePasscodeVisibility();
   });
   document.getElementById("amEditRole").addEventListener("change", (event) => setPrivilegeVisibility(event.target, document.getElementById("amEditPrivileges")));
 
@@ -209,12 +234,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const dataForm = new FormData(createForm);
     if (!isSuperAdmin) dataForm.set("role", "user");
-    if (dataForm.get("role") === "superadmin") {
-      const code = (dataForm.get("passcode") || "").trim();
-      if (!/^\d{6}$/.test(code)) {
-        return formMessage(createForm, "Please enter or generate a 6-digit One-Time Passcode.");
-      }
-    }
     const submit = createForm.querySelector('[type="submit"]');
     submit.disabled = true;
     try {
@@ -228,10 +247,9 @@ document.addEventListener("DOMContentLoaded", () => {
         return formMessage(createForm, data.message || "Unable to create account.");
       }
       close(createModal);
-      if (data.passcode && data.role === "superadmin") {
+      if (data.role === "superadmin") {
         document.getElementById("amCredUsername").textContent = dataForm.get("username") || "-";
         document.getElementById("amCredPassword").textContent = dataForm.get("password") || "@Abcde12345";
-        document.getElementById("amCredPasscode").textContent = data.passcode;
         open(document.getElementById("amCredentialsModal"));
       } else {
         toast(data.message);
@@ -249,17 +267,20 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       if (button.dataset.action === "view") {
         const detail = await getDetail(row.id_number);
-        ["id_number", "full_name", "username", "role", "status"].forEach((key) => {
-          viewModal.querySelector(`[data-view="${key}"]`).textContent = detail[key] || "-";
+        ["id_number", "first_name", "middle_name", "last_name", "email", "address", "username", "role", "status"].forEach((key) => {
+          const el = viewModal.querySelector(`[data-view="${key}"]`);
+          if (el) el.textContent = detail[key] || "-";
         });
-        viewModal.querySelector('[data-view="privileges"]').textContent = (detail.privileges || []).map((key) => privilegeLabels[key] || key).join(", ") || "None";
-        document.getElementById("amViewPrivilegesRow").hidden = !["admin", "superadmin"].includes(detail.role);
         open(viewModal);
       } else if (button.dataset.action === "edit") {
         const detail = await getDetail(row.id_number);
         currentEditDetail = detail;
         editForm.elements.id_number.value = detail.id_number;
-        editForm.elements.full_name.value = detail.full_name || "";
+        if (editForm.elements.first_name) editForm.elements.first_name.value = detail.first_name || "";
+        if (editForm.elements.middle_name) editForm.elements.middle_name.value = detail.middle_name || "";
+        if (editForm.elements.last_name) editForm.elements.last_name.value = detail.last_name || "";
+        if (editForm.elements.email) editForm.elements.email.value = detail.email || "";
+        if (editForm.elements.address) editForm.elements.address.value = detail.address || "";
         editForm.elements.username.value = detail.username;
         editForm.elements.password.value = "";
         editForm.elements.role.value = detail.role;
@@ -354,8 +375,9 @@ document.addEventListener("DOMContentLoaded", () => {
     finally { button.disabled = false; }
   });
 
+  const credentialsModal = document.getElementById("amCredentialsModal");
   document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => close(button.closest(".am-modal"))));
-  [createModal, viewModal, editModal, secureModal].forEach((modal) => modal.addEventListener("click", (event) => { if (event.target === modal) close(modal); }));
+  [createModal, viewModal, editModal, secureModal, credentialsModal].forEach((modal) => { if (modal) modal.addEventListener("click", (event) => { if (event.target === modal) close(modal); }); });
   search.addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(() => { page = 1; loadAccounts(); }, 300); });
   statusFilter.addEventListener("change", () => { page = 1; loadAccounts(); });
   if (roleFilter) roleFilter.addEventListener("change", () => { page = 1; loadAccounts(); });

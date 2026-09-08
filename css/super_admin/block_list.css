@@ -22,18 +22,30 @@
   font-size: 0.9rem;
 }
 
+.superadmin-main,
+.superadmin-content {
+  min-width: 0;
+}
+
+.superadmin-content {
+  overflow-x: hidden;
+}
+
 /* Control Card: Search & Filters */
 .control-card {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   background: var(--farm-white);
   border-radius: 12px;
-  padding: 18px 20px;
+  padding: 16px 20px;
   box-shadow: 0 4px 15px rgba(47, 63, 51, 0.06);
   margin-bottom: 20px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .control-left,
@@ -41,12 +53,19 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
+}
+
+.control-left {
+  flex: 1 1 500px;
+  min-width: 0;
 }
 
 .search-box {
   position: relative;
-  min-width: 280px;
+  flex: 1 1 220px;
+  min-width: 180px;
+  max-width: 340px;
 }
 
 .search-box i {
@@ -60,6 +79,7 @@
 
 .search-box input {
   width: 100%;
+  box-sizing: border-box;
   padding: 9px 14px 9px 38px;
   border: 1px solid var(--farm-border);
   border-radius: 8px;
@@ -101,10 +121,12 @@
 
 /* Table Card */
 .table-card {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   background: var(--farm-white);
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(47, 63, 51, 0.06);
-  overflow: visible;
   padding-bottom: 8px;
   display: flex;
   flex-direction: column;
@@ -112,12 +134,16 @@
 
 .table-responsive {
   width: 100%;
-  /* overflow-x: auto; */
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 12px;
 }
 
 .block-table {
   width: 100%;
+  min-width: 0;
   border-collapse: collapse;
   text-align: left;
   font-size: 0.88rem;
@@ -125,9 +151,21 @@
 
 .block-table th,
 .block-table td {
-  padding: 14px 18px;
+  padding: 12px 14px;
   border-bottom: 1px solid rgba(154, 166, 142, 0.25);
-  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.block-table td:nth-child(2) {
+  white-space: normal;
+  min-width: 120px;
+}
+
+.block-table td:nth-child(4) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 140px;
 }
 
 .block-table th {
@@ -137,6 +175,7 @@
   font-size: 0.82rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .block-table tbody tr {

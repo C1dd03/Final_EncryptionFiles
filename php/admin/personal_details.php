@@ -8,5 +8,5 @@ $pageTitle = 'Personal Details'; $activePage = 'personal_details';
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"></head>
 <body><div class="admin-app"><?php include __DIR__ . '/includes/admin_sidebar.php'; ?><div class="admin-main"><?php include __DIR__ . '/includes/admin_header.php'; ?>
 <main class="admin-content"><?php include __DIR__ . '/../shared/personal_details_content.php'; ?></main></div></div>
-<script src="../../js/admin/admin.js"></script><script src="../../js/shared_validator.js?v=20260904b"></script><script src="../../js/personal_details.js?v=20260904"></script></body></html>
+<script src="../../js/admin/admin.js"></script><script src="../../js/shared_validator.js?v=20260908"></script><script src="../../js/personal_details.js?v=20260904"></script></body></html>
 

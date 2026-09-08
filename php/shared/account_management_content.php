@@ -71,18 +71,7 @@ $isSuperAdminManagement = $managementScope === 'superadmin';
         <small style="color: #64748b; font-size: 11px;">Default is @Abcde12345. You can enter a password or click Generate.</small>
         <span class="field-error"></span>
       </label>
-      <div id="amPasscodeGroup" style="display: none; margin-bottom: 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 12px;">
-        <label style="color: #166534; font-weight: 600; margin-bottom: 4px;">Super Admin One-Time Passcode (OTP)
-          <div style="display: flex; gap: 8px; margin-top: 4px;">
-            <input type="text" name="passcode" id="amCreatePasscode" placeholder="6-digit code" maxlength="6" style="letter-spacing: 3px; font-weight: 700; text-align: center; background: #fff;" />
-            <button type="button" class="am-btn primary" id="amGeneratePasscodeBtn" style="white-space: nowrap; font-size: 12px; padding: 6px 14px;">
-              <i class="fa-solid fa-key"></i> Generate Passcode
-            </button>
-          </div>
-          <small style="color: #15803d; font-size: 11px; font-weight: normal;">Required for Super Admin handover. The new admin must enter this code on first login.</small>
-          <span class="field-error"></span>
-        </label>
-      </div>
+
       <div class="am-privileges" id="amCreatePrivileges" hidden>
         <strong>Privileges</strong>
         <?php foreach (User::PRIVILEGES as $key => $label): ?>
@@ -101,11 +90,14 @@ $isSuperAdminManagement = $managementScope === 'superadmin';
     <h3 id="amViewTitle">Account Details</h3>
     <dl class="am-details">
       <div><dt>ID Number</dt><dd data-view="id_number"></dd></div>
-      <div><dt>Full Name</dt><dd data-view="full_name"></dd></div>
+      <div><dt>First Name</dt><dd data-view="first_name"></dd></div>
+      <div><dt>Middle Name</dt><dd data-view="middle_name"></dd></div>
+      <div><dt>Last Name</dt><dd data-view="last_name"></dd></div>
+      <div><dt>Gmail</dt><dd data-view="email"></dd></div>
+      <div><dt>Address</dt><dd data-view="address"></dd></div>
       <div><dt>Username</dt><dd data-view="username"></dd></div>
       <div><dt>Role</dt><dd data-view="role"></dd></div>
       <div><dt>Account Status</dt><dd data-view="status"></dd></div>
-      <div id="amViewPrivilegesRow"><dt>Assigned Privileges</dt><dd data-view="privileges"></dd></div>
     </dl>
     <p class="am-password-note"><i class="fa-solid fa-lock"></i> Passwords are never displayed.</p>
     <div class="am-actions"><button type="button" class="am-btn" data-close>Close</button></div>
@@ -119,8 +111,12 @@ $isSuperAdminManagement = $managementScope === 'superadmin';
     <form id="amEditForm" novalidate>
       <div class="am-grid">
         <label>ID Number<input name="id_number" readonly /></label>
-        <label>Full Name<input name="full_name" placeholder="First Middle Last" /><span class="field-error"></span></label>
         <label>Username<input name="username" required /><span class="field-error"></span></label>
+        <label>First Name<input name="first_name" placeholder="First Name" required /><span class="field-error"></span></label>
+        <label>Middle Name<input name="middle_name" placeholder="Middle Name (optional)" /><span class="field-error"></span></label>
+        <label>Last Name<input name="last_name" placeholder="Last Name" required /><span class="field-error"></span></label>
+        <label>Gmail<input type="email" name="email" placeholder="example@gmail.com" /><span class="field-error"></span></label>
+        <label style="grid-column: 1 / -1;">Address<input name="address" placeholder="Purok/Street, Barangay, City, Province, Country, Zip Code" /><span class="field-error"></span></label>
         <label>New Password <small>(optional)</small><input type="password" name="password" autocomplete="new-password" placeholder="Leave blank to keep current" /><span class="field-error"></span></label>
         <label>Role
           <select name="role" id="amEditRole" <?= $isSuperAdminManagement ? '' : 'disabled' ?>>
@@ -163,6 +159,8 @@ $isSuperAdminManagement = $managementScope === 'superadmin';
       <div class="am-actions"><button type="button" class="am-btn" data-close>Cancel</button><button type="button" class="am-btn danger" id="amExecuteSecure">Verify &amp; Complete</button></div>
     </div>
   </div>
+</div>
+
 <div class="am-modal" id="amCredentialsModal" role="dialog" aria-modal="true" aria-labelledby="amCredTitle">
   <div class="am-card" style="max-width: 420px; text-align: center;">
     <div style="width: 50px; height: 50px; border-radius: 50%; background: #e8f3e5; color: #477246; display: grid; place-items: center; margin: 0 auto 12px; font-size: 22px;">
@@ -170,12 +168,11 @@ $isSuperAdminManagement = $managementScope === 'superadmin';
     </div>
     <h3 id="amCredTitle">Super Admin Account Created</h3>
     <p style="font-size: 13px; color: #475569; margin-bottom: 16px;">
-      Share these initial credentials with the new Super Admin. They will need both the password and the passcode to activate the account.
+      Share these initial credentials with the new Super Admin. They must log in and change their password to activate the account.
     </p>
     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: left; margin-bottom: 16px; font-size: 13px;">
       <div style="margin-bottom: 6px;"><strong>Username:</strong> <span id="amCredUsername">-</span></div>
-      <div style="margin-bottom: 6px;"><strong>Initial Password:</strong> <span id="amCredPassword">-</span></div>
-      <div><strong>One-Time Passcode:</strong> <span id="amCredPasscode" style="font-weight: 700; color: #0284c7; letter-spacing: 1px;">-</span></div>
+      <div><strong>Initial Password:</strong> <span id="amCredPassword">-</span></div>
     </div>
     <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px; font-size: 12px; color: #991b1b; margin-bottom: 16px;">
       <i class="fa-solid fa-circle-exclamation"></i> Notice: Once you log out, your account will be blocked and control will transfer to this new Super Admin.

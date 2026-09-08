@@ -2229,6 +2229,11 @@ class User
         $row['full_name'] = trim(implode(' ', array_filter([
             $row['first_name'] ?? '', $row['middle_name'] ?? '', $row['last_name'] ?? '', $row['extension'] ?? ''
         ])));
+        $addressParts = array_filter([
+            $row['street'] ?? '', $row['barangay'] ?? '', $row['city'] ?? '',
+            $row['province'] ?? '', $row['country'] ?? '', $row['zip'] ?? ''
+        ]);
+        $row['address'] = !empty($addressParts) ? implode(', ', $addressParts) : '';
         $row['privileges'] = in_array($row['role'], ['admin', 'superadmin'], true)
             ? $this->getAdminPrivileges($idNumber)
             : [];
@@ -2326,6 +2331,10 @@ class User
             ':username' => $data['username'], ':role' => $data['role'], ':status' => $data['status'],
             ':eligible' => $data['role'] === 'superadmin' ? 1 : 0, ':role_queue' => $data['role'], ':id_number' => $idNumber
         ];
+        if (array_key_exists('email', $data)) {
+            $fields[] = 'email = :email';
+            $params[':email'] = ($data['email'] !== '' && $data['email'] !== null) ? $data['email'] : null;
+        }
         if (!empty($data['password'])) {
             $fields[] = 'password_hash = :password_hash';
             $fields[] = 'must_change_password = 1';
@@ -2334,6 +2343,11 @@ class User
         $stmt = $this->conn->prepare("UPDATE users SET " . implode(', ', $fields) . " WHERE id_number = :id_number");
         $ok = $stmt->execute($params);
         if ($ok) {
+            if (isset($data['address'])) {
+                $this->saveOrUpdateAddress($idNumber, [
+                    'street' => trim((string)$data['address'])
+                ]);
+            }
             if (in_array($data['role'], ['admin', 'superadmin'], true)) {
                 $this->saveAdminPrivileges($idNumber, $data['privileges'] ?? []);
             } else {

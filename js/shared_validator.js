@@ -473,6 +473,9 @@
     const ajaxCheckUrl = options.ajaxCheckUrl || "../auth/index.php";
 
     let debounceTimers = {};
+    // Track in-flight AJAX checks: { fieldName: generation }
+    let ajaxGeneration = {};
+    let pendingChecks = {}; // { fieldName: true/false }
 
     function validateInput(input, trigger = "input") {
       if (input.readOnly || input.disabled || input.type === "hidden" || input.type === "submit" || input.type === "reset") {
@@ -504,6 +507,7 @@
       const error = validateFieldValue(name, input.value, { required: isRequired });
 
       if (error) {
+        pendingChecks[name] = false;
         setFieldError(input, error);
         return error;
       }
@@ -514,9 +518,15 @@
       if ((name === "username" || name === "email") && input.value.trim() !== "") {
         const initial = initialDataGetter()[name];
         if (input.value.trim() === (initial || "").trim()) {
+          pendingChecks[name] = false;
           clearFieldError(input);
           return null;
         }
+
+        // Mark as pending and bump generation so stale responses are discarded
+        pendingChecks[name] = true;
+        ajaxGeneration[name] = (ajaxGeneration[name] || 0) + 1;
+        const gen = ajaxGeneration[name];
 
         clearTimeout(debounceTimers[name]);
         debounceTimers[name] = setTimeout(async () => {
@@ -529,6 +539,9 @@
               body: body,
             });
             const data = await response.json();
+            // Discard stale responses (generation changed since this request was sent)
+            if (gen !== ajaxGeneration[name]) return;
+            pendingChecks[name] = false;
             if (!data.available) {
               setFieldError(input, data.message || `This ${name} is already registered.`);
             } else {
@@ -536,6 +549,7 @@
             }
           } catch (e) {
             // Ignore connection errors during real-time typing
+            if (gen === ajaxGeneration[name]) pendingChecks[name] = false;
           }
         }, 400);
       }
@@ -599,11 +613,22 @@
             if (!firstInvalid) firstInvalid = input;
           }
         });
-        if (firstInvalid) {
+        // If an AJAX availability check is still in flight, block submission
+        const stillPending = Object.entries(pendingChecks).find(([, v]) => v);
+        if (stillPending) {
+          const pendingInput = form.elements[stillPending[0]];
+          if (pendingInput) {
+            setFieldError(pendingInput, "Checking availability\u2026 please wait a moment.");
+            pendingInput.focus();
+          }
+          hasError = true;
+        }
+        if (firstInvalid && !stillPending) {
           firstInvalid.focus();
         }
         return !hasError;
       },
+      isPending: () => Object.values(pendingChecks).some(Boolean),
       clearAll: () => {
         inputs.forEach((input) => clearFieldError(input));
         // Also clear any general security_questions error div

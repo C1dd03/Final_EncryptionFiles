@@ -42,11 +42,71 @@ $activePage = 'approvals';
       gap: 4px;
     }
 
+    /* Responsive layout & eliminate horizontal scrolling */
+    .admin-main,
+    .admin-content {
+      min-width: 0 !important;
+    }
+    .admin-content {
+      overflow-x: hidden !important;
+    }
+    .control-card {
+      min-width: 0 !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
     .filter-group-flex {
       display: flex;
       gap: 8px;
       align-items: center;
       flex-wrap: wrap;
+      flex: 1 1 520px;
+      min-width: 0;
+    }
+    .search-box {
+      flex: 1 1 200px;
+      min-width: 180px;
+      max-width: 320px;
+    }
+    .table-card {
+      min-width: 0 !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .table-responsive {
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    .block-table {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+    .block-table th,
+    .block-table td {
+      padding: 12px 10px !important;
+      vertical-align: middle;
+    }
+    .block-table td:nth-child(2) {
+      white-space: normal !important;
+      min-width: 120px;
+    }
+    .block-table td:nth-child(4) {
+      white-space: normal !important;
+      overflow-wrap: anywhere !important;
+      word-break: break-word !important;
+      min-width: 140px;
+    }
+    .block-table td:nth-child(6) {
+      white-space: nowrap !important;
+      font-size: 0.82rem;
     }
 
     .detail-grid {
