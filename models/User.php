@@ -1017,6 +1017,19 @@ class User
             if (!$stmt->fetch()) {
                 $this->conn->exec("ALTER TABLE users ADD COLUMN session_version INT NOT NULL DEFAULT 0 AFTER status");
             }
+
+            $onlineCol = $this->conn->query("SHOW COLUMNS FROM users LIKE 'is_online'")->fetch(PDO::FETCH_ASSOC);
+            if (!$onlineCol) {
+                $this->conn->exec("ALTER TABLE users ADD COLUMN is_online TINYINT(1) NOT NULL DEFAULT 0 AFTER session_version");
+            }
+            $onlineSessionCol = $this->conn->query("SHOW COLUMNS FROM users LIKE 'online_session_id'")->fetch(PDO::FETCH_ASSOC);
+            if (!$onlineSessionCol) {
+                $this->conn->exec("ALTER TABLE users ADD COLUMN online_session_id VARCHAR(128) DEFAULT NULL AFTER is_online");
+            }
+            $onlineActivityCol = $this->conn->query("SHOW COLUMNS FROM users LIKE 'online_last_activity'")->fetch(PDO::FETCH_ASSOC);
+            if (!$onlineActivityCol) {
+                $this->conn->exec("ALTER TABLE users ADD COLUMN online_last_activity DATETIME DEFAULT NULL AFTER online_session_id");
+            }
         } catch (Exception $e) {
             error_log("Privilege schema sync warning: " . $e->getMessage());
         }
@@ -1092,7 +1105,7 @@ class User
      */
     public function getAccountAuthState(string $id_number): ?array
     {
-        $stmt = $this->conn->prepare("SELECT id_number, username, role, status, session_version, must_change_password FROM users WHERE id_number = :id_number");
+        $stmt = $this->conn->prepare("SELECT id_number, username, role, status, session_version, must_change_password, is_online, online_session_id, online_last_activity FROM users WHERE id_number = :id_number");
         $stmt->execute([':id_number' => $id_number]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -1205,6 +1218,78 @@ class User
             error_log("Pending approval count failed: " . $e->getMessage());
             return 0;
         }
+    }
+
+    public function acquireSuperAdminSession(string $idNumber, string $sessionId, int $staleSeconds = 1800): bool
+    {
+        try {
+            $this->conn->beginTransaction();
+            $superAdmins = $this->conn->query(
+                "SELECT id_number, is_online, online_session_id, online_last_activity
+                 FROM users WHERE role = 'superadmin' FOR UPDATE"
+            )->fetchAll(PDO::FETCH_ASSOC);
+
+            $cutoff = time() - max(300, $staleSeconds);
+            foreach ($superAdmins as $superAdmin) {
+                if ((int)$superAdmin['is_online'] !== 1) continue;
+                $lastActivity = !empty($superAdmin['online_last_activity'])
+                    ? strtotime((string)$superAdmin['online_last_activity']) : false;
+                $isStale = $lastActivity === false || $lastActivity < $cutoff;
+                if ($isStale) {
+                    $clear = $this->conn->prepare(
+                        "UPDATE users SET is_online = 0, online_session_id = NULL, online_last_activity = NULL
+                         WHERE id_number = :id_number"
+                    );
+                    $clear->execute([':id_number' => $superAdmin['id_number']]);
+                    continue;
+                }
+                if ($superAdmin['id_number'] !== $idNumber || !hash_equals((string)$superAdmin['online_session_id'], $sessionId)) {
+                    $this->conn->rollBack();
+                    return false;
+                }
+            }
+
+            $stmt = $this->conn->prepare(
+                "UPDATE users SET is_online = 1, online_session_id = :session_id, online_last_activity = NOW()
+                 WHERE id_number = :id_number AND role = 'superadmin'"
+            );
+            $stmt->execute([':session_id' => $sessionId, ':id_number' => $idNumber]);
+            if ($stmt->rowCount() < 1 && !$this->getAccountAuthState($idNumber)) {
+                $this->conn->rollBack();
+                return false;
+            }
+            $this->conn->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) $this->conn->rollBack();
+            error_log('Super Admin session acquisition failed: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function touchSuperAdminSession(string $idNumber, string $sessionId): bool
+    {
+        $stmt = $this->conn->prepare(
+            "UPDATE users SET online_last_activity = NOW()
+             WHERE id_number = :id_number AND role = 'superadmin' AND is_online = 1 AND online_session_id = :session_id"
+        );
+        $stmt->execute([':id_number' => $idNumber, ':session_id' => $sessionId]);
+        if ($stmt->rowCount() === 1) return true;
+        $check = $this->conn->prepare(
+            "SELECT COUNT(*) FROM users
+             WHERE id_number = :id_number AND role = 'superadmin' AND is_online = 1 AND online_session_id = :session_id"
+        );
+        $check->execute([':id_number' => $idNumber, ':session_id' => $sessionId]);
+        return (int)$check->fetchColumn() === 1;
+    }
+
+    public function releaseSuperAdminSession(string $idNumber, string $sessionId): bool
+    {
+        $stmt = $this->conn->prepare(
+            "UPDATE users SET is_online = 0, online_session_id = NULL, online_last_activity = NULL
+             WHERE id_number = :id_number AND role = 'superadmin' AND online_session_id = :session_id"
+        );
+        return $stmt->execute([':id_number' => $idNumber, ':session_id' => $sessionId]);
     }
 
     /**

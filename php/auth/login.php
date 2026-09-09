@@ -26,6 +26,12 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
   </p>
 <?php endif; ?>
 
+<?php if (($_GET['superadmin_session'] ?? '') === 'active'): ?>
+  <p style="color:#dc2626;font-weight:bold;text-align:center;">
+    Another Super Admin is currently active. Only one Super Admin can be logged in at a time.
+  </p>
+<?php endif; ?>
+
 
 <?php if (isset($_GET['registered']) && $_GET['registered'] == 1): ?>
   <p style="color: green; font-weight: bold; text-align:center;">

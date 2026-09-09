@@ -35,6 +35,9 @@ if (!$authState) {
 // Pending-deletion accounts remain usable until the request is approved.
 // Inactive and blocked accounts are denied immediately.
 if (!in_array($authState['status'], ['active', 'pending_deletion'], true)) {
+    if (strtolower((string)($authState['role'] ?? '')) === 'superadmin') {
+        $userModel->releaseSuperAdminSession((string)$_SESSION['user_id'], session_id());
+    }
     session_unset();
     session_destroy();
     $reason = $authState['status'] === 'inactive' ? 'inactive' : 'blocked';
@@ -44,9 +47,20 @@ if (!in_array($authState['status'], ['active', 'pending_deletion'], true)) {
 
 // 2. Session version mismatch (role changed / block toggled elsewhere) -> force re-login
 if ((int)($_SESSION['session_version'] ?? 0) !== (int)$authState['session_version']) {
+    if (strtolower((string)($authState['role'] ?? '')) === 'superadmin') {
+        $userModel->releaseSuperAdminSession((string)$_SESSION['user_id'], session_id());
+    }
     session_unset();
     session_destroy();
     header("Location: ../auth/index.php?action=login");
+    exit();
+}
+
+if (strtolower((string)$authState['role']) === 'superadmin'
+    && !$userModel->touchSuperAdminSession((string)$_SESSION['user_id'], session_id())) {
+    session_unset();
+    session_destroy();
+    header("Location: ../auth/index.php?action=login&superadmin_session=active");
     exit();
 }
 

@@ -11,6 +11,7 @@ $userId   = $_SESSION['user_id'] ?? null;
 $username = $_SESSION['username'] ?? null;
 $role     = $_SESSION['role'] ?? 'user';
 $auditId  = $_SESSION['audit_log_id'] ?? null;
+$currentSessionId = session_id();
 
 if ($username) {
     $userModel = new User();
@@ -39,6 +40,7 @@ if ($username) {
     // eligible blocked Super Admin and place this account at the back of the
     // queue. The current account is blocked even if no successor is available.
     if (strtolower((string)$role) === 'superadmin' && $userId) {
+        $userModel->releaseSuperAdminSession((string)$userId, $currentSessionId);
         $userModel->rotateSuperAdminOnLogout((string)$userId, (string)$username);
     }
 }

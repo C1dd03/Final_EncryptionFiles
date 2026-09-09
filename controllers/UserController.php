@@ -455,6 +455,15 @@ class UserController
 
 
     /* ========================== ADD LOGIN CONTROLLER ======================== */
+    private function acquireSuperAdminLogin(array $user): bool
+    {
+        if (strtolower((string)($user['role'] ?? '')) !== 'superadmin') {
+            return true;
+        }
+        session_regenerate_id(true);
+        return $this->userModel->acquireSuperAdminSession((string)$user['id_number'], session_id());
+    }
+
     public function loginUser()
     {
         session_start();
@@ -551,6 +560,15 @@ class UserController
                         return;
                     }
 
+                    if (!$this->acquireSuperAdminLogin($user)) {
+                        echo json_encode([
+                            'success' => false,
+                            'message' => 'Another Super Admin is currently active. Only one Super Admin can be logged in at a time.',
+                            'errorType' => 'superAdminAlreadyActive'
+                        ]);
+                        return;
+                    }
+
                     // Previous Super Admin has logged out. Credentials verified, establish claiming session:
                     $_SESSION['user_id'] = $user['id_number'];
                     $_SESSION['username'] = $user['username'];
@@ -594,6 +612,15 @@ class UserController
             // Pending-deletion accounts remain usable until the Super Admin decides.
             if (!in_array($userStatus, ['active', 'pending_deletion'], true)) {
                 echo json_encode(['success' => false, 'message' => 'This account is not currently active.', 'errorType' => 'accountUnavailable']);
+                return;
+            }
+
+            if (!$this->acquireSuperAdminLogin($user)) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Another Super Admin is currently active. Only one Super Admin can be logged in at a time.',
+                    'errorType' => 'superAdminAlreadyActive'
+                ]);
                 return;
             }
 
@@ -682,6 +709,16 @@ class UserController
             unset($_SESSION['otp_pending']);
             $inactive = $otpStatus === 'inactive';
             echo json_encode(['success' => false, 'message' => $inactive ? 'This account is inactive.' : 'Your account is not currently active.', 'errorType' => $inactive ? 'accountInactive' : 'accountUnavailable']);
+            exit;
+        }
+
+        if (!$this->acquireSuperAdminLogin($user)) {
+            unset($_SESSION['otp_pending']);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Another Super Admin is currently active. Only one Super Admin can be logged in at a time.',
+                'errorType' => 'superAdminAlreadyActive'
+            ]);
             exit;
         }
 
@@ -1373,6 +1410,9 @@ class UserController
         }
 
         if (!in_array($authState['status'], ['active', 'pending_deletion'], true)) {
+            if (strtolower((string)($authState['role'] ?? '')) === 'superadmin') {
+                $this->userModel->releaseSuperAdminSession((string)$userId, session_id());
+            }
             session_unset();
             session_destroy();
             header('Content-Type: application/json; charset=utf-8');
@@ -1397,10 +1437,26 @@ class UserController
         }
 
         if ((int)($_SESSION['session_version'] ?? 0) !== (int)$authState['session_version']) {
+            if (strtolower((string)($authState['role'] ?? '')) === 'superadmin') {
+                $this->userModel->releaseSuperAdminSession((string)$userId, session_id());
+            }
             session_unset();
             session_destroy();
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode(['success' => false, 'message' => 'Your role has changed. Please log in again.', 'sessionExpired' => true]);
+            exit;
+        }
+
+        if (strtolower((string)$authState['role']) === 'superadmin'
+            && !$this->userModel->touchSuperAdminSession((string)$userId, session_id())) {
+            session_unset();
+            session_destroy();
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => false,
+                'message' => 'Another Super Admin session is active. Please log in again when it has logged out.',
+                'sessionExpired' => true
+            ]);
             exit;
         }
 

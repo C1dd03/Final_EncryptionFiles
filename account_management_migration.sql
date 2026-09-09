@@ -6,6 +6,9 @@ USE `encryption_system`;
 
 ALTER TABLE `users`
   ADD COLUMN IF NOT EXISTS `session_version` INT NOT NULL DEFAULT 0 AFTER `status`,
+  ADD COLUMN IF NOT EXISTS `is_online` TINYINT(1) NOT NULL DEFAULT 0 AFTER `session_version`,
+  ADD COLUMN IF NOT EXISTS `online_session_id` VARCHAR(128) DEFAULT NULL AFTER `is_online`,
+  ADD COLUMN IF NOT EXISTS `online_last_activity` DATETIME DEFAULT NULL AFTER `online_session_id`,
   ADD COLUMN IF NOT EXISTS `must_change_password` TINYINT(1) NOT NULL DEFAULT 0 AFTER `session_version`,
   ADD COLUMN IF NOT EXISTS `superadmin_eligible` TINYINT(1) NOT NULL DEFAULT 0 AFTER `must_change_password`,
   ADD COLUMN IF NOT EXISTS `superadmin_queue_at` DATETIME DEFAULT NULL AFTER `superadmin_eligible`,

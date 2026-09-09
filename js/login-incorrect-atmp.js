@@ -297,6 +297,7 @@ document.addEventListener("DOMContentLoaded", function () {
             data.errorType === "accountPending" ||
             data.errorType === "accountPendingApproval" ||
             data.errorType === "accountRejected" ||
+            data.errorType === "superAdminAlreadyActive" ||
             data.errorType === "noEmail" ||
             data.errorType === "otpSendFailed"
           ) {
