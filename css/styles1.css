@@ -231,7 +231,7 @@ p {
 /* Toggle password eye icon */
 .toggle-password {
   position: absolute;
-  right: 10px;
+  right: 3px;
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
@@ -239,6 +239,27 @@ p {
   font-size: 16px;
   transition: color 0.3s;
   z-index: 10;
+  width: 32px;
+  height: 36px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  line-height: 1 !important;
+  outline: none;
+}
+
+.input-field.password-field > .toggle-password,
+.pass-input-field > .toggle-password {
+  top: 0;
+  bottom: 0;
+  height: auto;
+  transform: none;
+}
+
+.toggle-password:focus-visible {
+  color: var(--farm-card-2);
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px rgba(88, 129, 87, 0.25);
 }
 
 .toggle-password:hover {

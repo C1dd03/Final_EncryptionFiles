@@ -1212,7 +1212,12 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      icon.addEventListener("click", function () {
+      icon.setAttribute("role", "button");
+      icon.setAttribute("tabindex", "0");
+      icon.setAttribute("aria-label", "Show password");
+      icon.setAttribute("aria-pressed", "false");
+
+      const toggleVisibility = function () {
         // Find the input field within the same parent container
         const container =
           this.closest(".pass-input-field") || this.closest(".password-field");
@@ -1224,13 +1229,24 @@ document.addEventListener("DOMContentLoaded", () => {
         // Toggle password visibility
         if (input.type === "password") {
           input.type = "text";
-          this.classList.remove("fa-eye");
-          this.classList.add("fa-eye-slash");
-        } else {
-          input.type = "password";
           this.classList.remove("fa-eye-slash");
           this.classList.add("fa-eye");
+          this.setAttribute("aria-label", "Hide password");
+          this.setAttribute("aria-pressed", "true");
+        } else {
+          input.type = "password";
+          this.classList.remove("fa-eye");
+          this.classList.add("fa-eye-slash");
+          this.setAttribute("aria-label", "Show password");
+          this.setAttribute("aria-pressed", "false");
         }
+      };
+
+      icon.addEventListener("click", toggleVisibility);
+      icon.addEventListener("keydown", function (event) {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        toggleVisibility.call(this);
       });
 
       // Mark that we've attached a listener to this icon

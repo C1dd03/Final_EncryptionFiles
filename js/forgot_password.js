@@ -72,7 +72,11 @@ document.addEventListener("DOMContentLoaded", () => {
     form.querySelectorAll(".toggle-password").forEach((icon) => {
       if (icon.dataset.listenerAttached === "true") return;
       icon.dataset.listenerAttached = "true";
-      icon.addEventListener("click", function () {
+      icon.setAttribute("role", "button");
+      icon.setAttribute("tabindex", "0");
+      icon.setAttribute("aria-label", "Show password");
+      icon.setAttribute("aria-pressed", "false");
+      const toggleVisibility = function () {
         const container = this.closest(".pass-input-field") || this.closest(".password-field");
         if (!container) return;
         const input = container.querySelector("input");
@@ -81,11 +85,21 @@ document.addEventListener("DOMContentLoaded", () => {
           input.type = "text";
           this.classList.remove("fa-eye-slash");
           this.classList.add("fa-eye");
+          this.setAttribute("aria-label", "Hide password");
+          this.setAttribute("aria-pressed", "true");
         } else {
           input.type = "password";
           this.classList.remove("fa-eye");
           this.classList.add("fa-eye-slash");
+          this.setAttribute("aria-label", "Show password");
+          this.setAttribute("aria-pressed", "false");
         }
+      };
+      icon.addEventListener("click", toggleVisibility);
+      icon.addEventListener("keydown", function (event) {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        toggleVisibility.call(this);
       });
     });
   };

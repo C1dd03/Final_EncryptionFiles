@@ -1195,23 +1195,16 @@ class User
         }
     }
 
-    /**
-     * Counts pending approval items the Super Admin needs to act on.
-     * Used by the Super Admin dashboard approval card.
-     */
+    /** Counts pending registration approvals for the Super Admin dashboard. */
     public function getSuperAdminPendingApprovalCount(): int
     {
-        $total = 0;
         try {
             $stmt = $this->conn->query("SELECT COUNT(*) FROM {$this->pendingTable} WHERE status = 'pending'");
-            $total += (int)$stmt->fetchColumn();
-
-            $stmt = $this->conn->query("SELECT COUNT(*) FROM delete_requests WHERE status = 'pending'");
-            $total += (int)$stmt->fetchColumn();
+            return (int)$stmt->fetchColumn();
         } catch (Exception $e) {
             error_log("Pending approval count failed: " . $e->getMessage());
+            return 0;
         }
-        return $total;
     }
 
     /**
