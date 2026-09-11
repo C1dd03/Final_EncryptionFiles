@@ -162,12 +162,10 @@ document.addEventListener("DOMContentLoaded", () => {
   function setPrivilegeVisibility(roleSelect, container) {
     const visible = isSuperAdmin && ["admin", "superadmin"].includes(roleSelect.value);
     container.hidden = !visible;
-    if (container.id === "amCreatePrivileges") {
-      container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-        input.disabled = roleSelect.value === "superadmin";
-        if (input.disabled) input.checked = true;
-      });
-    }
+    container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+      input.disabled = roleSelect.value === "superadmin";
+      if (input.disabled) input.checked = true;
+    });
     if (!visible) container.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
   }
 

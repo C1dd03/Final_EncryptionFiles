@@ -2358,7 +2358,9 @@ class User
                 ]);
             }
             if (in_array($data['role'], ['admin', 'superadmin'], true)) {
-                $this->saveAdminPrivileges($idNumber, $data['privileges'] ?? []);
+                $this->saveAdminPrivileges($idNumber, $data['role'] === 'superadmin'
+                    ? array_keys(self::PRIVILEGES)
+                    : ($data['privileges'] ?? []));
             } else {
                 $this->removeAllPrivileges($idNumber);
             }

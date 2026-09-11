@@ -3541,6 +3541,9 @@ class UserController
             $submitted = json_decode((string)$submitted, true) ?: [];
         }
         $privileges = $isAdmin ? [] : array_values(array_intersect(array_keys(User::PRIVILEGES), array_map('strval', $submitted)));
+        if (!$isAdmin && $role === 'superadmin') {
+            $privileges = array_keys(User::PRIVILEGES);
+        }
         $oldPrivileges = $target['privileges'] ?? [];
         sort($privileges);
         sort($oldPrivileges);
