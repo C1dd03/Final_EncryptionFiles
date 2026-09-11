@@ -367,6 +367,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const detail = await getDetail(row.id_number);
         currentEditDetail = detail;
         editForm.elements.id_number.value = detail.id_number;
+        editForm.elements.full_name.value = detail.full_name || detail.name || [detail.first_name, detail.middle_name, detail.last_name, detail.extension].filter(Boolean).join(" ");
         if (editForm.elements.first_name) editForm.elements.first_name.value = detail.first_name || "";
         if (editForm.elements.middle_name) editForm.elements.middle_name.value = detail.middle_name || "";
         if (editForm.elements.last_name) editForm.elements.last_name.value = detail.last_name || "";

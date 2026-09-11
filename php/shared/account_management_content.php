@@ -170,13 +170,10 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
     <form id="amEditForm" novalidate>
       <div class="am-grid">
         <label>ID Number<input name="id_number" readonly /></label>
+        <label>Name<input name="full_name" readonly /></label>
+        <label>Email<input type="email" name="email" readonly /></label>
         <label>Username<input name="username" required /><span class="field-error"></span></label>
-        <label>First Name<input name="first_name" placeholder="First Name" required /><span class="field-error"></span></label>
-        <label>Middle Name<input name="middle_name" placeholder="Middle Name (optional)" /><span class="field-error"></span></label>
-        <label>Last Name<input name="last_name" placeholder="Last Name" required /><span class="field-error"></span></label>
-        <label>Gmail<input type="email" name="email" placeholder="example@gmail.com" /><span class="field-error"></span></label>
-        <label style="grid-column: 1 / -1;">Address<input name="address" placeholder="Purok/Street, Barangay, City, Province, Country, Zip Code" /><span class="field-error"></span></label>
-        <label>New Password <small>(optional)</small><input type="password" name="password" id="amEditPassword" autocomplete="new-password" placeholder="Leave blank to keep current" />
+        <label>Password <small>(optional)</small><input type="password" name="password" id="amEditPassword" autocomplete="new-password" placeholder="Leave blank to keep current" />
           <div class="am-password-meter" data-password-meter="amEditPassword" aria-hidden="true"><span></span></div><small class="am-password-feedback" data-password-feedback="amEditPassword" aria-live="polite"></small><span class="field-error"></span>
         </label>
         <label>Role

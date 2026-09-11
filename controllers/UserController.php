@@ -3475,35 +3475,11 @@ class UserController
             exit;
         }
 
-        $firstName = trim($_POST['first_name'] ?? '');
-        $middleName = trim($_POST['middle_name'] ?? '') ?: null;
-        $lastName = trim($_POST['last_name'] ?? '');
-        if ($firstName === '' && $lastName === '' && isset($_POST['full_name'])) {
-            $fullName = trim($_POST['full_name']);
-            $nameParts = preg_split('/\s+/', $fullName, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-            $firstName = $nameParts ? array_shift($nameParts) : '';
-            $lastName = $nameParts ? array_pop($nameParts) : '';
-            $middleName = $nameParts ? implode(' ', $nameParts) : null;
-        }
-        if ($firstName === '') {
-            $firstName = $target['first_name'] ?? '';
-        }
-        if ($lastName === '') {
-            $lastName = $target['last_name'] ?? '';
-        }
-
-        $email = trim($_POST['email'] ?? $target['email'] ?? '');
-        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            echo json_encode(['success' => false, 'message' => 'Invalid email address format.', 'fieldErrors' => ['email' => 'Invalid email address format.']]);
-            exit;
-        }
-        if ($email !== '' && strtolower($email) !== strtolower($target['email'] ?? '')) {
-            if ($this->userModel->emailExistsExcluding($email, $targetId)) {
-                echo json_encode(['success' => false, 'message' => 'This email is already registered to another account.', 'fieldErrors' => ['email' => 'This email is already registered.']]);
-                exit;
-            }
-        }
-        $address = trim($_POST['address'] ?? '');
+        // Personal information is managed by the owner through Personal Details.
+        $firstName = $target['first_name'] ?? '';
+        $middleName = $target['middle_name'] ?? null;
+        $lastName = $target['last_name'] ?? '';
+        $email = $target['email'] ?? null;
 
         $role = $isAdmin ? 'user' : strtolower(trim($_POST['role'] ?? $target['role']));
         $status = $isAdmin ? $target['status'] : strtolower(trim($_POST['status'] ?? $target['status']));
@@ -3553,7 +3529,6 @@ class UserController
             'last_name' => $lastName,
             'extension' => $target['extension'] ?? null,
             'email' => $email,
-            'address' => $address,
             'username' => $username,
             'role' => $role,
             'status' => $status,
