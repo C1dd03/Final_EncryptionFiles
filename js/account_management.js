@@ -162,6 +162,12 @@ document.addEventListener("DOMContentLoaded", () => {
   function setPrivilegeVisibility(roleSelect, container) {
     const visible = isSuperAdmin && ["admin", "superadmin"].includes(roleSelect.value);
     container.hidden = !visible;
+    if (container.id === "amCreatePrivileges") {
+      container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+        input.disabled = roleSelect.value === "superadmin";
+        if (input.disabled) input.checked = true;
+      });
+    }
     if (!visible) container.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
   }
 
@@ -185,16 +191,24 @@ document.addEventListener("DOMContentLoaded", () => {
   async function loadLatestIds() {
     const sequence = ++idRequestSequence;
     const input = createForm.elements.id_number;
+    nextIds = null;
+    input.value = "";
+    const submit = createForm.querySelector('[type="submit"]');
+    submit.disabled = true;
     input.placeholder = "Loading latest ID...";
     try {
       const data = await request("getNextIds");
-      if (sequence !== idRequestSequence || !data.success) return;
+      if (sequence !== idRequestSequence) return;
+      if (!data.success || !data.standard_id) throw new Error("ID unavailable");
       nextIds = data;
       applySuggestedId(false);
     } catch (error) {
-      // The administrator can still enter a custom ID when the suggestion cannot load.
+      if (sequence === idRequestSequence) formMessage(createForm, "Unable to generate the ID. Close and reopen this form to retry.");
     } finally {
-      if (sequence === idRequestSequence) input.placeholder = "Enter an ID Number";
+      if (sequence === idRequestSequence) {
+        input.placeholder = "Automatically generated";
+        submit.disabled = !input.value;
+      }
     }
   }
 
@@ -305,6 +319,9 @@ document.addEventListener("DOMContentLoaded", () => {
   createForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     formMessage(createForm);
+    if (!nextIds || !createForm.elements.id_number.value) {
+      return formMessage(createForm, "Please wait for the ID Number to be generated.");
+    }
     if (!updatePasswordMeter(createPassword) || (createValidator && !createValidator.validateAll())) {
       return formMessage(createForm, "Please correct the highlighted fields.");
     }

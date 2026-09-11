@@ -130,8 +130,7 @@ class User
     /**
      * Generate the next available ID number for the current year in YYYY-#### format.
      * Considers both `users` and `pending_registrations` to avoid collisions.
-     * Falls back to the latest numeric ID across all years in both tables if no
-     * current-year IDs exist.
+     * Starts at 0001 when no current-year IDs exist.
      */
     public function generateIdNumber(): string
     {
@@ -141,9 +140,9 @@ class User
             $maxNum = null;
 
             $stmt = $this->conn->prepare("
-                SELECT id_number FROM users WHERE id_number LIKE :yearPrefix
+                SELECT id_number FROM users WHERE id_number LIKE :yearPrefix AND id_number REGEXP '^[0-9]{4}-[0-9]{4}$'
                 UNION
-                SELECT user_id FROM {$this->pendingTable} WHERE user_id LIKE :yearPrefix
+                SELECT user_id FROM {$this->pendingTable} WHERE user_id LIKE :yearPrefix AND user_id REGEXP '^[0-9]{4}-[0-9]{4}$'
                 ORDER BY 1 DESC LIMIT 1
             ");
             $stmt->execute([':yearPrefix' => $yearPrefix]);
@@ -158,22 +157,6 @@ class User
         $nextNum = $getMaxFromTables($year . '-%');
         if ($nextNum !== null) {
             return $year . '-' . str_pad($nextNum + 1, 4, '0', STR_PAD_LEFT);
-        }
-
-        $stmt = $this->conn->prepare("
-            SELECT id_number FROM users WHERE id_number REGEXP '^[0-9]{4}-[0-9]{4}$'
-            UNION
-            SELECT user_id FROM {$this->pendingTable} WHERE user_id REGEXP '^[0-9]{4}-[0-9]{4}$'
-            ORDER BY 1 DESC LIMIT 1
-        ");
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            $val = reset($row);
-            if (preg_match('/^(\d{4})-(\d{4})$/', $val, $matches)) {
-                $nextNum = str_pad(((int)$matches[2]) + 1, 4, '0', STR_PAD_LEFT);
-                return $matches[1] . '-' . $nextNum;
-            }
         }
 
         return $year . '-0001';
@@ -2271,7 +2254,9 @@ class User
         $passcode = trim((string)($data['passcode'] ?? ''));
         $otpHash = ($role === 'superadmin' && $passcode !== '') ? password_hash($passcode, PASSWORD_DEFAULT) : null;
         $handoffPending = ($role === 'superadmin') ? 1 : 0;
-        $privileges = array_values(array_intersect(array_keys(self::PRIVILEGES), $data['privileges'] ?? []));
+        $privileges = $role === 'superadmin'
+            ? array_keys(self::PRIVILEGES)
+            : array_values(array_intersect(array_keys(self::PRIVILEGES), $data['privileges'] ?? []));
 
         try {
             $this->conn->beginTransaction();

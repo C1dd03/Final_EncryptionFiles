@@ -75,7 +75,7 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
     <h3 id="amCreateTitle">Create Account</h3>
     <p class="am-subtitle">Only the required account fields are shown. Personal information is completed by the owner in Personal Details.</p>
     <form id="amCreateForm" novalidate>
-      <label>ID Number<input name="id_number" maxlength="20" autocomplete="off" required /><small class="am-field-hint">Latest available ID is filled automatically. You can edit it.</small><span class="field-error"></span></label>
+      <label>ID Number<input name="id_number" maxlength="20" autocomplete="off" readonly required /><small class="am-field-hint">The next available ID is generated automatically.</small><span class="field-error"></span></label>
       <label>Username<input name="username" maxlength="50" required /><span class="field-error"></span></label>
       <label>Role
         <select name="role" id="amCreateRole" <?= $isSuperAdminManagement ? '' : 'disabled' ?>>

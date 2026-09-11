@@ -3379,7 +3379,7 @@ class UserController
             $this->requireAdminPrivilege('create_accounts', $authState['id_number']);
         }
 
-        $idNumber = trim($_POST['id_number'] ?? '');
+        $idNumber = $this->userModel->generateIdNumber();
         $username = trim($_POST['username'] ?? '');
         $role = $isAdmin ? 'user' : strtolower(trim($_POST['role'] ?? 'user'));
         $errors = [];

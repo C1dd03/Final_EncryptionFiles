@@ -231,6 +231,13 @@ $tests = [
         schemaAssert(User::isValidAdminIdFormat($year . '-0075'), 'Standard ID rejected for an admin.');
         schemaAssert(!User::isValidAdminIdFormat('ADMIN-0001'), 'Legacy prefix accepted for a new admin.');
     },
+    'IDs start in the current year when no current-year account exists' => static function (): void {
+        $connection = new PendingSchemaConnection();
+        $connection->preparedRows = [false, ['id_number' => '4234-1244']];
+        $user = schemaUser($connection);
+        schemaAssert($user->generateIdNumber() === date('Y') . '-0001', 'ID used an unrelated year.');
+        schemaAssert(count($connection->preparedStatements) === 1, 'ID generation consulted unrelated years.');
+    },
     'current-year IDs increment without consulting other years' => static function (): void {
         $connection = new PendingSchemaConnection();
         $year = date('Y');
