@@ -321,6 +321,18 @@ class User
         }
     }
 
+    public function emailExistsExcluding(string $email, string $excludeId): bool
+    {
+        $stmt = $this->conn->prepare(
+            "SELECT COUNT(*) FROM users WHERE LOWER(email) = :email AND id_number <> :exclude_id"
+        );
+        $stmt->execute([
+            ':email' => strtolower(trim($email)),
+            ':exclude_id' => $excludeId,
+        ]);
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
     /* ========================== DASHBOARD STATS ======================== */
     public function getDashboardStats(): array
     {
