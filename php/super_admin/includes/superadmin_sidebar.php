@@ -41,10 +41,10 @@
         <span class="nav-label">Account Management</span>
       </a>
 
-      <a href="personal_details.php" class="nav-link <?= $activePage === 'personal_details' ? 'active' : '' ?>">
+      <!-- <a href="personal_details.php" class="nav-link <?= $activePage === 'personal_details' ? 'active' : '' ?>">
         <span class="nav-icon"><i class="fa-solid fa-id-card"></i></span>
         <span class="nav-label">Personal Details</span>
-      </a>
+      </a> -->
 
       <a href="approvals.php" class="nav-link <?= $activePage === 'approvals' ? 'active' : '' ?>">
         <span class="nav-icon">

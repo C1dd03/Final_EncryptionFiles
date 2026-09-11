@@ -16,7 +16,7 @@ $sidebarUserModel = new User();
 $sidebarGranted = $sidebarUserModel->getAdminPrivileges($currentIdNumber);
 $canNavViewUsers = in_array('view_users', $sidebarGranted, true);
 $canNavViewLogs  = in_array('view_user_logs', $sidebarGranted, true)
-    || in_array('view_admin_logs', $sidebarGranted, true);
+  || in_array('view_admin_logs', $sidebarGranted, true);
 ?>
 <div class="sidebar-overlay"></div>
 <aside class="admin-sidebar" id="adminSidebar">
@@ -43,10 +43,10 @@ $canNavViewLogs  = in_array('view_user_logs', $sidebarGranted, true)
       <span class="nav-label">Manage Users</span>
     </a>
 
-    <a href="personal_details.php" class="nav-link <?= $activePage === 'personal_details' ? 'active' : '' ?>">
+    <!-- <a href="personal_details.php" class="nav-link <?= $activePage === 'personal_details' ? 'active' : '' ?>">
       <span class="nav-icon"><i class="fa-solid fa-id-card"></i></span>
       <span class="nav-label">Personal Details</span>
-    </a>
+    </a> -->
 
     <a href="approvals.php" class="nav-link <?= $activePage === 'approvals' ? 'active' : '' ?>">
       <span class="nav-icon">
@@ -56,12 +56,12 @@ $canNavViewLogs  = in_array('view_user_logs', $sidebarGranted, true)
     </a>
 
     <?php if ($canNavViewLogs): ?>
-    <a href="audit_logs.php" class="nav-link <?= $activePage === 'audit_logs' ? 'active' : '' ?>">
-      <span class="nav-icon">
-        <i class="fa-solid fa-file-lines"></i>
-      </span>
-      <span class="nav-label">Audit Logs</span>
-    </a>
+      <a href="audit_logs.php" class="nav-link <?= $activePage === 'audit_logs' ? 'active' : '' ?>">
+        <span class="nav-icon">
+          <i class="fa-solid fa-file-lines"></i>
+        </span>
+        <span class="nav-label">Audit Logs</span>
+      </a>
     <?php endif; ?>
   </nav>
 
