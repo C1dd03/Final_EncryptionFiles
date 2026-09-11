@@ -10,10 +10,10 @@ foreach (['user', 'admin', 'superadmin'] as $role) {
     foreach ([
         'active' => null,
         'pending_deletion' => null,
-        'inactive' => 'Account is inactive.',
-        'blocked' => 'Account is blocked.',
-        'block' => 'Account is blocked.',
-        'deleted' => 'Account has been deleted.',
+        'inactive' => 'This account is inactive. Please contact the administrator.',
+        'blocked' => 'This account is blocked. Please contact the administrator.',
+        'block' => 'This account is blocked. Please contact the administrator.',
+        'deleted' => 'This account has been deleted. Please contact the administrator.',
         'pending_approval' => 'This account cannot reset its password at this time.',
     ] as $status => $expected) {
         $actual = User::passwordRecoveryError(['role' => $role, 'status' => $status]);

@@ -239,15 +239,25 @@ class User
             case 'pending_deletion':
                 return null;
             case 'inactive':
-                return 'Account is inactive.';
+                return 'This account is inactive. Please contact the administrator.';
             case 'block':
             case 'blocked':
-                return 'Account is blocked.';
+                return 'This account is blocked. Please contact the administrator.';
             case 'deleted':
-                return 'Account has been deleted.';
+                return 'This account has been deleted. Please contact the administrator.';
             default:
                 return 'This account cannot reset its password at this time.';
         }
+    }
+
+    public function wasAccountDeleted(string $idNumber): bool
+    {
+        $stmt = $this->conn->prepare(
+            "SELECT 1 FROM audit_logs WHERE action = 'Delete Account'
+             AND LOCATE(:marker, details) > 0 LIMIT 1"
+        );
+        $stmt->execute([':marker' => '(ID: ' . $idNumber . '). Reason:']);
+        return (bool)$stmt->fetchColumn();
     }
 
     public function resetRecoverablePassword(string $idNumber, string $passwordHash): bool

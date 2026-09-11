@@ -744,6 +744,9 @@ class UserController
     private function requireRecoverableAccount(string $idNumber): array
     {
         $user = $this->userModel->findById($idNumber);
+        if (!$user && $this->userModel->wasAccountDeleted($idNumber)) {
+            $user = ['status' => 'deleted'];
+        }
         $message = User::passwordRecoveryError($user ?: null);
         if ($message !== null) {
             if (session_status() === PHP_SESSION_NONE) {
