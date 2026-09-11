@@ -185,11 +185,10 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
           <span class="field-error"></span>
         </label>
         <label>Account Status
-          <select name="status" id="amEditStatus" <?= $isSuperAdminManagement ? '' : 'disabled' ?>>
+          <select name="status" id="amEditStatus">
+            <option value="" disabled hidden>Keep current status</option>
             <option value="active">Active</option>
             <option value="blocked">Blocked</option>
-            <option value="pending_approval">Pending Approval</option>
-            <option value="pending_deletion">Pending Deletion</option>
             <option value="inactive">Inactive</option>
           </select>
           <span class="field-error"></span>

@@ -376,7 +376,7 @@ document.addEventListener("DOMContentLoaded", () => {
         editForm.elements.username.value = detail.username;
         editForm.elements.password.value = "";
         editForm.elements.role.value = detail.role;
-        editForm.elements.status.value = detail.status;
+        editForm.elements.status.value = ["active", "blocked", "inactive"].includes(detail.status) ? detail.status : "";
         editForm.querySelectorAll('input[name="privileges[]"]').forEach((input) => { input.checked = (detail.privileges || []).includes(input.value); });
         setPrivilegeVisibility(document.getElementById("amEditRole"), document.getElementById("amEditPrivileges"));
         editForm.dataset.originalRole = detail.role;
@@ -398,7 +398,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return formMessage(editForm, "Please correct the highlighted fields.");
     }
     const roleChanged = editForm.elements.role.value !== editForm.dataset.originalRole;
-    const statusChanged = editForm.elements.status.value !== editForm.dataset.originalStatus;
+    const statusChanged = editForm.elements.status.value !== "" && editForm.elements.status.value !== editForm.dataset.originalStatus;
     let kind = "edit";
     if (roleChanged) kind = "change this account's role";
     else if (isSuperAdmin && JSON.stringify([...editForm.querySelectorAll('input[name="privileges[]"]:checked')].map((input) => input.value).sort()) !== editForm.dataset.originalPrivileges) kind = "change this account's privileges";

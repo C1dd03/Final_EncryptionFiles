@@ -3482,11 +3482,18 @@ class UserController
         $email = $target['email'] ?? null;
 
         $role = $isAdmin ? 'user' : strtolower(trim($_POST['role'] ?? $target['role']));
-        $status = $isAdmin ? $target['status'] : strtolower(trim($_POST['status'] ?? $target['status']));
+        $requestedStatus = strtolower(trim($_POST['status'] ?? ''));
+        $status = $requestedStatus === '' ? $target['status'] : $requestedStatus;
         if (!in_array($role, ['user', 'admin', 'superadmin'], true) ||
-            !in_array($status, ['active', 'blocked', 'pending_approval', 'pending_deletion', 'inactive'], true)) {
+            ($requestedStatus !== '' && !in_array($requestedStatus, ['active', 'blocked', 'inactive'], true))) {
             echo json_encode(['success' => false, 'message' => 'Invalid role or account status.']);
             exit;
+        }
+        if ($isAdmin && $status !== $target['status']) {
+            $this->requireAdminPrivilege('block_users', $authState['id_number']);
+            if (in_array($target['status'], ['pending', 'pending_approval'], true)) {
+                $this->requireAdminPrivilege('approve_registrations', $authState['id_number']);
+            }
         }
         if ($targetId === $authState['id_number'] && ($role !== 'superadmin' || $status !== 'active')) {
             echo json_encode(['success' => false, 'message' => 'Use Logout to rotate the active Super Admin account.']);
