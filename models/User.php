@@ -179,50 +179,23 @@ class User
         return $year . '-0001';
     }
 
-    /**
-     * Validates that the supplied Admin ID follows the ADMIN-#### format
-     * (literal "ADMIN-" prefix + exactly four digits, no other characters).
-     */
+    /** Validates the shared YYYY-#### format for newly created admin accounts. */
     public static function isValidAdminIdFormat(string $id): bool
     {
-        return (bool)preg_match('/^ADMIN-\d{4}$/', $id);
+        return (bool)preg_match('/^\d{4}-\d{4}$/', $id);
     }
 
-    /**
-     * Generate a unique ADMIN-#### ID by inspecting existing admin IDs and
-     * incrementing the highest 4-digit suffix. This runs server-side so
-     * duplicate IDs are impossible.
-     */
+    /** Admins and Super Admins use the same ID sequence as users. */
     public function generateAdminIdNumber(): string
     {
-        $stmt = $this->conn->prepare("
-            SELECT id_number
-            FROM users
-            WHERE id_number REGEXP '^ADMIN-[0-9]{4}$'
-            ORDER BY CAST(SUBSTRING(id_number, 7) AS UNSIGNED) DESC
-            LIMIT 1
-        ");
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($row && preg_match('/^ADMIN-(\d{4})$/', $row['id_number'], $matches)) {
-            $next = (int)$matches[1] + 1;
-        } else {
-            $next = 1;
-        }
-        return 'ADMIN-' . str_pad($next, 4, '0', STR_PAD_LEFT);
+        return $this->generateIdNumber();
     }
 
-    /**
-     * Returns both the next admin ID (ADMIN-####) and next standard user ID
-     * (YYYY-####) so the frontend can populate the form on open.
-     */
+    /** Keep both response keys for existing account creation forms. */
     public function getNextIdsForForms(): array
     {
-        return [
-            'admin_id'      => $this->generateAdminIdNumber(),
-            'standard_id'   => $this->generateIdNumber()
-        ];
+        $nextId = $this->generateIdNumber();
+        return ['admin_id' => $nextId, 'standard_id' => $nextId];
     }
 
 
@@ -271,6 +244,36 @@ class User
         $stmt = $this->conn->prepare("SELECT * FROM user_auth_answers WHERE id_number = :id_number AND question_id = :question_id");
         $stmt->execute([':id_number' => $id_number, ':question_id' => $question_id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public static function passwordRecoveryError(?array $user): ?string
+    {
+        if (!$user) {
+            return 'Account not found or has been deleted.';
+        }
+        switch (strtolower((string)($user['status'] ?? ''))) {
+            case 'active':
+            case 'pending_deletion':
+                return null;
+            case 'inactive':
+                return 'Account is inactive.';
+            case 'block':
+            case 'blocked':
+                return 'Account is blocked.';
+            case 'deleted':
+                return 'Account has been deleted.';
+            default:
+                return 'This account cannot reset its password at this time.';
+        }
+    }
+
+    public function resetRecoverablePassword(string $idNumber, string $passwordHash): bool
+    {
+        $stmt = $this->conn->prepare(
+            "UPDATE users SET password_hash = :password, session_version = session_version + 1,
+             must_change_password = 0 WHERE id_number = :id_number AND status IN ('active', 'pending_deletion')"
+        );
+        return $stmt->execute([':password' => $passwordHash, ':id_number' => $idNumber]) && $stmt->rowCount() === 1;
     }
 
     public function updatePassword(string $id_number, string $password_hash, bool $clearRequiredChange = true)
@@ -1108,7 +1111,7 @@ class User
      * Changes the role of an account while keeping role, privileges,
      * session invalidation and audit logs synchronized.
      *
-     * A promotion to Super Admin always creates an eligible blocked account.
+     * A promotion to Super Admin always creates an eligible inactive account.
      * It cannot replace the active Super Admin outside the logout handoff.
      *
      * @param string $targetId            id_number of the account to change
@@ -1143,18 +1146,14 @@ class User
 
             $targetStatus = $target['status'];
             if ($newRole === 'superadmin') {
-                $targetStatus = 'blocked';
+                $targetStatus = 'inactive';
                 $this->conn->prepare(
-                    "UPDATE users SET role = 'superadmin', status = 'blocked', superadmin_eligible = 1,
+                    "UPDATE users SET role = 'superadmin', status = 'inactive', superadmin_eligible = 1,
                         superadmin_queue_at = COALESCE(superadmin_queue_at, NOW()),
                         session_version = session_version + 1 WHERE id_number = :id_number"
                 )->execute([':id_number' => $targetId]);
-                $this->syncBlockListOnBlock(
-                    $targetId,
-                    $performedByUsername,
-                    'Queued as an eligible Super Admin; the oldest eligible account activates on logout.',
-                    $_SERVER['REMOTE_ADDR'] ?? ''
-                );
+                $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number")
+                    ->execute([':id_number' => $targetId]);
             } else {
                 $this->conn->prepare(
                     "UPDATE users SET role = :role, superadmin_eligible = 0, superadmin_queue_at = NULL,
@@ -1174,7 +1173,7 @@ class User
             // Audit the role change and any queueing decision.
             $details = "Changed By: {$performedByUsername} | Target User: {$target['username']} | Old Role: {$oldRole} | New Role: {$newRole}";
             if ($newRole === 'superadmin') {
-                $details .= ' | Status: blocked and queued for logout handoff';
+                $details .= ' | Status: inactive and queued for logout handoff';
             }
             $this->logAuditAction($performedById, $performedByUsername, 'superadmin', 'Change Role', $details);
 
@@ -1183,7 +1182,7 @@ class User
             return [
                 'success' => true,
                 'message' => $newRole === 'superadmin'
-                    ? 'Role updated to superadmin. The account is blocked and queued for the next eligible handoff.'
+                    ? 'Role updated to superadmin. The account is inactive and queued for the next eligible handoff.'
                     : 'Role updated to ' . $newRole . '.',
                 'auto_logout' => false,
                 'status' => $targetStatus
@@ -2110,6 +2109,8 @@ class User
 
             $this->conn->exec("UPDATE users SET superadmin_eligible = 1 WHERE role = 'superadmin'");
             $this->conn->exec("UPDATE users SET superadmin_queue_at = created_at WHERE role = 'superadmin' AND superadmin_queue_at IS NULL");
+            $this->conn->exec("UPDATE users SET status = 'inactive', session_version = session_version + 1 WHERE role = 'superadmin' AND status = 'blocked'");
+            $this->conn->exec("UPDATE block_list b JOIN users u ON u.id_number = b.id_number SET b.status = 'unblocked' WHERE u.role = 'superadmin' AND u.status = 'inactive' AND b.status = 'blocked'");
 
             // Repair legacy databases that happen to contain more than one
             // active Super Admin. The oldest account stays active.
@@ -2120,7 +2121,7 @@ class User
                 $keep = array_shift($active);
                 $placeholders = implode(',', array_fill(0, count($active), '?'));
                 $stmt = $this->conn->prepare(
-                    "UPDATE users SET status = 'blocked', session_version = session_version + 1,
+                    "UPDATE users SET status = 'inactive', session_version = session_version + 1,
                      superadmin_queue_at = COALESCE(superadmin_queue_at, created_at)
                      WHERE id_number IN ({$placeholders}) AND id_number <> ?"
                 );
@@ -2260,7 +2261,7 @@ class User
         if (!in_array($role, ['user', 'admin', 'superadmin'], true)) {
             return ['success' => false, 'message' => 'Invalid account role.'];
         }
-        $status = $role === 'superadmin' ? 'blocked' : 'active';
+        $status = $role === 'superadmin' ? 'inactive' : 'active';
         $idNumber = trim((string)($data['id_number'] ?? ''));
         $username = trim((string)($data['username'] ?? ''));
         $password = (string)($data['password'] ?? '@Abcde12345');
@@ -2524,10 +2525,10 @@ class User
             $this->conn->prepare("UPDATE block_list SET status = 'unblocked' WHERE id_number = :id_number")
                 ->execute([':id_number' => $idNumber]);
 
-            // 3. Ensure all OTHER Super Admins are blocked and their sessions revoked
+            // 3. Ensure all OTHER Super Admins are inactive and their sessions revoked
             $this->conn->prepare(
                 "UPDATE users 
-                 SET status = 'blocked', 
+                 SET status = 'inactive',
                      session_version = session_version + 1, 
                      handoff_pending = 0 
                  WHERE role = 'superadmin' AND id_number <> :id_number"
@@ -2545,7 +2546,7 @@ class User
     }
 
     /**
-     * Handles Super Admin logout. If a handoff is pending, blocks the logging-out
+     * Handles Super Admin logout. If a handoff is pending, deactivates the logging-out
      * Super Admin so the successor can claim. If no handoff is pending, the
      * Super Admin remains active across future logouts.
      */
@@ -2568,13 +2569,13 @@ class User
                 return null;
             }
 
-            // Handoff is pending: block this logging-out Super Admin
+            // Handoff is pending: deactivate this logging-out Super Admin
             $this->conn->prepare(
-                "UPDATE users SET status = 'blocked', session_version = session_version + 1,
+                "UPDATE users SET status = 'inactive', session_version = session_version + 1,
                     superadmin_queue_at = NOW() WHERE id_number = :id_number"
             )->execute([':id_number' => $currentId]);
 
-            $rotationDetails = 'Logged out with pending Super Admin handoff. Account was blocked awaiting successor activation.';
+            $rotationDetails = 'Logged out with pending Super Admin handoff. Account was made inactive awaiting successor activation.';
             $this->logAuditAction(
                 $currentId,
                 $currentUsername,
@@ -2583,13 +2584,7 @@ class User
                 $rotationDetails
             );
             $this->conn->commit();
-            $this->syncBlockListOnBlock(
-                $currentId,
-                'System',
-                'Automatically blocked upon logout for Super Admin handoff.',
-                $_SERVER['REMOTE_ADDR'] ?? ''
-            );
-            return ['blocked_for_handoff' => true];
+            return ['inactive_for_handoff' => true];
         } catch (Throwable $e) {
             if ($this->conn->inTransaction()) {
                 $this->conn->rollBack();

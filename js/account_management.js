@@ -73,6 +73,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     body.innerHTML = records.map((row) => {
       const blocked = row.status === "blocked";
+      const showAllActions = row.status !== "inactive";
       return `<tr>
         <td><strong>${escapeHtml(row.id_number)}</strong>${Number(row.must_change_password) ? '<br><small>Must change password</small>' : ''}</td>
         <td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.username)}</td>
@@ -86,8 +87,8 @@ document.addEventListener("DOMContentLoaded", () => {
             <button type="button" class="action-menu-item view" data-action="view" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-eye" aria-hidden="true"></i> View Details</button>
             <div class="action-menu-divider"></div>
             <button type="button" class="action-menu-item edit" data-action="edit" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit Account</button>
-            ${row.status !== "inactive" ? `<button type="button" class="action-menu-item ${blocked ? "unblock" : "block"}" data-action="${blocked ? "unblock" : "block"}" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-${blocked ? "unlock" : "ban"}" aria-hidden="true"></i> ${blocked ? "Unblock" : "Block"} Account</button>` : ""}
-            ${row.status !== "inactive" ? `<button type="button" class="action-menu-item delete" data-action="delete" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-trash" aria-hidden="true"></i> Delete Account</button>` : ""}
+            ${showAllActions ? `<button type="button" class="action-menu-item ${blocked ? "unblock" : "block"}" data-action="${blocked ? "unblock" : "block"}" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-${blocked ? "unlock" : "ban"}" aria-hidden="true"></i> ${blocked ? "Unblock" : "Block"} Account</button>` : ""}
+            ${showAllActions ? `<button type="button" class="action-menu-item delete" data-action="delete" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-trash" aria-hidden="true"></i> Delete Account</button>` : ""}
           </div>
         </div></td></tr>`;
     }).join("");
@@ -164,14 +165,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!visible) container.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
   }
 
-  function suggestedIdForRole(role) {
+  function suggestedIdForRole() {
     if (!nextIds) return "";
-    return role === "user" ? (nextIds.standard_id || "") : (nextIds.admin_id || "");
+    return nextIds.standard_id || "";
   }
 
   function applySuggestedId(force = false) {
     const input = createForm.elements.id_number;
-    const suggestion = suggestedIdForRole(createForm.elements.role.value);
+    const suggestion = suggestedIdForRole();
     if (!suggestion) return;
     const previousSuggestion = input.dataset.suggestedId || "";
     if (force || input.value.trim() === "" || input.value === previousSuggestion) {

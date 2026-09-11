@@ -221,6 +221,16 @@ $tests = [
         schemaAssert($connection->countCalls('INSERT IGNORE INTO ' . PendingSchemaConnection::PREFERRED) === 1, 'Legacy migration was not attempted.');
         schemaAssert($connection->countCalls('SELECT user_id FROM ' . PendingSchemaConnection::LEGACY) === 0, 'Migration failure incorrectly triggered fallback.');
     },
+    'admin forms share the latest standard account ID' => static function (): void {
+        $connection = new PendingSchemaConnection();
+        $year = date('Y');
+        $connection->preparedRows = [['id_number' => $year . '-0074']];
+        $user = schemaUser($connection);
+        schemaAssert($user->getNextIdsForForms() === ['admin_id' => $year . '-0075', 'standard_id' => $year . '-0075'], 'Roles received different ID sequences.');
+        schemaAssert(count($connection->preparedStatements) === 1, 'Form IDs were generated separately.');
+        schemaAssert(User::isValidAdminIdFormat($year . '-0075'), 'Standard ID rejected for an admin.');
+        schemaAssert(!User::isValidAdminIdFormat('ADMIN-0001'), 'Legacy prefix accepted for a new admin.');
+    },
     'current-year IDs increment without consulting other years' => static function (): void {
         $connection = new PendingSchemaConnection();
         $year = date('Y');

@@ -533,12 +533,13 @@ class UserController
                 return;
             }
 
-            if ($userStatus === 'inactive') {
+            $pendingSuperAdminClaim = strtolower($user['role'] ?? '') === 'superadmin' && !empty($user['handoff_pending']);
+            if ($userStatus === 'inactive' && !$pendingSuperAdminClaim) {
                 echo json_encode(['success' => false, 'message' => 'This account is inactive and can no longer access the system.', 'errorType' => 'accountInactive']);
                 return;
             }
 
-            if ($userStatus === 'blocked') {
+            if ($userStatus === 'blocked' || ($userStatus === 'inactive' && $pendingSuperAdminClaim)) {
                 // Check if this is a Super Admin in pending handoff claim
                 if (strtolower($user['role'] ?? '') === 'superadmin' && !empty($user['handoff_pending'])) {
                     $activeSuperAdmin = $this->userModel->getActiveSuperAdmin();
@@ -546,7 +547,7 @@ class UserController
                         echo json_encode([
                             'success' => false,
                             'message' => 'The previous Super Admin has not logged out yet. Please wait for them to log out before claiming this account.',
-                            'errorType' => 'accountBlocked'
+                            'errorType' => 'accountInactive'
                         ]);
                         return;
                     }
@@ -740,6 +741,23 @@ class UserController
 
 
 
+    private function requireRecoverableAccount(string $idNumber): array
+    {
+        $user = $this->userModel->findById($idNumber);
+        $message = User::passwordRecoveryError($user ?: null);
+        if ($message !== null) {
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            if (($_SESSION['otp_pending']['purpose'] ?? '') === 'forgot_password') {
+                unset($_SESSION['otp_pending']);
+            }
+            echo json_encode(['success' => false, 'valid' => false, 'message' => $message]);
+            exit;
+        }
+        return $user;
+    }
+
     //========================================== Start Forgot-Password by ID =====================================
     public function verifyForgotEmail()
     {
@@ -760,16 +778,7 @@ class UserController
             exit;
         }
 
-        $user = $this->userModel->findById($idNumber);
-        if (!$user) {
-            echo json_encode(['success' => false, 'message' => 'The ID Number is not registered.']);
-            exit;
-        }
-
-        if (!in_array(($user['status'] ?? ''), ['active', 'pending_deletion'], true)) {
-            echo json_encode(['success' => false, 'message' => ($user['status'] ?? '') === 'inactive' ? 'This account is inactive.' : 'This account cannot reset its password at this time.']);
-            exit;
-        }
+        $user = $this->requireRecoverableAccount($idNumber);
 
         $email = strtolower(trim((string)($user['email'] ?? '')));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -838,6 +847,8 @@ class UserController
             echo json_encode(['success' => false, 'message' => 'Session expired. Please enter your ID Number again.']);
             exit;
         }
+        $this->requireRecoverableAccount((string)($pending['id_number'] ?? ''));
+
         $otp = new Otp();
         $issue = $otp->resend($pending['email'], 'forgot_password', $pending['id_number'] ?? null);
         if (!$issue['success']) {
@@ -878,6 +889,8 @@ class UserController
             echo json_encode(['success' => false, 'message' => 'Session expired. Please start the password reset again.']);
             exit;
         }
+
+        $this->requireRecoverableAccount((string)($pending['id_number'] ?? ''));
 
         $otp = new Otp();
         $result = $otp->verify($pending['email'], 'forgot_password', trim($_POST['otp'] ?? ''));
@@ -1008,7 +1021,7 @@ class UserController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id_number = trim($_POST['id_number'] ?? '');
-            $user = $this->userModel->findById($id_number);
+            $user = $this->requireRecoverableAccount($id_number);
 
             if ($user) {
                 // Get user's security questions
@@ -1051,6 +1064,8 @@ class UserController
             echo json_encode(['success' => false, 'message' => 'OTP verification is required before the security question.']);
             exit;
         }
+        $this->requireRecoverableAccount((string)($pending['id_number'] ?? ''));
+
         $attempts = (int)($pending['security_attempts'] ?? 0);
         if ($attempts >= 5) {
             unset($_SESSION['otp_pending']);
@@ -1142,6 +1157,8 @@ class UserController
             exit;
         }
 
+        $this->requireRecoverableAccount((string)($pending['id_number'] ?? ''));
+
         $questionId = (int)($_POST['question_id'] ?? 0);
         $answer = trim((string)($_POST['security_answer'] ?? ''));
         $allowedQuestionIds = array_map('intval', $pending['security_question_ids'] ?? []);
@@ -1218,7 +1235,7 @@ class UserController
         $new_password = $_POST['new_password'] ?? '';
         $confirm_password = $_POST['confirm_password'] ?? '';
 
-        $user = $this->userModel->findById($id_number);
+        $user = $this->requireRecoverableAccount($id_number);
         if (!$user || strtolower((string)($user['email'] ?? '')) !== strtolower((string)$pending['email'])) {
             unset($_SESSION['otp_pending']);
             echo json_encode(['success' => false, 'message' => 'Password reset session is no longer valid.']);
@@ -1273,7 +1290,7 @@ class UserController
         }
 
         $hashed = password_hash($new_password, PASSWORD_DEFAULT);
-        if ($this->userModel->updatePassword($id_number, $hashed)) {
+        if ($this->userModel->resetRecoverablePassword($id_number, $hashed)) {
             unset($_SESSION['otp_pending']);
             $this->userModel->logAuditAction(
                 $id_number,
@@ -1563,13 +1580,13 @@ class UserController
 
         $fieldErrors = [];
 
-        // ✅ Admin ID format validation (ADMIN-####)
+        // ✅ Admin ID format validation (YYYY-####)
         // If the client sent an id_number, it must match the strict format; otherwise
-        // a fresh ADMIN-#### is generated server-side.
+        // a fresh YYYY-#### ID is generated server-side.
         if ($id_number === '') {
             $id_number = $this->userModel->generateAdminIdNumber();
         } elseif (!User::isValidAdminIdFormat($id_number)) {
-            $fieldErrors['id_number'] = "Admin ID must follow the format ADMIN-#### (4 digits). Examples: ADMIN-0001, ADMIN-1222, ADMIN-2026.";
+            $fieldErrors['id_number'] = "Admin ID must follow the format YYYY-####. Example: 2026-0001.";
         } elseif ($this->userModel->findById($id_number)) {
             $fieldErrors['id_number'] = "This Admin ID is already in use. Please use a different one.";
         }
@@ -1768,7 +1785,7 @@ class UserController
 
     /**
      * Returns the next available ID numbers for the admin/user creation forms.
-     * Both ADMIN-#### and YYYY-#### are auto-generated server-side.
+     * All roles share the YYYY-#### sequence generated server-side.
      */
     public function getNextIds()
     {
@@ -1780,12 +1797,13 @@ class UserController
 
         $type = strtolower(trim($_GET['type'] ?? $_POST['type'] ?? 'all'));
 
+        $nextId = $this->userModel->generateIdNumber();
         $payload = ['success' => true];
         if ($type === 'admin' || $type === 'all') {
-            $payload['admin_id'] = $this->userModel->generateAdminIdNumber();
+            $payload['admin_id'] = $nextId;
         }
         if ($type === 'user' || $type === 'standard' || $type === 'all') {
-            $payload['standard_id'] = $this->userModel->generateIdNumber();
+            $payload['standard_id'] = $nextId;
         }
         echo json_encode($payload);
         exit;
@@ -3497,7 +3515,7 @@ class UserController
         }
         $autoQueuedSuperAdmin = false;
         if ($role === 'superadmin' && $status === 'active' && $this->userModel->hasOtherActiveSuperAdmin($targetId)) {
-            $status = 'blocked';
+            $status = 'inactive';
             $autoQueuedSuperAdmin = true;
         }
         $reason = trim($_POST['reason'] ?? '');
