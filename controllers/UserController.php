@@ -818,13 +818,13 @@ class UserController
         $dash = strpos($user['id_number'], '-');
         $maskedId = $dash === false
             ? substr($user['id_number'], 0, min(2, strlen($user['id_number']))) . str_repeat('*', max(1, strlen($user['id_number']) - 2))
-            : substr($user['id_number'], 0, $dash + 1) . str_repeat('*', max(6, strlen($user['id_number']) - $dash - 1));
+            : substr($user['id_number'], 0, $dash + 1) . '****';
 
         echo json_encode([
             'success' => true,
             'message' => $issue['message'],
             'masked_id' => $maskedId,
-            'masked_email' => $otp->maskEmail($email),
+            'masked_email' => $otp->maskEmail($email, true),
             'expires_in' => $issue['expires_in'] ?? Otp::CODE_LIFETIME,
             'cooldown' => $issue['cooldown'] ?? Otp::RESEND_COOLDOWN,
             'dev_otp' => $issue['dev_otp'] ?? null
@@ -866,7 +866,7 @@ class UserController
         echo json_encode([
             'success'    => true,
             'message'    => $issue['message'],
-            'email'      => $otp->maskEmail($pending['email']),
+            'email'      => $otp->maskEmail($pending['email'], true),
             'expires_in' => $issue['expires_in'] ?? Otp::CODE_LIFETIME,
             'cooldown'   => $issue['cooldown'] ?? Otp::RESEND_COOLDOWN,
             'dev_otp'    => $issue['dev_otp'] ?? null

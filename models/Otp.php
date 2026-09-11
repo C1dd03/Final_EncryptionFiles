@@ -183,7 +183,7 @@ class Otp
 
         return [
             'success'    => true,
-            'message'    => "A 6-digit code was sent to {$this->maskEmail($email)}.",
+            'message'    => "A 6-digit code was sent to {$this->maskEmail($email, $purpose === 'forgot_password')}.",
             'expires_in' => self::CODE_LIFETIME,
             'cooldown'   => self::RESEND_COOLDOWN,
             'dev_otp'    => $devOtp
@@ -365,11 +365,16 @@ class Otp
         return $config[$key] ?? null;
     }
 
-    public function maskEmail(string $email): string
+    public function maskEmail(string $email, bool $showLastCharacter = false): string
     {
         $parts = explode('@', $email, 2);
         $local = $parts[0];
         $domain = $parts[1] ?? '';
+        if ($showLastCharacter) {
+            $first = substr($local, 0, 1);
+            $last = strlen($local) > 2 ? substr($local, -1) : '';
+            return $first . str_repeat('*', max(1, strlen($local) - 2)) . $last . '@' . $domain;
+        }
         $visible = strlen($local) <= 2 ? $local[0] : substr($local, 0, 2);
         return $visible . str_repeat('*', max(1, strlen($local) - 2)) . '@' . $domain;
     }

@@ -2,14 +2,25 @@
     <h2 class="text-xl font-semibold mb-4 text-center">Forgot Password</h2>
 
     <div class="forgot-pass" aria-label="Password recovery progress">
-        <div class="number active">1</div><div class="line"></div>
-        <div class="number">2</div><div class="line"></div>
-        <div class="number">3</div><div class="line"></div>
-        <div class="number">4</div>
-    </div>
-    <div class="title-container-forgot-pass">
-        <div class="title">ID Number</div><div class="title">OTP</div>
-        <div class="title">Security Questions</div><div class="title">New Password</div>
+        <div class="recovery-step">
+            <div class="number active">1</div>
+            <div class="title">ID Number</div>
+            <div class="line" aria-hidden="true"></div>
+        </div>
+        <div class="recovery-step">
+            <div class="number">2</div>
+            <div class="title">OTP</div>
+            <div class="line" aria-hidden="true"></div>
+        </div>
+        <div class="recovery-step">
+            <div class="number">3</div>
+            <div class="title">Security Questions</div>
+            <div class="line" aria-hidden="true"></div>
+        </div>
+        <div class="recovery-step">
+            <div class="number">4</div>
+            <div class="title">New Password</div>
+        </div>
     </div>
 
     <div class="forgot-account-summary" id="forgotAccountSummary" hidden>
@@ -20,7 +31,7 @@
     <section class="step step-1 active" aria-labelledby="forgotStep1Title">
         <span id="forgotStep1Title">Enter your registered ID Number</span>
         <div class="input-field" id="forgotIdField" style="margin:3px;">
-            <input type="text" name="id_number" id="forgotIdInput" placeholder=" " autocomplete="off" inputmode="numeric" maxlength="9" pattern="[0-9]{4}-[0-9]{4}" aria-describedby="idError" />
+            <input type="password" name="id_number" id="forgotIdInput" placeholder=" " autocomplete="off" inputmode="numeric" maxlength="9" pattern="[0-9]{4}-[0-9]{4}" aria-describedby="idError" />
             <label>ID Number</label>
         </div>
         <p class="message-error" id="idError" aria-live="polite"></p>
@@ -149,8 +160,6 @@
 <p class="toggle-link" style="margin-top:15px;">&larr; Back to <a href="index.php?action=login"><b>Login</b></a></p>
 
 <style>
-    .forgot-password .forgot-pass{display:flex;align-items:center;margin:8px 0}
-    .forgot-password .title-container-forgot-pass{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;margin-bottom:18px}
     .forgot-password .forgot-account-summary p{margin:4px 0;color:#555;font-size:13px}
     .forgot-password .otp-timer,.forgot-password .otp-resend,.forgot-help{text-align:center;font-size:12px;color:#6b7280}
     .forgot-password .dev-otp-banner{background:#fef9c3;color:#854d0e;font-size:12px;text-align:center;padding:8px;border-radius:6px;margin-top:8px}

@@ -1291,21 +1291,52 @@ ul {
   font-size: 10px;
 }
 
-.forgot-pass {
-  margin-top: 10px;
+/* Keep each recovery number and label in one equal-width column. */
+.forgot-password .forgot-pass {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  gap: 0;
+  margin: 8px 0 18px;
 }
 
-.title-container-forgot-pass {
-  margin-bottom: 5px;
+.forgot-password .recovery-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
 }
 
-.forgot-pass .line:not(.active) {
-  width: 100px;
-  background-color:#ccc ;
+.forgot-password .recovery-step .number {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
 }
 
-.forgot-pass .line {
-  width: 100px;
+.forgot-password .recovery-step .title {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 4px;
+  text-align: center;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.forgot-password .recovery-step .line {
+  position: absolute;
+  left: 50%;
+  top: 13px;
+  width: 100%;
+  height: 4px;
+  background-color: #ccc;
+  pointer-events: none;
+}
+
+.forgot-password .recovery-step .line.active {
   background-color: var(--farm-card-1);
 }
-

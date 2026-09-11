@@ -143,7 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Step 2: Verify OTP & Populate 3 Security Questions
+  // Step 2: Verify OTP and reset the security question selections
   document.getElementById("forgotVerifyOtpBtn").addEventListener("click", async () => {
     errorEl("otpError");
     const otp = otpInput.value.trim();
@@ -155,32 +155,18 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!data.success) return errorEl("otpError", data.message || "Invalid OTP.");
       clearTimers();
 
-      const questions = Array.isArray(data.questions)
-        ? data.questions
-        : (data.question ? [data.question] : []);
-
-      questions.forEach((q, idx) => {
-        const select = questionSelects[idx];
-        if (!select) return;
-        let optionExists = false;
-        for (let i = 0; i < select.options.length; i++) {
-          if (String(select.options[i].value) === String(q.question_id)) {
-            optionExists = true;
-            break;
-          }
-        }
-        if (!optionExists) {
-          const opt = document.createElement("option");
-          opt.value = q.question_id;
-          opt.textContent = q.question_text;
-          select.appendChild(opt);
-        }
-        select.value = String(q.question_id);
+      // Keep the same fixed question groups and default selection as Registration.
+      questionSelects.forEach((select, index) => {
+        if (select) select.value = "";
+        if (answerInputs[index]) answerInputs[index].value = "";
+        clearTimeout(securityValidationTimers.get(index));
+        securityValidationVersions[index]++;
+        setSecurityFeedback(index, "", "");
       });
 
       showStep(3);
       setupPasswordToggles();
-      if (answerInput1) answerInput1.focus();
+      if (questionSelect1) questionSelect1.focus();
     } catch (error) {
       errorEl("otpError", "Unable to verify OTP. Please try again.");
     } finally {
