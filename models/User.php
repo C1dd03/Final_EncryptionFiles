@@ -1238,10 +1238,45 @@ class User
         return $total;
     }
 
+    public static function describeAuditChanges(array $before, array $after): array
+    {
+        // Explicit allowlist: never serialize passwords, tokens, or security answers.
+        $labels = [
+            'username' => 'Username', 'first_name' => 'First name', 'middle_name' => 'Middle name',
+            'last_name' => 'Last name', 'extension' => 'Name extension', 'email' => 'Email',
+            'birthdate' => 'Birthdate', 'gender' => 'Gender', 'contact_number' => 'Contact number',
+            'street' => 'Street', 'barangay' => 'Barangay', 'city' => 'City', 'province' => 'Province',
+            'country' => 'Country', 'zip' => 'ZIP code', 'role' => 'Role', 'status' => 'Status',
+        ];
+        $changes = [];
+        foreach ($labels as $key => $label) {
+            if (!array_key_exists($key, $after)) continue;
+            $old = (string)($before[$key] ?? '');
+            $new = (string)($after[$key] ?? '');
+            if ($old !== $new) {
+                $changes[] = $label . ': ' . json_encode($old, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE)
+                    . ' -> ' . json_encode($new, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+            }
+        }
+        if (array_key_exists('privileges', $after)) {
+            $old = array_intersect(array_keys(self::PRIVILEGES), $before['privileges'] ?? []);
+            $new = array_intersect(array_keys(self::PRIVILEGES), $after['privileges'] ?? []);
+            foreach (['Privileges added' => array_diff($new, $old), 'Privileges removed' => array_diff($old, $new)] as $label => $keys) {
+                if ($keys) $changes[] = $label . ': ' . implode(', ', array_map(static fn($key) => self::PRIVILEGES[$key], $keys));
+            }
+        }
+        return $changes;
+    }
+
     public function logAuditAction(?string $id_number, string $username, string $role, string $action, string $details, ?string $timeIn = null, ?string $timeOut = null): int
     {
         try {
             date_default_timezone_set('Asia/Manila');
+            $ip = (string)($_SERVER['REMOTE_ADDR'] ?? 'Unavailable');
+            $agent = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? 'Unavailable'), 0, 300);
+            $method = (string)($_SERVER['REQUEST_METHOD'] ?? 'CLI');
+            $context = preg_replace('/[\r\n\x00-\x1F]+/', ' ', "IP: {$ip} | Browser: {$agent} | Method: {$method}");
+            $details .= "\n" . $context;
             $sql = "INSERT INTO audit_logs (id_number, username, role, action, details, time_in, time_out) 
                     VALUES (:id_number, :username, :role, :action, :details, :time_in, :time_out)";
             $stmt = $this->conn->prepare($sql);
@@ -1266,12 +1301,13 @@ class User
         try {
             date_default_timezone_set('Asia/Manila');
             $now = date('Y-m-d H:i:s');
+            $logoutDetails = 'Logout at ' . $now . ': ' . ($details ?? 'Session ended.');
 
             // 1. Try to update by session auditId first if provided
             if ($auditId && $auditId > 0) {
-                $sql = "UPDATE audit_logs SET action = 'Logout', time_out = :time_out WHERE id = :id";
+                $sql = "UPDATE audit_logs SET action = 'Logout', time_out = :time_out, details = CONCAT_WS(CHAR(10), details, :logout_details) WHERE id = :id";
                 $stmt = $this->conn->prepare($sql);
-                $stmt->execute([':time_out' => $now, ':id' => $auditId]);
+                $stmt->execute([':time_out' => $now, ':id' => $auditId, ':logout_details' => $logoutDetails]);
                 if ($stmt->rowCount() > 0) {
                     return true;
                 }
@@ -1279,13 +1315,14 @@ class User
 
             // 2. If auditId didn't match or wasn't provided, find the active Login record for this user
             if (!empty($username) || !empty($id_number)) {
-                $sql = "UPDATE audit_logs SET action = 'Logout', time_out = :time_out 
+                $sql = "UPDATE audit_logs SET action = 'Logout', time_out = :time_out, details = CONCAT_WS(CHAR(10), details, :logout_details) 
                         WHERE action = 'Login' AND time_out IS NULL 
                         AND (username = :username OR (id_number = :id_number AND id_number != '')) 
                         ORDER BY id DESC LIMIT 1";
                 $stmt = $this->conn->prepare($sql);
                 $stmt->execute([
                     ':time_out'  => $now,
+                    ':logout_details' => $logoutDetails,
                     ':username'  => $username ?? '',
                     ':id_number' => $id_number ?? ''
                 ]);

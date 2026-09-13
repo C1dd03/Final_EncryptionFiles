@@ -3424,6 +3424,9 @@ class UserController
             'privileges' => $role === 'user' ? [] : array_map('strval', $submitted)
         ], $authState['id_number']);
         if ($result['success']) {
+            $grantedKeys = $role === 'superadmin' ? array_keys(User::PRIVILEGES)
+                : ($role === 'admin' ? array_values(array_intersect(array_keys(User::PRIVILEGES), array_map('strval', $submitted))) : []);
+            $privilegeDetails = $grantedKeys ? implode(', ', array_map(static fn($key) => User::PRIVILEGES[$key], $grantedKeys)) : 'None';
             $statusText = $role === 'superadmin'
                 ? 'Pending claim (awaiting previous Super Admin logout & password change)'
                 : 'Active';
@@ -3432,7 +3435,7 @@ class UserController
                 $authState['username'],
                 $authState['role'],
                 'Create Account',
-                "Created {$role} {$username} (ID: {$idNumber}). Status: {$statusText}. First-login password change required."
+                "Created {$role} {$username} (ID: {$idNumber}). Status: {$statusText}. First-login password change required.\nPrivileges granted: {$privilegeDetails}"
             );
             $result['message'] = "Account {$username} created successfully. Status: {$statusText}.";
             $result['role'] = $role;
@@ -3545,13 +3548,13 @@ class UserController
             'reason' => $reason ?: ($autoQueuedSuperAdmin ? 'Queued as an eligible Super Admin; oldest eligible account activates first.' : null)
         ]);
         if ($ok) {
-            $changes = [];
-            if ($role !== $target['role']) $changes[] = "role {$target['role']} -> {$role}";
-            if ($status !== $target['status']) $changes[] = "status {$target['status']} -> {$status}";
-            if (!$isAdmin && $privileges !== $oldPrivileges) $changes[] = 'assigned privileges updated';
+            $changes = User::describeAuditChanges($target, [
+                'username' => $username, 'role' => $role, 'status' => $status,
+                'privileges' => $isAdmin ? $oldPrivileges : $privileges,
+            ]);
             if ($newPassword !== '') $changes[] = 'password replaced; next-login change required';
             if ($reason !== '') $changes[] = "reason: {$reason}";
-            if (!$changes) $changes[] = 'account profile updated';
+            if (!$changes) $changes[] = 'Saved without changing account fields.';
             $auditAction = 'Edit Account';
             if ($role !== $target['role']) {
                 $auditAction = 'Change Role';
@@ -3562,7 +3565,7 @@ class UserController
             }
             $this->userModel->logAuditAction(
                 $authState['id_number'], $authState['username'], $authState['role'],
-                $auditAction, "Updated {$target['username']} (ID: {$targetId}): " . implode(', ', $changes)
+                $auditAction, "Target: {$target['username']} (ID: {$targetId}, Role: {$target['role']})\n" . implode("\n", $changes)
             );
         }
         echo json_encode(['success' => $ok, 'message' => $ok ? 'Account updated successfully.' : 'Unable to update the account.']);
@@ -3607,7 +3610,7 @@ class UserController
         );
         if ($ok) {
             $verb = $status === 'blocked' ? 'Block Account' : 'Unblock Account';
-            $details = "{$verb}: {$target['username']} (ID: {$targetId})";
+            $details = "{$verb}: {$target['username']} (ID: {$targetId}, Role: {$target['role']})\nStatus: {$target['status']} -> {$status}";
             if ($reason !== '') $details .= " | Reason: {$reason}";
             $this->userModel->logAuditAction($authState['id_number'], $authState['username'], $authState['role'], $verb, $details);
         }
@@ -3647,7 +3650,7 @@ class UserController
         if ($ok) {
             $this->userModel->logAuditAction(
                 $authState['id_number'], $authState['username'], $authState['role'],
-                'Delete Account', "Permanently deleted {$target['username']} (ID: {$targetId}). Reason: {$reason}"
+                'Delete Account', "Permanently deleted {$target['username']} (ID: {$targetId}). Reason: {$reason}\nRole: {$target['role']} | Previous status: {$target['status']} | Result: account and related profile records permanently removed."
             );
         }
         echo json_encode(['success' => $ok, 'message' => $ok ? 'Account permanently deleted.' : 'Unable to permanently delete the account.']);
@@ -3771,11 +3774,18 @@ class UserController
             $ok = $this->userModel->replaceSecurityAnswers($authState['id_number'], $securityAnswers);
         }
         if ($ok) {
+            $savedDetails = $this->userModel->getPersonalDetails($authState['id_number']);
+            $changes = $savedDetails ? User::describeAuditChanges($current, $savedDetails) : ['Profile saved; change comparison unavailable.'];
+            if ($securityUpdateRequested) {
+                $changes[] = 'Security questions updated: question IDs [' . implode(', ', $currentQuestionIds)
+                    . '] -> [' . implode(', ', array_column($securityAnswers, 'question_id')) . ']. All three answers replaced (values not logged).';
+            }
+            if (!$changes) $changes[] = 'Saved without changing personal details.';
             $_SESSION['username'] = $username;
             $_SESSION['email'] = $email;
             $this->userModel->logAuditAction(
                 $authState['id_number'], $username, $authState['role'], 'Update Personal Details',
-                'Account owner updated their own personal details after current-password verification.'
+                "Target: {$username} (ID: {$authState['id_number']})\n" . implode("\n", $changes)
             );
         }
         echo json_encode(['success' => $ok, 'message' => $ok ? 'Personal details saved successfully.' : 'Unable to save personal details.']);
