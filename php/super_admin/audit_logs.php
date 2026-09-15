@@ -19,10 +19,10 @@ $activePage = 'audit_logs';
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Audit Logs - Super Admin</title>
   <link rel="stylesheet" href="../../css/super_admin/superadmin.css?v=20260911-details" />
-  <link rel="stylesheet" href="../../css/super_admin/audit_logs.css?v=20260911-details" />
+  <link rel="stylesheet" href="../../css/super_admin/audit_logs.css?v=20260915-column-fix" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="../../css/audit_details.css?v=20260913-full-details" />
+  <link rel="stylesheet" href="../../css/audit_details.css?v=20260915-column-fix" />
 </head>
 
 <body>
@@ -166,7 +166,7 @@ $activePage = 'audit_logs';
   </div>
 
   <script src="../../js/super_admin/superadmin.js"></script>
-  <script src="../../js/super_admin/audit_logs.js?v=20260913-full-details"></script>
+  <script src="../../js/super_admin/audit_logs.js?v=20260915-two-lines"></script>
   <?php include __DIR__ . '/../shared/audit_detail_modal.php'; ?>
 </body>
 

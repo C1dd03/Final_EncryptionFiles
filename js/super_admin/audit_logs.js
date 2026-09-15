@@ -247,7 +247,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <td data-label="Username">${escapeHtml(usernameDisplay)}</td>
           <td data-label="Role">${roleBadge}</td>
           <td data-label="Action">${actionBadge}</td>
-          <td data-label="Details" class="details-cell">${escapeHtml(detailsDisplay)}</td>
+          <td data-label="Details" class="details-cell"><span class="audit-details-preview">${escapeHtml(detailsDisplay)}</span></td>
           <td data-label="Time In">${escapeHtml(timeInDisplay)}</td>
           <td data-label="Time Out">${escapeHtml(timeOutDisplay)}</td>
           <td data-label="Actions"><button type="button" class="audit-view-btn" data-view-log="${escapeHtml(String(row.id))}" aria-label="View audit log ${escapeHtml(String(row.id))}">View</button></td>
