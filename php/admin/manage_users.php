@@ -39,6 +39,6 @@ $canCreateAccounts = $accountManagementUserModel->hasAdminPrivilege(
   <script src="../../js/admin/admin.js"></script>
   <script src="../../js/shared_validator.js?v=20260908i"></script>
   <script src="../../js/action_dropdown.js?v=20260906"></script>
-  <script src="../../js/account_management.js?v=20260911-edit-status"></script>
+  <script src="../../js/account_management.js?v=20260913-handoff"></script>
 </body>
 </html>

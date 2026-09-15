@@ -17,7 +17,7 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
   </div>
 
   <?php if ($isSuperAdminManagement): ?>
-    <div class="am-queue-note"><i class="fa-solid fa-rotate"></i> Super Admin handoff policy: only one account is Active. When a handoff is pending, logout makes the current account Inactive so the successor can activate their account.</div>
+    <div class="am-queue-note"><i class="fa-solid fa-rotate"></i> Only one Super Admin can be Active. Create a Super Admin, promote an Admin, or select Active for an inactive Super Admin to choose your successor. With a selected successor, logout transfers Active status to that account and makes yours Inactive. Without a selected successor, your account stays Active after logout.</div>
   <?php endif; ?>
 
   <div class="am-toolbar">
@@ -167,13 +167,14 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
   <div class="am-card wide">
     <button class="am-close" type="button" data-close>&times;</button>
     <h3 id="amEditTitle">Edit Account</h3>
+    <p class="am-subtitle">Keep Password blank to retain the existing password. An assigned replacement must be changed at the next login.</p>
     <form id="amEditForm" novalidate>
       <div class="am-grid">
         <label>ID Number<input name="id_number" readonly /></label>
         <label>Name<input name="full_name" readonly /></label>
         <label>Email<input type="email" name="email" readonly /></label>
         <label>Username<input name="username" required /><span class="field-error"></span></label>
-        <label>Password <small>(optional)</small><input type="password" name="password" id="amEditPassword" autocomplete="new-password" placeholder="Leave blank to keep current" />
+        <label>Password <small>(optional)</small><input type="password" name="password" id="amEditPassword" autocomplete="new-password" placeholder="Leave blank to keep existing password" />
           <div class="am-password-meter" data-password-meter="amEditPassword" aria-hidden="true"><span></span></div><small class="am-password-feedback" data-password-feedback="amEditPassword" aria-live="polite"></small><span class="field-error"></span>
         </label>
         <label>Role

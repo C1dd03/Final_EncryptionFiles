@@ -22,6 +22,7 @@ $activePage = 'audit_logs';
   <link rel="stylesheet" href="../../css/super_admin/audit_logs.css?v=20260911-details" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="../../css/audit_details.css?v=20260913-full-details" />
 </head>
 
 <body>
@@ -140,6 +141,7 @@ $activePage = 'audit_logs';
                   <th>Details</th>
                   <th>Time In</th>
                   <th>Time Out</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="auditTableBody">
@@ -164,7 +166,8 @@ $activePage = 'audit_logs';
   </div>
 
   <script src="../../js/super_admin/superadmin.js"></script>
-  <script src="../../js/super_admin/audit_logs.js"></script>
+  <script src="../../js/super_admin/audit_logs.js?v=20260913-full-details"></script>
+  <?php include __DIR__ . '/../shared/audit_detail_modal.php'; ?>
 </body>
 
 </html>

@@ -533,62 +533,12 @@ class UserController
                 return;
             }
 
-            $pendingSuperAdminClaim = strtolower($user['role'] ?? '') === 'superadmin' && !empty($user['handoff_pending']);
-            if ($userStatus === 'inactive' && !$pendingSuperAdminClaim) {
-                echo json_encode(['success' => false, 'message' => 'This account is inactive and can no longer access the system.', 'errorType' => 'accountInactive']);
-                return;
-            }
-
-            if ($userStatus === 'blocked' || ($userStatus === 'inactive' && $pendingSuperAdminClaim)) {
-                // Check if this is a Super Admin in pending handoff claim
-                if (strtolower($user['role'] ?? '') === 'superadmin' && !empty($user['handoff_pending'])) {
-                    $activeSuperAdmin = $this->userModel->getActiveSuperAdmin();
-                    if ($activeSuperAdmin && $activeSuperAdmin['id_number'] !== $user['id_number']) {
-                        echo json_encode([
-                            'success' => false,
-                            'message' => 'The previous Super Admin has not logged out yet. Please wait for them to log out before claiming this account.',
-                            'errorType' => 'accountInactive'
-                        ]);
-                        return;
-                    }
-
-                    // Previous Super Admin has logged out. Credentials verified, establish claiming session:
-                    $_SESSION['user_id'] = $user['id_number'];
-                    $_SESSION['username'] = $user['username'];
-                    $_SESSION['role'] = 'superadmin';
-                    $_SESSION['email'] = $user['email'] ?? '';
-                    $_SESSION['session_version'] = (int)($user['session_version'] ?? 0);
-                    $_SESSION['claiming_superadmin'] = true;
-
-                    date_default_timezone_set('Asia/Manila');
-                    $loginTime = date('Y-m-d H:i:s');
-                    $ip = $_SERVER['REMOTE_ADDR'] ?? '::1';
-                    if ($ip === '127.0.0.1') $ip = '::1';
-                    $host = gethostname() ?: 'DESKTOP-SYSTEM';
-                    $agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Browser';
-                    $device = 'Browser';
-                    if (strpos($agent, 'Chrome') !== false) $device = 'Google Chrome';
-                    elseif (strpos($agent, 'Firefox') !== false) $device = 'Mozilla Firefox';
-
-                    $this->userModel->logAuditAction(
-                        $user['id_number'],
-                        $user['username'],
-                        'superadmin',
-                        'Login (Handoff)',
-                        "Super Admin initial claim login. IP: {$ip} | Host: {$host}",
-                        $loginTime,
-                        null
-                    );
-
-                    echo json_encode([
-                        'success' => true,
-                        'redirect' => '../super_admin/dashboard.php',
-                        'mustChangePassword' => true
-                    ]);
-                    return;
+            if (!in_array($userStatus, ['active', 'pending_deletion'], true)) {
+                $message = User::passwordRecoveryError($user);
+                if ($userStatus === 'inactive' && $user['role'] === 'superadmin' && !empty($user['handoff_pending'])) {
+                    $message = 'This Super Admin account is queued. Wait for the current Super Admin to log out.';
                 }
-
-                echo json_encode(['success' => false, 'message' => 'Your account has been blocked. Please contact the Super Admin.', 'errorType' => 'accountBlocked']);
+                echo json_encode(['success' => false, 'message' => $message, 'errorType' => $userStatus === 'inactive' ? 'accountInactive' : 'accountBlocked']);
                 return;
             }
 
@@ -3428,7 +3378,7 @@ class UserController
                 : ($role === 'admin' ? array_values(array_intersect(array_keys(User::PRIVILEGES), array_map('strval', $submitted))) : []);
             $privilegeDetails = $grantedKeys ? implode(', ', array_map(static fn($key) => User::PRIVILEGES[$key], $grantedKeys)) : 'None';
             $statusText = $role === 'superadmin'
-                ? 'Pending claim (awaiting previous Super Admin logout & password change)'
+                ? 'Inactive; selected for activation on current Super Admin logout'
                 : 'Active';
             $this->userModel->logAuditAction(
                 $authState['id_number'],
@@ -3502,11 +3452,12 @@ class UserController
             echo json_encode(['success' => false, 'message' => 'Use Logout to rotate the active Super Admin account.']);
             exit;
         }
-        $autoQueuedSuperAdmin = false;
-        if ($role === 'superadmin' && $status === 'active' && $this->userModel->hasOtherActiveSuperAdmin($targetId)) {
-            $status = 'inactive';
-            $autoQueuedSuperAdmin = true;
+        if ($target['role'] === 'user' && $role === 'superadmin') {
+            echo json_encode(['success' => false, 'message' => 'Promote a User to Admin first.']);
+            exit;
         }
+        $autoQueuedSuperAdmin = $role === 'superadmin' && ($target['role'] === 'admin' || ($status === 'active' && $target['status'] !== 'active'));
+        if ($autoQueuedSuperAdmin) $status = 'inactive';
         $reason = trim($_POST['reason'] ?? '');
         if ($status === 'blocked' && $target['status'] !== 'blocked' && $reason === '' && !$autoQueuedSuperAdmin) {
             echo json_encode(['success' => false, 'message' => 'A reason is required when blocking an account.']);
@@ -3541,17 +3492,20 @@ class UserController
             'email' => $email,
             'username' => $username,
             'role' => $role,
+            'queue_handoff' => $autoQueuedSuperAdmin,
+            'actor_id' => $authState['id_number'],
             'status' => $status,
             'password' => $newPassword,
             'privileges' => $isAdmin ? $oldPrivileges : $privileges,
             'operator' => $authState['username'],
-            'reason' => $reason ?: ($autoQueuedSuperAdmin ? 'Queued as an eligible Super Admin; oldest eligible account activates first.' : null)
+            'reason' => $reason ?: ($autoQueuedSuperAdmin ? 'Selected successor; activates when the current Super Admin logs out.' : null)
         ]);
         if ($ok) {
             $changes = User::describeAuditChanges($target, [
                 'username' => $username, 'role' => $role, 'status' => $status,
                 'privileges' => $isAdmin ? $oldPrivileges : $privileges,
             ]);
+            if ($autoQueuedSuperAdmin) $changes[] = 'Selected as the next active Super Admin on current Super Admin logout.';
             if ($newPassword !== '') $changes[] = 'password replaced; next-login change required';
             if ($reason !== '') $changes[] = "reason: {$reason}";
             if (!$changes) $changes[] = 'Saved without changing account fields.';
@@ -3568,7 +3522,7 @@ class UserController
                 $auditAction, "Target: {$target['username']} (ID: {$targetId}, Role: {$target['role']})\n" . implode("\n", $changes)
             );
         }
-        echo json_encode(['success' => $ok, 'message' => $ok ? 'Account updated successfully.' : 'Unable to update the account.']);
+        echo json_encode(['success' => $ok, 'message' => $ok ? ($autoQueuedSuperAdmin ? 'Successor selected. This account will become Active when you log out.' : 'Account updated successfully.') : 'Unable to update the account.']);
         exit;
     }
 
@@ -3601,8 +3555,14 @@ class UserController
             echo json_encode(['success' => false, 'message' => 'You cannot block your own account.']);
             exit;
         }
-        if ($target['role'] === 'superadmin' && $status === 'active' && $this->userModel->hasOtherActiveSuperAdmin($targetId)) {
-            echo json_encode(['success' => false, 'message' => 'This queued Super Admin will be activated automatically when the current Super Admin logs out.']);
+        if ($target['role'] === 'superadmin' && $status === 'active') {
+            $ok = $this->userModel->updateManagedAccount($targetId, array_merge($target, [
+                'queue_handoff' => true, 'actor_id' => $authState['id_number'], 'password' => '',
+                'status' => 'inactive', 'operator' => $authState['username'],
+            ]));
+            if ($ok) $this->userModel->logAuditAction($authState['id_number'], $authState['username'], $authState['role'],
+                'Select Super Admin Successor', "Selected {$target['username']} (ID: {$targetId}) for activation on logout. Existing password retained.");
+            echo json_encode(['success' => $ok, 'message' => $ok ? 'Successor selected. This account becomes Active when you log out.' : 'Unable to select successor.']);
             exit;
         }
         $ok = $this->userModel->setManagedAccountStatus(
@@ -3799,9 +3759,13 @@ class UserController
             session_start();
         }
         $idNumber = (string)($_SESSION['user_id'] ?? '');
-        $isClaiming = !empty($_SESSION['claiming_superadmin']);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
+            exit;
+        }
+        $isClaiming = false;
         $authState = $idNumber !== '' ? $this->userModel->getAccountAuthState($idNumber) : null;
-        if (!$authState || (!in_array($authState['status'], ['active', 'pending_deletion'], true) && !$isClaiming)) {
+        if (!$authState || !in_array($authState['status'], ['active', 'pending_deletion'], true) || (int)($_SESSION['session_version'] ?? -1) !== (int)$authState['session_version']) {
             echo json_encode(['success' => false, 'message' => 'Session expired. Please log in again.']);
             exit;
         }
@@ -3824,16 +3788,12 @@ class UserController
             echo json_encode(['success' => false, 'message' => 'The new password must be different from the default/current password.']);
             exit;
         }
-        $ok = $this->userModel->updatePassword($idNumber, password_hash($password, PASSWORD_DEFAULT));
+        $ok = $this->userModel->resetRecoverablePassword($idNumber, password_hash($password, PASSWORD_DEFAULT));
         if ($ok) {
-            if ($isClaiming || strtolower($authState['role'] ?? '') === 'superadmin') {
-                $this->userModel->finalizeSuperAdminClaim($idNumber);
-                unset($_SESSION['claiming_superadmin']);
-            }
             $fresh = $this->userModel->getAccountAuthState($idNumber);
             $_SESSION['session_version'] = (int)($fresh['session_version'] ?? 0);
             $_SESSION['role'] = $fresh['role'] ?? 'superadmin';
-            $this->userModel->logAuditAction($idNumber, $authState['username'], $authState['role'], 'Change Default Password', 'Required first-login password change completed. Super Admin role activated.');
+            $this->userModel->logAuditAction($idNumber, $authState['username'], $authState['role'], 'Change Default Password', 'Required first-login password change completed.');
         }
         $redirect = 'index.php?action=dashboard';
         if (strtolower($authState['role'] ?? '') === 'superadmin' || $isClaiming) $redirect = '../super_admin/dashboard.php';

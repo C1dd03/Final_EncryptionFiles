@@ -78,7 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td><strong>${escapeHtml(row.id_number)}</strong>${Number(row.must_change_password) ? '<br><small>Must change password</small>' : ''}</td>
         <td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.username)}</td>
         <td><span class="am-badge ${escapeHtml(row.role)}">${escapeHtml(row.role === "superadmin" ? "Super Admin" : row.role)}</span></td>
-        <td><span class="am-badge ${escapeHtml(row.status)}">${escapeHtml(row.status.replaceAll("_", " "))}</span></td>
+        <td><span class="am-badge ${escapeHtml(row.status)}">${escapeHtml(row.status.replaceAll("_", " "))}</span>${row.role === "superadmin" && Number(row.handoff_pending) ? "<br><small>Next Super Admin</small>" : ""}</td>
         <td><div class="action-dropdown">
           <button type="button" class="action-dropdown-btn" aria-expanded="false" aria-label="Options for ${escapeHtml(row.id_number)}">
             Options <i class="fa-solid fa-chevron-down dropdown-chevron" aria-hidden="true"></i>
@@ -375,6 +375,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (editForm.elements.address) editForm.elements.address.value = detail.address || "";
         editForm.elements.username.value = detail.username;
         editForm.elements.password.value = "";
+        editForm.elements.role.querySelectorAll('option').forEach((option) => {
+          option.hidden = detail.role === "user" && option.value === "superadmin";
+          option.disabled = option.hidden;
+        });
         editForm.elements.role.value = detail.role;
         editForm.elements.status.value = ["active", "blocked", "inactive"].includes(detail.status) ? detail.status : "";
         editForm.querySelectorAll('input[name="privileges[]"]').forEach((input) => { input.checked = (detail.privileges || []).includes(input.value); });

@@ -1,0 +1,37 @@
+.audit-table .details-cell {
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere;
+}
+
+.audit-view-btn {
+  border: 1px solid #588157;
+  border-radius: 7px;
+  padding: 7px 14px;
+  background: #fff;
+  color: #365a37;
+  font: inherit;
+  cursor: pointer;
+}
+.audit-view-btn:focus-visible { outline: 3px solid #a3b18a; outline-offset: 2px; }
+.audit-detail-dialog {
+  box-sizing: border-box;
+  width: min(760px, calc(100vw - 32px));
+  max-height: 85vh;
+  overflow: auto;
+  border: 0;
+  border-radius: 14px;
+  padding: 24px;
+  margin: auto;
+  color: #253529;
+  background: #fff;
+}
+.audit-detail-dialog::backdrop { background: #0008; }
+.audit-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.audit-detail-heading h2 { margin: 0; font-size: 20px; }
+.audit-detail-fields { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 14px 20px; }
+.audit-detail-fields dt { font-weight: 600; }
+.audit-detail-fields dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 520px) {
+  .audit-detail-fields { grid-template-columns: 1fr; gap: 6px; }
+  .audit-detail-fields dd { margin-bottom: 12px; }
+}

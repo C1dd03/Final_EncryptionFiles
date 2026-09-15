@@ -35,9 +35,8 @@ if ($username) {
         $details
     );
 
-    // Only one Super Admin is active. On logout, hand access to the oldest
-    // eligible blocked Super Admin and place this account at the back of the
-    // queue. The current account is blocked even if no successor is available.
+    // Deactivate the outgoing Super Admin and activate the selected successor
+    // in one transaction. Without a selected successor, keep the current account active.
     if (strtolower((string)$role) === 'superadmin' && $userId) {
         $userModel->rotateSuperAdminOnLogout((string)$userId, (string)$username);
     }

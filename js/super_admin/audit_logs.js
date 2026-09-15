@@ -12,6 +12,34 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // DOM Elements
   const auditTableBody = document.getElementById("auditTableBody");
+  const auditDetailDialog = document.getElementById("auditDetailDialog");
+  const auditDetailFields = document.getElementById("auditDetailFields");
+  let visibleLogs = new Map();
+  let lastViewButton = null;
+  auditTableBody?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-view-log]");
+    if (!button) return;
+    const row = visibleLogs.get(button.dataset.viewLog);
+    if (!row || !auditDetailDialog) return;
+    auditDetailFields.replaceChildren();
+    const labels = {id:"Log ID", id_number:"Account ID", full_name:"Full Name", username:"Username", role:"Role", action:"Action", details:"Complete Details", time_in:"Time In", time_out:"Time Out"};
+    Object.entries(row).forEach(([key, value]) => {
+      const term = document.createElement("dt");
+      term.textContent = labels[key] || key.replaceAll("_", " ");
+      const description = document.createElement("dd");
+      description.textContent = value === null || value === "" ? "?" : String(value);
+      auditDetailFields.append(term, description);
+    });
+    lastViewButton = button;
+    auditDetailDialog.showModal();
+  });
+  auditDetailDialog?.addEventListener("close", () => lastViewButton?.focus());
+  auditDetailDialog?.addEventListener("click", (event) => {
+    if (event.target !== auditDetailDialog) return;
+    const bounds = auditDetailDialog.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) auditDetailDialog.close();
+  });
+
   const searchInput = document.getElementById("searchInput");
   const actionFilter = document.getElementById("actionFilter");
   const roleFilter = document.getElementById("roleFilter");
@@ -123,7 +151,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!silent) {
       auditTableBody.innerHTML = `
         <tr>
-          <td colspan="9" class="empty-state">
+          <td colspan="10" class="empty-state">
             <i class="fa-solid fa-spinner fa-spin"></i>
             <p>Loading audit log records...</p>
           </td>
@@ -148,7 +176,7 @@ document.addEventListener("DOMContentLoaded", function () {
           if (res.restricted) {
             auditTableBody.innerHTML = `
               <tr>
-                <td colspan="9" class="empty-state">
+                <td colspan="10" class="empty-state">
                   <i class="fa-solid fa-file-shield"></i>
                   <p>${escapeHtml(res.message || "Access Restricted")}</p>
                 </td>
@@ -163,7 +191,7 @@ document.addEventListener("DOMContentLoaded", function () {
         } else {
           auditTableBody.innerHTML = `
             <tr>
-              <td colspan="9" class="empty-state">
+              <td colspan="10" class="empty-state">
                 <i class="fa-solid fa-circle-exclamation" style="color: #ef4444;"></i>
                 <p>${escapeHtml(res.message || "Failed to load audit logs.")}</p>
               </td>
@@ -175,7 +203,7 @@ document.addEventListener("DOMContentLoaded", function () {
         console.error("Error fetching audit logs:", err);
         auditTableBody.innerHTML = `
           <tr>
-            <td colspan="9" class="empty-state">
+            <td colspan="10" class="empty-state">
               <i class="fa-solid fa-triangle-exclamation" style="color: #f59e0b;"></i>
               <p>Connection error. Please try again.</p>
             </td>
@@ -186,10 +214,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Render Audit Log Table Rows
   function renderTable(data) {
+    visibleLogs = new Map((data || []).map((row) => [String(row.id), row]));
     if (!data || data.length === 0) {
       auditTableBody.innerHTML = `
         <tr>
-          <td colspan="9" class="empty-state">
+          <td colspan="10" class="empty-state">
             <i class="fa-solid fa-clipboard-list"></i>
             <p>No audit logs found.</p>
           </td>
@@ -221,6 +250,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <td data-label="Details" class="details-cell">${escapeHtml(detailsDisplay)}</td>
           <td data-label="Time In">${escapeHtml(timeInDisplay)}</td>
           <td data-label="Time Out">${escapeHtml(timeOutDisplay)}</td>
+          <td data-label="Actions"><button type="button" class="audit-view-btn" data-view-log="${escapeHtml(String(row.id))}" aria-label="View audit log ${escapeHtml(String(row.id))}">View</button></td>
         </tr>
       `;
     });
