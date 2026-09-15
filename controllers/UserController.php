@@ -3294,7 +3294,7 @@ class UserController
             'totalPages' => $pages,
             'currentPage' => $page,
             'limit' => $limit,
-            'scope' => $isAdmin ? 'user' : 'all'
+            'scope' => $isAdmin ? 'admin' : 'all'
         ]);
         exit;
     }
@@ -3310,8 +3310,8 @@ class UserController
         }
         if (strtolower($authState['role']) === 'admin') {
             $this->requireAdminPrivilege('view_users', $authState['id_number']);
-            if (strtolower($target['role']) !== 'user') {
-                echo json_encode(['success' => false, 'message' => 'Admins may view User accounts only.']);
+            if (!in_array(strtolower($target['role']), ['user', 'admin'], true)) {
+                echo json_encode(['success' => false, 'message' => 'Admins may view User and Admin accounts only.']);
                 exit;
             }
         }
@@ -3334,7 +3334,7 @@ class UserController
 
         $idNumber = $this->userModel->generateIdNumber();
         $username = trim($_POST['username'] ?? '');
-        $role = $isAdmin ? 'user' : strtolower(trim($_POST['role'] ?? 'user'));
+        $role = strtolower(trim($_POST['role'] ?? 'user'));
         $errors = [];
         if (!preg_match('/^[A-Za-z0-9-]{4,20}$/', $idNumber)) {
             $errors['id_number'] = 'ID Number must be 4-20 letters, numbers, or hyphens.';
@@ -3346,7 +3346,7 @@ class UserController
         } elseif ($this->userModel->usernameExists($username) || $this->userModel->pendingUsernameExists($username)) {
             $errors['username'] = 'This Username is already registered.';
         }
-        if (!in_array($role, ['user', 'admin', 'superadmin'], true) || ($isAdmin && $role !== 'user')) {
+        if (!in_array($role, ['user', 'admin', 'superadmin'], true) || ($isAdmin && !in_array($role, ['user', 'admin'], true))) {
             $errors['role'] = 'You are not allowed to create this account role.';
         }
         $rawPassword = trim((string)($_POST['password'] ?? ''));
@@ -3366,6 +3366,8 @@ class UserController
         if (!is_array($submitted)) {
             $submitted = json_decode((string)$submitted, true) ?: [];
         }
+        // Only Super Admin can assign privileges, including during account creation.
+        if ($isAdmin) $submitted = [];
         $result = $this->userModel->createManagedAccount([
             'id_number' => $idNumber,
             'username' => $username,
@@ -3411,8 +3413,8 @@ class UserController
         $isAdmin = strtolower($authState['role']) === 'admin';
         if ($isAdmin) {
             $this->requireAdminPrivilege('edit_users', $authState['id_number']);
-            if (strtolower($target['role']) !== 'user') {
-                echo json_encode(['success' => false, 'message' => 'Admins may edit User accounts only.']);
+            if (!in_array(strtolower($target['role']), ['user', 'admin'], true)) {
+                echo json_encode(['success' => false, 'message' => 'Admins may edit User and Admin accounts only.']);
                 exit;
             }
         }
@@ -3434,10 +3436,11 @@ class UserController
         $lastName = $target['last_name'] ?? '';
         $email = $target['email'] ?? null;
 
-        $role = $isAdmin ? 'user' : strtolower(trim($_POST['role'] ?? $target['role']));
+        $role = strtolower(trim($_POST['role'] ?? $target['role']));
         $requestedStatus = strtolower(trim($_POST['status'] ?? ''));
         $status = $requestedStatus === '' ? $target['status'] : $requestedStatus;
         if (!in_array($role, ['user', 'admin', 'superadmin'], true) ||
+            ($isAdmin && !in_array($role, ['user', 'admin'], true)) ||
             ($requestedStatus !== '' && !in_array($requestedStatus, ['active', 'blocked', 'inactive'], true))) {
             echo json_encode(['success' => false, 'message' => 'Invalid role or account status.']);
             exit;
@@ -3448,8 +3451,8 @@ class UserController
                 $this->requireAdminPrivilege('approve_registrations', $authState['id_number']);
             }
         }
-        if ($targetId === $authState['id_number'] && ($role !== 'superadmin' || $status !== 'active')) {
-            echo json_encode(['success' => false, 'message' => 'Use Logout to rotate the active Super Admin account.']);
+        if ($targetId === $authState['id_number'] && ($role !== $authState['role'] || $status !== 'active')) {
+            echo json_encode(['success' => false, 'message' => 'You cannot change your own role or deactivate your own account.']);
             exit;
         }
         if ($target['role'] === 'user' && $role === 'superadmin') {
@@ -3482,6 +3485,8 @@ class UserController
             $privileges = array_keys(User::PRIVILEGES);
         }
         $oldPrivileges = $target['privileges'] ?? [];
+        // Admins cannot grant privileges. User accounts have none after demotion.
+        $effectivePrivileges = $role === 'user' ? [] : ($isAdmin ? $oldPrivileges : $privileges);
         sort($privileges);
         sort($oldPrivileges);
         $ok = $this->userModel->updateManagedAccount($targetId, [
@@ -3496,14 +3501,14 @@ class UserController
             'actor_id' => $authState['id_number'],
             'status' => $status,
             'password' => $newPassword,
-            'privileges' => $isAdmin ? $oldPrivileges : $privileges,
+            'privileges' => $effectivePrivileges,
             'operator' => $authState['username'],
             'reason' => $reason ?: ($autoQueuedSuperAdmin ? 'Selected successor; activates when the current Super Admin logs out.' : null)
         ]);
         if ($ok) {
             $changes = User::describeAuditChanges($target, [
                 'username' => $username, 'role' => $role, 'status' => $status,
-                'privileges' => $isAdmin ? $oldPrivileges : $privileges,
+                'privileges' => $effectivePrivileges,
             ]);
             if ($autoQueuedSuperAdmin) $changes[] = 'Selected as the next active Super Admin on current Super Admin logout.';
             if ($newPassword !== '') $changes[] = 'password replaced; next-login change required';
@@ -3541,8 +3546,8 @@ class UserController
         $isAdmin = strtolower($authState['role']) === 'admin';
         if ($isAdmin) {
             $this->requireAdminPrivilege('block_users', $authState['id_number']);
-            if (strtolower($target['role']) !== 'user') {
-                echo json_encode(['success' => false, 'message' => 'Admins may block or unblock User accounts only.']);
+            if (!in_array(strtolower($target['role']), ['user', 'admin'], true)) {
+                echo json_encode(['success' => false, 'message' => 'Admins may block or unblock User and Admin accounts only.']);
                 exit;
             }
         }
@@ -3592,8 +3597,8 @@ class UserController
         $isAdmin = strtolower($authState['role']) === 'admin';
         if ($isAdmin) {
             $this->requireAdminPrivilege('delete_users', $authState['id_number']);
-            if (strtolower($target['role']) !== 'user') {
-                echo json_encode(['success' => false, 'message' => 'Admins may delete User accounts only.']);
+            if (!in_array(strtolower($target['role']), ['user', 'admin'], true)) {
+                echo json_encode(['success' => false, 'message' => 'Admins may delete User and Admin accounts only.']);
                 exit;
             }
         }

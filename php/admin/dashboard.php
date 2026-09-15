@@ -58,9 +58,9 @@ $blockedDisplay = $canViewUsers ? number_format($stats['blocked_users']) : 'N/A'
               <i class="fa-solid fa-users"></i>
             </div>
             <div>
-              <h3>Total Users</h3>
+              <h3>Total Accounts</h3>
               <div class="stat-value" id="stat-total"><?= $totalDisplay ?></div>
-              <p>Registered Users</p>
+              <p>User and Admin accounts</p>
             </div>
           </div>
 
@@ -69,7 +69,7 @@ $blockedDisplay = $canViewUsers ? number_format($stats['blocked_users']) : 'N/A'
               <i class="fa-solid fa-user-check"></i>
             </div>
             <div>
-              <h3>Active Users</h3>
+              <h3>Active Accounts</h3>
               <div class="stat-value" id="stat-active"><?= $activeDisplay ?></div>
               <p>Currently active</p>
             </div>
@@ -80,7 +80,7 @@ $blockedDisplay = $canViewUsers ? number_format($stats['blocked_users']) : 'N/A'
               <i class="fa-solid fa-user-lock"></i>
             </div>
             <div>
-              <h3>Blocked Users</h3>
+              <h3>Blocked Accounts</h3>
               <div class="stat-value" id="stat-blocked"><?= $blockedDisplay ?></div>
               <p>Restricted access</p>
             </div>

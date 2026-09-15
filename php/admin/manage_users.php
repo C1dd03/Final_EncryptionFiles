@@ -5,7 +5,7 @@ if (strtolower($_SESSION['role'] ?? '') !== 'admin') {
   header('Location: ../auth/index.php?action=login');
   exit();
 }
-$pageTitle = 'User Management';
+$pageTitle = 'Account Management';
 $activePage = 'manage_users';
 $managementScope = 'admin';
 $accountManagementUserModel = new User();
@@ -19,7 +19,7 @@ $canCreateAccounts = $accountManagementUserModel->hasAdminPrivilege(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>User Management</title>
+  <title>Account Management</title>
   <link rel="stylesheet" href="../../css/admin/admin.css" />
   <link rel="stylesheet" href="../../css/account_management.css?v=20260908b" />
   <link rel="stylesheet" href="../../css/action_dropdown.css?v=20260906" />
@@ -39,6 +39,6 @@ $canCreateAccounts = $accountManagementUserModel->hasAdminPrivilege(
   <script src="../../js/admin/admin.js"></script>
   <script src="../../js/shared_validator.js?v=20260908i"></script>
   <script src="../../js/action_dropdown.js?v=20260906"></script>
-  <script src="../../js/account_management.js?v=20260913-handoff"></script>
+  <script src="../../js/account_management.js?v=20260915-admin-create-role"></script>
 </body>
 </html>

@@ -40,7 +40,7 @@ $canNavViewLogs  = in_array('view_user_logs', $sidebarGranted, true)
       <span class="nav-icon">
         <i class="fa-solid fa-users"></i>
       </span>
-      <span class="nav-label">Manage Users</span>
+      <span class="nav-label">Account Management</span>
     </a>
 
     <!-- <a href="personal_details.php" class="nav-link <?= $activePage === 'personal_details' ? 'active' : '' ?>">

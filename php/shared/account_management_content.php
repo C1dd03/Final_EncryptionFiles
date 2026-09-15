@@ -6,10 +6,10 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
 <section class="account-management" data-scope="<?= $isSuperAdminManagement ? 'superadmin' : 'admin' ?>">
   <div class="am-heading">
     <div>
-      <h2><?= $isSuperAdminManagement ? 'Account Management' : 'User Management' ?></h2>
+      <h2>Account Management</h2>
       <p><?= $isSuperAdminManagement
             ? 'Manage Users, Admins, and queued Super Admins from one page.'
-            : 'Authorized Admins can manage User accounts only.' ?></p>
+            : 'View User and Admin accounts. Available actions depend on your permissions.' ?></p>
     </div>
     <?php if ($canCreateAccounts): ?>
       <button type="button" class="am-btn primary" id="amOpenCreate"><i class="fa-solid fa-user-plus"></i> Create Account</button>
@@ -22,14 +22,12 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
 
   <div class="am-toolbar">
     <input type="search" id="amSearch" placeholder="Search ID Number, name, username, or email" />
-    <?php if ($isSuperAdminManagement): ?>
       <select id="amRoleFilter" aria-label="Filter by role">
         <option value="all">All roles</option>
         <option value="user">Users</option>
         <option value="admin">Admins</option>
-        <option value="superadmin">Super Admins</option>
+        <?php if ($isSuperAdminManagement): ?><option value="superadmin">Super Admins</option><?php endif; ?>
       </select>
-    <?php endif; ?>
     <select id="amStatusFilter" aria-label="Filter by status">
       <option value="all">All statuses</option>
       <option value="active">Active</option>
@@ -78,9 +76,10 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
       <label>ID Number<input name="id_number" maxlength="20" autocomplete="off" readonly required /><small class="am-field-hint">The next available ID is generated automatically.</small><span class="field-error"></span></label>
       <label>Username<input name="username" maxlength="50" required /><span class="field-error"></span></label>
       <label>Role
-        <select name="role" id="amCreateRole" <?= $isSuperAdminManagement ? '' : 'disabled' ?>>
+        <select name="role" id="amCreateRole">
           <option value="user">User</option>
-          <?php if ($isSuperAdminManagement): ?><option value="admin">Admin</option>
+          <option value="admin">Admin</option>
+          <?php if ($isSuperAdminManagement): ?>
             <option value="superadmin">Super Admin</option><?php endif; ?>
         </select>
         <span class="field-error"></span>
@@ -178,10 +177,10 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
           <div class="am-password-meter" data-password-meter="amEditPassword" aria-hidden="true"><span></span></div><small class="am-password-feedback" data-password-feedback="amEditPassword" aria-live="polite"></small><span class="field-error"></span>
         </label>
         <label>Role
-          <select name="role" id="amEditRole" <?= $isSuperAdminManagement ? '' : 'disabled' ?>>
+          <select name="role" id="amEditRole">
             <option value="user">User</option>
             <option value="admin">Admin</option>
-            <option value="superadmin">Super Admin</option>
+            <?php if ($isSuperAdminManagement): ?><option value="superadmin">Super Admin</option><?php endif; ?>
           </select>
           <span class="field-error"></span>
         </label>

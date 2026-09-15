@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function loadAccounts() {
     const params = new URLSearchParams({
       search: search.value.trim(), status: statusFilter.value,
-      role: roleFilter ? roleFilter.value : "user", page, limit: limit.value,
+      role: roleFilter ? roleFilter.value : "all", page, limit: limit.value,
     });
     body.innerHTML = '<tr><td colspan="6" class="am-empty">Loading accounts...</td></tr>';
     try {
@@ -73,7 +73,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     body.innerHTML = records.map((row) => {
       const blocked = row.status === "blocked";
-      const showAllActions = row.status !== "inactive";
+      const canManage = isSuperAdmin || ["user", "admin"].includes(row.role);
+      const showAllActions = canManage && (row.role === "admin" || row.status !== "inactive");
       return `<tr>
         <td><strong>${escapeHtml(row.id_number)}</strong>${Number(row.must_change_password) ? '<br><small>Must change password</small>' : ''}</td>
         <td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.username)}</td>
@@ -85,8 +86,8 @@ document.addEventListener("DOMContentLoaded", () => {
           </button>
           <div class="action-dropdown-menu">
             <button type="button" class="action-menu-item view" data-action="view" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-eye" aria-hidden="true"></i> View Details</button>
-            <div class="action-menu-divider"></div>
-            <button type="button" class="action-menu-item edit" data-action="edit" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit Account</button>
+            ${canManage ? `<div class="action-menu-divider"></div>
+            <button type="button" class="action-menu-item edit" data-action="edit" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit Account</button>` : ""}
             ${showAllActions ? `<button type="button" class="action-menu-item ${blocked ? "unblock" : "block"}" data-action="${blocked ? "unblock" : "block"}" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-${blocked ? "unlock" : "ban"}" aria-hidden="true"></i> ${blocked ? "Unblock" : "Block"} Account</button>` : ""}
             ${showAllActions ? `<button type="button" class="action-menu-item delete" data-action="delete" data-id="${escapeHtml(row.id_number)}"><i class="fa-solid fa-trash" aria-hidden="true"></i> Delete Account</button>` : ""}
           </div>
@@ -324,7 +325,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return formMessage(createForm, "Please correct the highlighted fields.");
     }
     const dataForm = new FormData(createForm);
-    if (!isSuperAdmin) dataForm.set("role", "user");
     const submit = createForm.querySelector('[type="submit"]');
     submit.disabled = true;
     try {

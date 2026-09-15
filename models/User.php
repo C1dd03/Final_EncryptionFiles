@@ -388,13 +388,13 @@ class User
         ];
 
         try {
-            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role = 'user'");
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role IN ('user', 'admin')");
             $stats['total_users'] = (int) $stmt->fetchColumn();
 
-            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role = 'user' AND status = 'active'");
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role IN ('user', 'admin') AND status = 'active'");
             $stats['active_users'] = (int) $stmt->fetchColumn();
 
-            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role = 'user' AND status = 'blocked'");
+            $stmt = $this->conn->query("SELECT COUNT(*) FROM users WHERE role IN ('user', 'admin') AND status = 'blocked'");
             $stats['blocked_users'] = (int) $stmt->fetchColumn();
         } catch (PDOException $e) {
             error_log("Failed to fetch admin dashboard stats: " . $e->getMessage());
@@ -2199,15 +2199,16 @@ class User
         string $role = 'all',
         int $offset = 0,
         int $limit = 10,
-        bool $usersOnly = false
+        bool $adminScope = false
     ): array {
         $sql = "SELECT id_number, first_name, middle_name, last_name, extension, username, email,
                        role, status, created_at, must_change_password, handoff_pending
                 FROM users WHERE 1 = 1";
         $params = [];
-        if ($usersOnly) {
-            $sql .= " AND role = 'user'";
-        } elseif (in_array($role, ['user', 'admin', 'superadmin'], true)) {
+        if ($adminScope) {
+            $sql .= " AND role IN ('user', 'admin')";
+        }
+        if (in_array($role, ['user', 'admin', 'superadmin'], true)) {
             $sql .= " AND role = :role";
             $params[':role'] = $role;
         }
@@ -2238,13 +2239,14 @@ class User
         return $rows;
     }
 
-    public function getManagedAccountsCount(string $search = '', string $status = 'all', string $role = 'all', bool $usersOnly = false): int
+    public function getManagedAccountsCount(string $search = '', string $status = 'all', string $role = 'all', bool $adminScope = false): int
     {
         $sql = "SELECT COUNT(*) FROM users WHERE 1 = 1";
         $params = [];
-        if ($usersOnly) {
-            $sql .= " AND role = 'user'";
-        } elseif (in_array($role, ['user', 'admin', 'superadmin'], true)) {
+        if ($adminScope) {
+            $sql .= " AND role IN ('user', 'admin')";
+        }
+        if (in_array($role, ['user', 'admin', 'superadmin'], true)) {
             $sql .= " AND role = :role";
             $params[':role'] = $role;
         }
