@@ -93,7 +93,7 @@ $blockedDisplay = $canViewUsers ? number_format($stats['blocked_users']) : 'N/A'
             <div>
               <h3>Pending Approvals</h3>
               <div class="stat-value" id="adminPendingCount"><?= $canApproveRegistrations ? '0' : 'N/A' ?></div>
-              <p>User registrations</p>
+              <p>Registrations and invitations</p>
             </div>
           </a>
         </div>

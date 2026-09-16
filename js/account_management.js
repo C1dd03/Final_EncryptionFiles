@@ -237,9 +237,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return state.valid;
   }
 
-  const createPassword = document.getElementById("amCreatePassword");
   const editPassword = document.getElementById("amEditPassword");
-  createPassword?.addEventListener("input", () => updatePasswordMeter(createPassword));
   editPassword?.addEventListener("input", () => updatePasswordMeter(editPassword, true));
 
   const createValidator = window.SharedValidator
@@ -258,54 +256,14 @@ document.addEventListener("DOMContentLoaded", () => {
       })
     : null;
 
-  const togglePassBtn = document.getElementById("amToggleCreatePassword");
-  if (togglePassBtn) {
-    togglePassBtn.addEventListener("click", () => {
-      const input = document.getElementById("amCreatePassword");
-      if (!input) return;
-      const isPass = input.type === "password";
-      input.type = isPass ? "text" : "password";
-      togglePassBtn.classList.toggle("fa-eye", isPass);
-      togglePassBtn.classList.toggle("fa-eye-slash", !isPass);
-    });
-  }
-
-  const genPasswordBtn = document.getElementById("amGeneratePasswordBtn");
-  if (genPasswordBtn) {
-    genPasswordBtn.addEventListener("click", () => {
-      const randNums = Math.floor(10000 + Math.random() * 90000);
-      const generated = "@Abcde" + randNums;
-      const input = document.getElementById("amCreatePassword");
-      if (input) {
-        input.value = generated;
-        input.type = "text";
-        if (togglePassBtn) {
-          togglePassBtn.classList.remove("fa-eye-slash");
-          togglePassBtn.classList.add("fa-eye");
-        }
-        input.dispatchEvent(new Event("input", {bubbles:true}));
-      }
-    });
-  }
-
-
-
-
-
   document.getElementById("amOpenCreate")?.addEventListener("click", () => {
     createForm.reset();
     createForm.elements.id_number.value = "";
     createForm.elements.id_number.dataset.suggestedId = "";
-    if (createForm.elements.default_password) {
-      createForm.elements.default_password.value = "@Abcde12345";
-    }
-    const passInput = document.getElementById("amCreatePassword") || createForm.elements.password;
-    if (passInput) passInput.value = "@Abcde12345";
     if (!isSuperAdmin) createForm.elements.role.value = "user";
     if (createValidator) createValidator.clearAll();
     formMessage(createForm);
     setPrivilegeVisibility(document.getElementById("amCreateRole"), document.getElementById("amCreatePrivileges"));
-    if (passInput) updatePasswordMeter(passInput);
     open(createModal);
     loadLatestIds();
   });
@@ -321,7 +279,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!nextIds || !createForm.elements.id_number.value) {
       return formMessage(createForm, "Please wait for the ID Number to be generated.");
     }
-    if (!updatePasswordMeter(createPassword) || (createValidator && !createValidator.validateAll())) {
+    if (createValidator && !createValidator.validateAll()) {
       return formMessage(createForm, "Please correct the highlighted fields.");
     }
     const dataForm = new FormData(createForm);
@@ -338,13 +296,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return formMessage(createForm, data.message || "Unable to create account.");
       }
       close(createModal);
-      if (data.role === "superadmin") {
-        document.getElementById("amCredUsername").textContent = dataForm.get("username") || "-";
-        document.getElementById("amCredPassword").textContent = dataForm.get("password") || "@Abcde12345";
-        open(document.getElementById("amCredentialsModal"));
-      } else {
-        toast(data.message);
-      }
+      toast(data.message);
       loadAccounts();
     } catch (error) { formMessage(createForm, "Unable to connect. Please try again."); }
     finally { submit.disabled = false; }
@@ -472,9 +424,8 @@ document.addEventListener("DOMContentLoaded", () => {
     finally { button.disabled = false; }
   });
 
-  const credentialsModal = document.getElementById("amCredentialsModal");
   document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => close(button.closest(".am-modal"))));
-  [createModal, viewModal, editModal, secureModal, credentialsModal].forEach((modal) => { if (modal) modal.addEventListener("click", (event) => { if (event.target === modal) close(modal); }); });
+  [createModal, viewModal, editModal, secureModal].forEach((modal) => { if (modal) modal.addEventListener("click", (event) => { if (event.target === modal) close(modal); }); });
   search.addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(() => { page = 1; loadAccounts(); }, 300); });
   statusFilter.addEventListener("change", () => { page = 1; loadAccounts(); });
   if (roleFilter) roleFilter.addEventListener("change", () => { page = 1; loadAccounts(); });

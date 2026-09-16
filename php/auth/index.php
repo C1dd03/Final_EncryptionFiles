@@ -10,6 +10,12 @@ $adminController = new AdminController();
 $action = $_GET['action'] ?? 'login';
 
 switch ($action) {
+    case 'invitationSetup':
+        $userController->invitationSetup();
+        break;
+    case 'resendAccountInvitation':
+        $userController->resendAccountInvitation();
+        break;
     case 'register':
         $userController->showRegister();
         break;

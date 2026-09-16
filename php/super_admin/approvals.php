@@ -8,7 +8,7 @@ if ($role !== 'superadmin') {
   exit();
 }
 
-$pageTitle = 'Registration Approvals';
+$pageTitle = 'Pending Approvals';
 $activePage = 'approvals';
 ?>
 <!DOCTYPE html>
@@ -17,7 +17,7 @@ $activePage = 'approvals';
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Registration Approvals - Super Admin</title>
+  <title>Pending Approvals - Super Admin</title>
   <link rel="stylesheet" href="../../css/super_admin/superadmin.css" />
   <link rel="stylesheet" href="../../css/super_admin/block_list.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -282,8 +282,8 @@ $activePage = 'approvals';
         <!-- Page Header -->
         <div class="block-list-header">
           <div>
-            <h2><i class="fa-solid fa-user-check" style="color: #4f46e5;"></i> Registration Approvals</h2>
-            <p>Review, filter, and approve or reject newly submitted user registration requests before activation.</p>
+            <h2><i class="fa-solid fa-user-check" style="color: #4f46e5;"></i> Pending Approvals</h2>
+            <p>Review registrations and account invitations. Invited recipients must complete setup before their accounts are created.</p>
           </div>
         </div>
 

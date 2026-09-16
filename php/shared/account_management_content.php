@@ -17,7 +17,7 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
   </div>
 
   <?php if ($isSuperAdminManagement): ?>
-    <div class="am-queue-note"><i class="fa-solid fa-rotate"></i> Only one Super Admin can be Active. Create a Super Admin, promote an Admin, or select Active for an inactive Super Admin to choose your successor. With a selected successor, logout transfers Active status to that account and makes yours Inactive. Without a selected successor, your account stays Active after logout.</div>
+    <div class="am-queue-note"><i class="fa-solid fa-rotate"></i> Only one Super Admin can be Active. Invited Super Admins complete setup first and remain Inactive until selected for activation. Promote an Admin or select Active for an inactive Super Admin to choose your successor. With a selected successor, logout transfers Active status. Without a successor, your account stays Active.</div>
   <?php endif; ?>
 
   <div class="am-toolbar">
@@ -71,9 +71,10 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
   <div class="am-card">
     <button class="am-close" type="button" data-close>&times;</button>
     <h3 id="amCreateTitle">Create Account</h3>
-    <p class="am-subtitle">Only the required account fields are shown. Personal information is completed by the owner in Personal Details.</p>
+    <p class="am-subtitle">Send an invitation by email. The account stays in Pending Approvals until the recipient completes setup.</p>
     <form id="amCreateForm" novalidate>
       <label>ID Number<input name="id_number" maxlength="20" autocomplete="off" readonly required /><small class="am-field-hint">The next available ID is generated automatically.</small><span class="field-error"></span></label>
+      <label>Recipient Email<input type="email" name="email" maxlength="150" required /><span class="field-error"></span></label>
       <label>Username<input name="username" maxlength="50" required /><span class="field-error"></span></label>
       <label>Role
         <select name="role" id="amCreateRole">
@@ -84,24 +85,7 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
         </select>
         <span class="field-error"></span>
       </label>
-      <label>Initial Password
-        <input type="hidden" name="default_password" value="@Abcde12345" />
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <div class="am-password-input-stack">
-            <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" name="password" id="amCreatePassword" value="@Abcde12345" autocomplete="new-password" style="width: 100%; padding-right: 38px;" />
-              <i class="fas fa-eye-slash toggle-password" id="amToggleCreatePassword" style="position: absolute; right: 12px; cursor: pointer; color: #64748b;" title="Toggle Password"></i>
-            </div>
-            <div class="am-password-meter" data-password-meter="amCreatePassword" aria-hidden="true"><span></span></div>
-          </div>
-          <!-- <button type="button" class="am-btn" id="amGeneratePasswordBtn" title="Generate password" style="white-space: nowrap; font-size: 11px; padding: 7px 10px;">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> Generate
-          </button> -->
-        </div>
-        <small class="am-password-feedback" data-password-feedback="amCreatePassword" aria-live="polite"></small>
-        <!-- <small style="color: #64748b; font-size: 11px;">Default is @Abcde12345. You can enter a password or click Generate.</small> -->
-        <span class="field-error"></span>
-      </label>
+      <p class="am-subtitle">A secure temporary password is generated automatically and emailed to the recipient. The invitation expires in 7 days.</p>
 
       <div class="am-privileges" id="amCreatePrivileges" hidden>
         <strong>Privileges</strong>
@@ -110,7 +94,7 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
         <?php endforeach; ?>
       </div>
       <p class="am-message" data-message></p>
-      <div class="am-actions"><button type="button" class="am-btn" data-close>Cancel</button><button class="am-btn primary" type="submit">Create Account</button></div>
+      <div class="am-actions"><button type="button" class="am-btn" data-close>Cancel</button><button class="am-btn primary" type="submit">Send Invitation</button></div>
     </form>
   </div>
 </div>
@@ -222,26 +206,6 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
       <p class="am-message" id="amSecureMessage"></p>
       <div class="am-actions"><button type="button" class="am-btn" data-close>Cancel</button><button type="button" class="am-btn danger" id="amExecuteSecure">Verify &amp; Complete</button></div>
     </div>
-  </div>
-</div>
-
-<div class="am-modal" id="amCredentialsModal" role="dialog" aria-modal="true" aria-labelledby="amCredTitle">
-  <div class="am-card" style="max-width: 420px; text-align: center;">
-    <div style="width: 50px; height: 50px; border-radius: 50%; background: #e8f3e5; color: #477246; display: grid; place-items: center; margin: 0 auto 12px; font-size: 22px;">
-      <i class="fa-solid fa-shield-check"></i>
-    </div>
-    <h3 id="amCredTitle">Super Admin Account Created</h3>
-    <p style="font-size: 13px; color: #475569; margin-bottom: 16px;">
-      Share these initial credentials with the new Super Admin. They must log in and change their password to activate the account.
-    </p>
-    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: left; margin-bottom: 16px; font-size: 13px;">
-      <div style="margin-bottom: 6px;"><strong>Username:</strong> <span id="amCredUsername">-</span></div>
-      <div><strong>Initial Password:</strong> <span id="amCredPassword">-</span></div>
-    </div>
-    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px; font-size: 12px; color: #991b1b; margin-bottom: 16px;">
-      <i class="fa-solid fa-circle-exclamation"></i> Notice: Once you log out, your account will become Inactive and control will transfer to this new Super Admin.
-    </div>
-    <button type="button" class="am-btn primary" style="width: 100%;" data-close>Got it</button>
   </div>
 </div>
 

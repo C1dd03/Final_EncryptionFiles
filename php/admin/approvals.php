@@ -16,7 +16,7 @@ $userModel = new User();
 $granted = $userModel->getAdminPrivileges($currentIdNumber);
 $canApprove = in_array('approve_registrations', $granted, true) || in_array('edit_users', $granted, true) || in_array('view_users', $granted, true);
 
-$pageTitle = 'Registration Approvals';
+$pageTitle = 'Pending Approvals';
 $activePage = 'approvals';
 ?>
 <!DOCTYPE html>
@@ -25,7 +25,7 @@ $activePage = 'approvals';
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Registration Approvals - Admin</title>
+  <title>Pending Approvals - Admin</title>
   <link rel="stylesheet" href="../../css/admin/admin.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" />
@@ -276,8 +276,8 @@ $activePage = 'approvals';
         <!-- Page Header -->
         <div class="manage-users-header">
           <div>
-            <h2><i class="fa-solid fa-user-check" style="color: #4f46e5;"></i> Registration Approvals</h2>
-            <p>Review, filter, and approve or reject newly submitted user registration requests before activation.</p>
+            <h2><i class="fa-solid fa-user-check" style="color: #4f46e5;"></i> Pending Approvals</h2>
+            <p>Review registrations and account invitations. Invited recipients must complete setup before their accounts are created.</p>
           </div>
         </div>
 

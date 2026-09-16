@@ -115,7 +115,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!data || data.length === 0) {
       tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:35px; color:#64748b;">
         <i class="fa-solid fa-inbox" style="font-size:32px; display:block; margin-bottom:8px; color:#94a3b8;"></i>
-        No pending registration approvals found.
+        No registrations or invitations matched the filters.
       </td></tr>`;
       return;
     }
@@ -130,6 +130,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const createdAt = escapeHtml(user.created_at || "-");
       const regStatus = escapeHtml(user.status || "pending");
 
+      const isInvitation = Boolean(user.invitation_state);
       const isPending = regStatus === "pending";
       const isApproved = regStatus === "approved";
       const isRejected = regStatus === "rejected";
@@ -145,9 +146,17 @@ document.addEventListener("DOMContentLoaded", function () {
         statusBadge = `<span class="badge-pending"><i class="fa-regular fa-clock"></i> ${escapeHtml(regStatus)}</span>`;
       }
 
+      if (isInvitation) {
+        const label = isRejected ? 'Cancelled invitation' : user.invitation_state === 'completed' ? 'Setup completed'
+          : user.invitation_state === 'delivery_failed' ? 'Email delivery failed'
+          : user.invitation_state === 'sending' ? 'Sending invitation'
+          : new Date(user.invitation_expires_at.replace(' ', 'T')) < new Date() ? 'Invitation expired' : 'Awaiting setup';
+        statusBadge = `<span class="badge-pending">${escapeHtml(label)}</span>`;
+      }
+
       html += `<tr>
         <td><strong>${idNo}</strong></td>
-        <td>${fullName}</td>
+        <td>${fullName}${isInvitation ? `<br><small>Invitation ? ${escapeHtml(user.role)}</small>` : ""}</td>
         <td>${username}</td>
         <td>${email}</td>
         <td>${genderAge}</td>
@@ -163,9 +172,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 <i class="fa-solid fa-eye"></i> View Details
               </button>
               ${isPending ? `<div class="action-menu-divider"></div>
-              <button type="button" class="action-menu-item approve" onclick="confirmApprove('${idNo}', '${fullName}')">
+              ${!isInvitation ? `<button type="button" class="action-menu-item approve" onclick="confirmApprove('${idNo}', '${fullName}')">
                 <i class="fa-solid fa-check"></i> Approve
-              </button>
+              </button>` : `<button type="button" class="action-menu-item" onclick="resendInvitation('${idNo}')">Resend Invitation</button>`}
               <button type="button" class="action-menu-item reject" onclick="confirmReject('${idNo}', '${fullName}')">
                 <i class="fa-solid fa-xmark"></i> Reject
               </button>` : ""}
@@ -252,6 +261,9 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="detail-item"><div class="detail-label">ID Number</div><div class="detail-val">${escapeHtml(user.id_number)}</div></div>
         <div class="detail-item"><div class="detail-label">Full Name</div><div class="detail-val">${escapeHtml(user.full_name)}</div></div>
         <div class="detail-item"><div class="detail-label">Username</div><div class="detail-val">${escapeHtml(user.username)}</div></div>
+        <div class="detail-item"><div class="detail-label">Role</div><div class="detail-val">${escapeHtml(user.role || 'user')}</div></div>
+        ${user.invitation_state ? `<div class="detail-item"><div class="detail-label">Invitation</div><div class="detail-val">${escapeHtml(user.invitation_state.replaceAll('_', ' '))}</div></div>
+        <div class="detail-item"><div class="detail-label">Invitation Expires</div><div class="detail-val">${escapeHtml(user.invitation_expires_at || '-')}</div></div>` : ''}
         <div class="detail-item"><div class="detail-label">Email Address</div><div class="detail-val">${escapeHtml(user.email)}</div></div>
         <div class="detail-item"><div class="detail-label">Birthdate</div><div class="detail-val">${escapeHtml(user.birthdate)} (Age: ${escapeHtml(String(user.age))})</div></div>
         <div class="detail-item"><div class="detail-label">Gender</div><div class="detail-val">${escapeHtml(user.gender)}</div></div>
@@ -295,6 +307,17 @@ document.addEventListener("DOMContentLoaded", function () {
     confirmModal.style.display = "flex";
   };
 
+  window.resendInvitation = function (idNumber) {
+    pendingAction = {action: "resend", id_number: idNumber};
+    confirmModalTitle.textContent = "Resend Invitation";
+    confirmModalMsg.textContent = "Send a new temporary password to the recipient? The old temporary password will stop working.";
+    rejectReasonGroup.style.display = "none";
+    approvalPasswordGroup.style.display = "block";
+    approvalOperatorPassword.value = "";
+    confirmModalSubmitBtn.textContent = "Verify & Resend";
+    confirmModal.style.display = "flex";
+  };
+
   window.closeConfirmModal = function () {
     confirmModal.style.display = "none";
     pendingAction = null;
@@ -302,6 +325,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
   confirmModalSubmitBtn.addEventListener("click", function () {
     if (!pendingAction) return;
+
+    if (pendingAction.action === "resend") {
+      if (!approvalOperatorPassword.value) { approvalOperatorPassword.focus(); return; }
+      const formData = new FormData();
+      formData.append("id_number", pendingAction.id_number);
+      formData.append("operator_password", approvalOperatorPassword.value);
+      confirmModalSubmitBtn.disabled = true;
+      fetch("../../php/auth/index.php?action=resendAccountInvitation", {method: "POST", body: formData, credentials: "same-origin"})
+        .then(response => response.json()).then(result => {
+          showToast(result.message, result.success ? "success" : "error");
+          if (result.success) closeConfirmModal();
+          fetchPendingRegistrations();
+        }).catch(() => showToast("Unable to resend invitation.", "error"))
+        .finally(() => { confirmModalSubmitBtn.disabled = false; });
+      return;
+    }
 
     if (pendingAction.action === "approve") {
       if (approvalPasswordGroup.style.display === "none") {

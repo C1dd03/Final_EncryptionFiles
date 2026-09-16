@@ -75,7 +75,7 @@ $stats = $userModel->getDashboardStats();
             <div>
               <h3>Pending Approvals</h3>
               <div class="stat-value" id="superAdminPendingCount">0</div>
-              <p>Pending registrations</p>
+              <p>Registrations and invitations</p>
             </div>
           </a>
         </div>

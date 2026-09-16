@@ -1,9 +1,11 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/AccountInvitations.php';
 
 
 class User
 {
+    use AccountInvitations;
     /**
      * @var \PDO
      */
@@ -25,6 +27,7 @@ class User
         $this->ensureViewDetailsSchema();
         $this->ensureAccountManagementSchema();
         $this->ensurePendingRegistrationsSchema();
+        $this->ensureInvitationSchema();
     }
 
     public function insertUser(array $data)
@@ -1943,6 +1946,7 @@ class User
                              IF(p.extension IS NOT NULL AND p.extension != '', CONCAT(' ', p.extension), '')
                         )) AS full_name,
                         p.birthdate, p.gender, p.age, p.username, p.email, p.role, p.status, p.created_at,
+                        p.invitation_state, p.invitation_expires_at,
                         p.street AS purok_street, p.barangay, p.city_municipality, p.province, p.country, p.zip_code
                  FROM {$this->pendingTable} p
                  WHERE 1=1";
@@ -2051,6 +2055,10 @@ class User
             if ($pending['status'] !== 'pending') {
                 $this->conn->rollBack();
                 return ['success' => false, 'message' => 'This registration has already been processed.'];
+            }
+            if (!empty($pending['invitation_state'])) {
+                $this->conn->rollBack();
+                return ['success' => false, 'message' => 'The recipient must complete account setup before this invitation becomes an account.'];
             }
 
             $stmt = $this->conn->prepare("SELECT COUNT(*) FROM users WHERE id_number = :id_number OR username = :username OR email = :email");
@@ -2700,6 +2708,11 @@ class User
                 return false;
             }
             if ($pending['status'] !== 'pending') {
+                $this->conn->rollBack();
+                return false;
+            }
+            if (!empty($pending['invitation_state']) && $performedByRole !== 'superadmin' &&
+                ($pending['role'] === 'superadmin' || $pending['invited_by'] !== $performedById)) {
                 $this->conn->rollBack();
                 return false;
             }

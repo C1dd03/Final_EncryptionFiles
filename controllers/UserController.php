@@ -2,9 +2,11 @@
 
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Otp.php';
+require_once __DIR__ . '/InvitationController.php';
 
 class UserController
 {
+    use InvitationController;
     private $userModel;
 
     public function __construct()
@@ -500,6 +502,19 @@ class UserController
                     ?? $this->userModel->findPendingRegistrationByEmail($username);
 
                 if ($pending) {
+                    if (!empty($pending['invitation_state'])) {
+                        $invitation = $this->userModel->authenticateInvitation($pending['user_id'], $password);
+                        if (!$invitation) {
+                            echo json_encode(['success'=>false, 'message'=>'Invalid temporary credentials, or this invitation is unavailable, expired, or temporarily locked. Please contact the administrator if needed.', 'errorType'=>'passwordWrong']);
+                            return;
+                        }
+                        $_SESSION = [];
+                        session_regenerate_id(true);
+                        $_SESSION['invitation_setup'] = ['id'=>$invitation['user_id'], 'hash'=>$invitation['password_hash'], 'expires'=>time()+1800];
+                        $_SESSION['invitation_csrf'] = bin2hex(random_bytes(32));
+                        echo json_encode(['success'=>true, 'redirect'=>'index.php?action=invitationSetup']);
+                        return;
+                    }
                     if ($pending['status'] === 'pending') {
                         echo json_encode(['success' => false, 'message' => 'Your account is still waiting for administrator approval.', 'errorType' => 'accountPendingApproval']);
                         return;
@@ -3336,6 +3351,12 @@ class UserController
         $username = trim($_POST['username'] ?? '');
         $role = strtolower(trim($_POST['role'] ?? 'user'));
         $errors = [];
+        $email = trim($_POST['email'] ?? '');
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150) {
+            $errors['email'] = 'Enter a valid recipient email address.';
+        } elseif ($this->userModel->emailExists($email) || $this->userModel->pendingEmailExists($email)) {
+            $errors['email'] = 'This email is already registered or has a pending invitation/registration.';
+        }
         if (!preg_match('/^[A-Za-z0-9-]{4,20}$/', $idNumber)) {
             $errors['id_number'] = 'ID Number must be 4-20 letters, numbers, or hyphens.';
         } elseif ($this->userModel->findById($idNumber) || $this->userModel->pendingUserIdExists($idNumber)) {
@@ -3349,14 +3370,6 @@ class UserController
         if (!in_array($role, ['user', 'admin', 'superadmin'], true) || ($isAdmin && !in_array($role, ['user', 'admin'], true))) {
             $errors['role'] = 'You are not allowed to create this account role.';
         }
-        $rawPassword = trim((string)($_POST['password'] ?? ''));
-        if ($rawPassword === '') {
-            $rawPassword = '@Abcde12345';
-        } else {
-            if ($err = $this->passwordPolicyError($rawPassword)) {
-                $errors['password'] = $err;
-            }
-        }
         if ($errors) {
             echo json_encode(['success' => false, 'message' => 'Please correct the highlighted fields.', 'fieldErrors' => $errors]);
             exit;
@@ -3368,30 +3381,13 @@ class UserController
         }
         // Only Super Admin can assign privileges, including during account creation.
         if ($isAdmin) $submitted = [];
-        $result = $this->userModel->createManagedAccount([
+        $result = $this->userModel->createAccountInvitation([
             'id_number' => $idNumber,
             'username' => $username,
+            'email' => $email,
             'role' => $role,
-            'password' => $rawPassword,
             'privileges' => $role === 'user' ? [] : array_map('strval', $submitted)
-        ], $authState['id_number']);
-        if ($result['success']) {
-            $grantedKeys = $role === 'superadmin' ? array_keys(User::PRIVILEGES)
-                : ($role === 'admin' ? array_values(array_intersect(array_keys(User::PRIVILEGES), array_map('strval', $submitted))) : []);
-            $privilegeDetails = $grantedKeys ? implode(', ', array_map(static fn($key) => User::PRIVILEGES[$key], $grantedKeys)) : 'None';
-            $statusText = $role === 'superadmin'
-                ? 'Inactive; selected for activation on current Super Admin logout'
-                : 'Active';
-            $this->userModel->logAuditAction(
-                $authState['id_number'],
-                $authState['username'],
-                $authState['role'],
-                'Create Account',
-                "Created {$role} {$username} (ID: {$idNumber}). Status: {$statusText}. First-login password change required.\nPrivileges granted: {$privilegeDetails}"
-            );
-            $result['message'] = "Account {$username} created successfully. Status: {$statusText}.";
-            $result['role'] = $role;
-        }
+        ], $authState['id_number'], [$this, 'sendAccountInvitationEmail']);
         echo json_encode($result);
         exit;
     }
