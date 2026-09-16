@@ -72,6 +72,14 @@ document.addEventListener("DOMContentLoaded", () => {
     form.querySelectorAll(".toggle-password").forEach((icon) => {
       if (icon.dataset.listenerAttached === "true") return;
       icon.dataset.listenerAttached = "true";
+      if (icon.getAttribute("role") === "button") {
+        icon.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            icon.click();
+          }
+        });
+      }
       icon.addEventListener("click", function () {
         const container = this.closest(".pass-input-field") || this.closest(".password-field");
         if (!container) return;
@@ -85,6 +93,10 @@ document.addEventListener("DOMContentLoaded", () => {
           input.type = "password";
           this.classList.remove("fa-eye");
           this.classList.add("fa-eye-slash");
+        }
+        if (input.id === "forgotIdInput") {
+          this.setAttribute("aria-label", input.type === "text" ? "Hide ID Number" : "Show ID Number");
+          this.setAttribute("aria-pressed", String(input.type === "text"));
         }
       });
     });

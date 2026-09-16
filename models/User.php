@@ -269,6 +269,43 @@ class User
         return $stmt->execute([':password' => $passwordHash, ':id_number' => $idNumber]) && $stmt->rowCount() === 1;
     }
 
+    public function completeRequiredPasswordChange(string $idNumber, string $passwordHash, string $email, int $sessionVersion, array $answers): bool
+    {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150 || $this->emailExistsExcluding($email, $idNumber)) return false;
+        if (count($answers) !== 3) return false;
+        $answers = array_values($answers);
+        foreach ($answers as $i => $entry) {
+            $qid = (int)($entry['question_id'] ?? 0);
+            $answer = trim((string)($entry['answer'] ?? ''));
+            if ($qid < $i * 3 + 1 || $qid > ($i + 1) * 3 || $answer === '' || strlen($answer) > 72) return false;
+        }
+        try {
+            $this->conn->beginTransaction();
+            $stmt = $this->conn->prepare(
+                "UPDATE users SET password_hash = :password, email = :email,
+                 session_version = session_version + 1, must_change_password = 0
+                 WHERE id_number = :id AND status IN ('active', 'pending_deletion')
+                 AND must_change_password = 1 AND session_version = :version"
+            );
+            $stmt->execute([':password'=>$passwordHash, ':email'=>$email, ':id'=>$idNumber, ':version'=>$sessionVersion]);
+            if ($stmt->rowCount() !== 1) {
+                $this->conn->rollBack();
+                return false;
+            }
+            $this->conn->prepare('DELETE FROM user_auth_answers WHERE id_number = :id')->execute([':id'=>$idNumber]);
+            $save = $this->conn->prepare('INSERT INTO user_auth_answers (id_number, question_id, answer_hash) VALUES (:id, :question, :hash)');
+            foreach ($answers as $entry) {
+                $save->execute([':id'=>$idNumber, ':question'=>(int)$entry['question_id'], ':hash'=>password_hash(trim($entry['answer']), PASSWORD_DEFAULT)]);
+            }
+            $this->conn->commit();
+            return true;
+        } catch (PDOException $e) {
+            if ($this->conn->inTransaction()) $this->conn->rollBack();
+            error_log('Required password/email update failed: ' . $e->getCode());
+            return false;
+        }
+    }
+
     public function updatePassword(string $id_number, string $password_hash, bool $clearRequiredChange = true)
     {
         // Bump session_version so any existing sessions are invalidated after a password change.

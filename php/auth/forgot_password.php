@@ -30,9 +30,10 @@
 
     <section class="step step-1 active" aria-labelledby="forgotStep1Title">
         <span id="forgotStep1Title">Enter your registered ID Number</span>
-        <div class="input-field" id="forgotIdField" style="margin:3px;">
+        <div class="input-field password-field" id="forgotIdField" style="margin:3px;">
             <input type="password" name="id_number" id="forgotIdInput" placeholder=" " autocomplete="off" inputmode="numeric" maxlength="9" pattern="[0-9]{4}-[0-9]{4}" aria-describedby="idError" />
             <label>ID Number</label>
+            <i class="fas fa-eye-slash toggle-password" role="button" tabindex="0" aria-label="Show ID Number" aria-controls="forgotIdInput" aria-pressed="false"></i>
         </div>
         <p class="message-error" id="idError" aria-live="polite"></p>
         <button type="button" class="btn next-btn" id="forgotStartBtn">Send OTP &gt;</button>
