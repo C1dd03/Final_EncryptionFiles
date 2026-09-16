@@ -40,7 +40,7 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
 
   <p class="empty-mgs"></p>
   <div class="form-field" style="margin-bottom: 10px;">
-    <div class="input-field" >
+    <div class="input-field">
       <input type="text" name="username" class="login-email" placeholder=" " />
       <label>Username</label>
     </div>
@@ -76,7 +76,42 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
   <div class="required-password-card">
     <div class="required-password-icon"><i class="fa-solid fa-key"></i></div>
     <h2 id="requiredPasswordTitle">Change Your Default Password</h2>
-    <p>For security, replace the temporary password before entering the portal.<br><strong style="color:#477246;">Default: @Abcde12345</strong></p>
+    <!-- <p>For security, replace the temporary password before entering the portal.<br><strong style="color:#477246;">Default: @Abcde12345</strong></p> -->
+
+    <div class="rp-identity-fields">
+      <div class="rp-email-row">
+        <div class="input-field"><input id="requiredEmail" type="email" maxlength="150" autocomplete="email" placeholder=" " aria-describedby="rpEmailError"><label for="requiredEmail">Registered Email</label></div>
+        <small id="rpEmailError" class="rp-identity-error" aria-live="polite"></small>
+      </div>
+      <p class="rp-question-note">Answer all three questions. At least two answers must be correct.</p>
+      <div class="rp-question-row">
+        <div><div class="input-field rp-question-field"><select id="requiredQuestion1" aria-describedby="rpQuestionError1" required>
+              <option value="" disabled selected hidden>Select a question</option>
+              <option value="1">Who is your best friend in elementary?</option>
+              <option value="2">What is the name of your favorite pet?</option>
+              <option value="3">Who is your favorite teacher in high school?</option>
+            </select><label for="requiredQuestion1">Question 1</label></div><small id="rpQuestionError1" class="rp-identity-error" aria-live="polite"></small></div>
+        <div><div class="input-field password-field"><input id="requiredAnswer1" type="password" maxlength="72" autocomplete="off" placeholder=" " aria-describedby="rpAnswerError1"><label for="requiredAnswer1">Answer 1</label><i class="fas fa-eye-slash toggle-password"></i></div><small id="rpAnswerError1" class="rp-identity-error" aria-live="polite"></small></div>
+      </div>
+      <div class="rp-question-row">
+        <div><div class="input-field rp-question-field"><select id="requiredQuestion2" aria-describedby="rpQuestionError2" required>
+              <option value="" disabled selected hidden>Select a question</option>
+              <option value="4">What is your mother’s maiden name?</option>
+              <option value="5">What city were you born in?</option>
+              <option value="6">What is your favorite color?</option>
+            </select><label for="requiredQuestion2">Question 2</label></div><small id="rpQuestionError2" class="rp-identity-error" aria-live="polite"></small></div>
+        <div><div class="input-field password-field"><input id="requiredAnswer2" type="password" maxlength="72" autocomplete="off" placeholder=" " aria-describedby="rpAnswerError2"><label for="requiredAnswer2">Answer 2</label><i class="fas fa-eye-slash toggle-password"></i></div><small id="rpAnswerError2" class="rp-identity-error" aria-live="polite"></small></div>
+      </div>
+      <div class="rp-question-row">
+        <div><div class="input-field rp-question-field"><select id="requiredQuestion3" aria-describedby="rpQuestionError3" required>
+              <option value="" disabled selected hidden>Select a question</option>
+              <option value="7">What is your favorite food?</option>
+              <option value="8">What was the name of your first school?</option>
+              <option value="9">What is your father’s middle name?</option>
+            </select><label for="requiredQuestion3">Question 3</label></div><small id="rpQuestionError3" class="rp-identity-error" aria-live="polite"></small></div>
+        <div><div class="input-field password-field"><input id="requiredAnswer3" type="password" maxlength="72" autocomplete="off" placeholder=" " aria-describedby="rpAnswerError3"><label for="requiredAnswer3">Answer 3</label><i class="fas fa-eye-slash toggle-password"></i></div><small id="rpAnswerError3" class="rp-identity-error" aria-live="polite"></small></div>
+      </div>
+    </div>
 
     <div class="rp-password-group">
       <div class="input-field password-field" id="requiredNewPasswordField">
@@ -109,7 +144,8 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
   /* ── Required-password overlay ── */
   .required-password-modal {
     display: none;
-    position: fixed;          /* fill the whole viewport, not just the card */
+    position: fixed;
+    /* fill the whole viewport, not just the card */
     inset: 0;
     z-index: 9999;
     background: rgba(15, 23, 42, 0.72);
@@ -119,13 +155,20 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
     box-sizing: border-box;
     backdrop-filter: blur(3px);
   }
+
   .required-password-modal.active {
     display: flex;
     animation: rpFadeIn 0.25s ease forwards;
   }
+
   @keyframes rpFadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
   }
 
   .required-password-card {
@@ -141,9 +184,17 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
     overflow-y: auto;
     animation: rpSlideUp 0.28s ease forwards;
   }
+
   @keyframes rpSlideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to   { transform: translateY(0);    opacity: 1; }
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
 
   .required-password-icon {
@@ -167,7 +218,7 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
     line-height: 1.3;
   }
 
-  .required-password-card > p {
+  .required-password-card>p {
     font-size: 13px;
     color: #64748b;
     margin: 0 0 20px;
@@ -199,6 +250,7 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
     border-radius: 0 0 5px 5px;
     overflow: hidden;
   }
+
   .rp-strength-bar span {
     display: none;
     height: 3px;
@@ -245,33 +297,115 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
     cursor: pointer;
     transition: color 0.15s;
   }
+
   .required-password-logout:hover {
     color: #dc2626;
   }
+
+  #requiredPasswordModal .required-password-card{width:min(900px,100%);max-width:900px;max-height:none;overflow:visible;padding:20px 26px;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 18px}
+  #requiredPasswordModal{overflow:visible;padding:12px}
+  #requiredPasswordModal .required-password-icon{display:none}
+  #requiredPasswordTitle,.rp-identity-fields,#requiredPasswordMessage,.required-password-logout{grid-column:1/-1}
+  #requiredPasswordTitle{margin:0 0 6px;font-size:22px}
+  .rp-identity-fields{display:grid;gap:6px;text-align:left}
+  .rp-email-row{width:calc((100% - 18px)/2);min-width:0}
+  @media(max-width:540px){.rp-email-row{width:100%}}
+  .rp-question-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+  #requiredPasswordModal .input-field{margin:8px 0 0;min-width:0;height:42px}
+  #requiredPasswordModal .input-field input,#requiredPasswordModal .input-field select{width:100%;box-sizing:border-box;font:inherit;font-size:13px}
+  #requiredPasswordModal .rp-question-field label{top:-8px;left:10px;transform:none;font-size:11px;background:#f8f7ef;padding:0 5px;pointer-events:none}
+  .rp-identity-error{display:block;min-height:14px;font-size:11px;line-height:1.3;color:#b91c1c;margin-top:3px}
+  #requiredPasswordModal [aria-invalid="true"]{outline:1px solid #b91c1c}
+  .rp-question-note{margin:2px 0;font-size:12px;color:#64748b}
+  #requiredPasswordModal .rp-password-group{margin:0}
+  #requiredPasswordSubmit{grid-column:1/-1;margin:0}
+  #requiredPasswordModal .required-password-logout{margin:0}
+  @media(max-width:540px){#requiredPasswordModal .required-password-card{padding:16px;gap:8px} .rp-question-row{gap:10px} #requiredPasswordTitle{font-size:18px} #requiredPasswordModal .input-field select{font-size:11px}}
 </style>
 
 <script>
   (() => {
-    const modal  = document.getElementById('requiredPasswordModal');
+    const modal = document.getElementById('requiredPasswordModal');
     const submit = document.getElementById('requiredPasswordSubmit');
     const message = document.getElementById('requiredPasswordMessage');
-    const newPassInput  = document.getElementById('requiredNewPassword');
+    const newPassInput = document.getElementById('requiredNewPassword');
     const confPassInput = document.getElementById('requiredConfirmPassword');
-    const newPassField  = document.getElementById('requiredNewPasswordField');
+    const newPassField = document.getElementById('requiredNewPasswordField');
     const confPassField = document.getElementById('requiredConfirmPasswordField');
-    const strengthBar   = document.getElementById('rpStrengthBar');
-    const strengthHint  = document.getElementById('rpStrengthHint');
-    const matchHint     = document.getElementById('rpMatchHint');
+    const strengthBar = document.getElementById('rpStrengthBar');
+    const strengthHint = document.getElementById('rpStrengthHint');
+    const matchHint = document.getElementById('rpMatchHint');
     let targetRedirect = 'index.php?action=dashboard';
+    const identityInputs = {email: document.getElementById('requiredEmail')};
+    const identityErrors = {email: document.getElementById('rpEmailError')};
+    for (let i = 1; i <= 3; i++) {
+      identityInputs[`security_question_${i}`] = document.getElementById(`requiredQuestion${i}`);
+      identityInputs[`security_answer_${i}`] = document.getElementById(`requiredAnswer${i}`);
+      identityErrors[`security_question_${i}`] = document.getElementById(`rpQuestionError${i}`);
+      identityErrors[`security_answer_${i}`] = document.getElementById(`rpAnswerError${i}`);
+    }
+    function showIdentityError(key, error) {
+      identityErrors[key].textContent = error || '';
+      identityInputs[key].setAttribute('aria-invalid', error ? 'true' : 'false');
+    }
+    function validateIdentity(key) {
+      const value = identityInputs[key].value.trim();
+      let error = '';
+      if (key === 'email' && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || value.length > 150)) error = 'Enter a valid email address, e.g. name@example.com.';
+      if (key.startsWith('security_question_') && !/^[1-9]$/.test(value)) error = 'Select a question.';
+      if (key.startsWith('security_answer_') && (!value || new TextEncoder().encode(value).length > 72)) error = 'Enter your saved answer (1?72 bytes).';
+      showIdentityError(key, error);
+      return !error;
+    }
+    Object.keys(identityInputs).forEach(key => {
+      ['input', 'blur', 'change'].forEach(event => identityInputs[key].addEventListener(event, () => { validateIdentity(key); message.textContent = ''; }));
+    });
+    let emailCheckTimer;
+    let emailCheckVersion = 0;
+    function scheduleEmailCheck() {
+      clearTimeout(emailCheckTimer);
+      const version = ++emailCheckVersion;
+      if (!validateIdentity('email')) return;
+      const email = identityInputs.email.value.trim();
+      emailCheckTimer = setTimeout(async () => {
+        try {
+          const response = await fetch('index.php?action=checkEmail', {
+            method: 'POST', credentials: 'same-origin',
+            body: new URLSearchParams({email, purpose: 'required_password'})
+          });
+          const result = await response.json();
+          if (version === emailCheckVersion && identityInputs.email.value.trim() === email) {
+            showIdentityError('email', result.available ? '' : result.message);
+          }
+        } catch (_) { /* Final submission also verifies the email on the server. */ }
+      }, 400);
+    }
+    ['input', 'blur', 'change'].forEach(event => identityInputs.email.addEventListener(event, scheduleEmailCheck));
+
 
     // --- Password strength meter ---
-    const criteria = [
-      { test: (v) => v.length >= 8,              label: '8+ chars' },
-      { test: (v) => /[a-z]/.test(v),            label: 'lowercase' },
-      { test: (v) => /[A-Z]/.test(v),            label: 'uppercase' },
-      { test: (v) => /\d/.test(v),               label: 'number' },
-      { test: (v) => /[!@#$%^&*(),.?":{}|<>_\-]/.test(v), label: 'special char' },
+    const criteria = [{
+        test: (v) => v.length >= 8,
+        label: '8+ chars'
+      },
+      {
+        test: (v) => /[a-z]/.test(v),
+        label: 'lowercase'
+      },
+      {
+        test: (v) => /[A-Z]/.test(v),
+        label: 'uppercase'
+      },
+      {
+        test: (v) => /\d/.test(v),
+        label: 'number'
+      },
+      {
+        test: (v) => /[!@#$%^&*(),.?":{}|<>_\-]/.test(v),
+        label: 'special char'
+      },
     ];
+
     function updateRegistrationStyleStrength(value) {
       const val = value || '';
       if (/\s/.test(val)) {
@@ -344,7 +478,7 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
     });
 
     // --- Show modal ---
-    window.showRequiredPasswordModal = function (redirect) {
+    window.showRequiredPasswordModal = function(redirect) {
       targetRedirect = redirect || targetRedirect;
 
       // The .form-container has a CSS transform animation which creates a new
@@ -362,23 +496,45 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
       updateRegistrationStyleStrength(newPassInput.value || '');
       updatePasswordMatch();
 
-      newPassInput.focus();
+      identityInputs.email.focus();
     };
 
     // --- Submit handler ---
     async function doSubmit() {
+      if (submit.disabled) return;
+      const identityValid = Object.keys(identityInputs).map(validateIdentity).every(Boolean);
+      if (!identityValid) return;
       const password = newPassInput.value;
-      const confirm  = confPassInput.value;
+      const confirm = confPassInput.value;
       message.textContent = '';
-      if (!password) { message.textContent = 'Please enter a new password.'; return; }
-      if (password.length < 8) { message.textContent = 'Password must be at least 8 characters.'; return; }
-      if (password !== confirm) { message.textContent = 'Passwords do not match.'; return; }
+      if (!password) {
+        message.textContent = 'Please enter a new password.';
+        return;
+      }
+      if (!criteria.every(rule => rule.test(password)) || /\s/.test(password) || new TextEncoder().encode(password).length > 72) {
+        message.textContent = 'Use 8?72 bytes with uppercase, lowercase, a number, and a special character; no spaces.';
+        return;
+      }
+      if (password !== confirm) {
+        message.textContent = 'Passwords do not match.';
+        return;
+      }
       submit.disabled = true;
       try {
-        const body = new URLSearchParams({ new_password: password, confirm_password: confirm });
-        const response = await fetch('index.php?action=changeRequiredPassword', { method: 'POST', body, credentials: 'same-origin' });
+        const body = new URLSearchParams({
+          email: identityInputs.email.value.trim(),
+          ...Object.fromEntries(Object.entries(identityInputs).map(([key, input]) => [key, input.value])),
+          new_password: password,
+          confirm_password: confirm
+        });
+        const response = await fetch('index.php?action=changeRequiredPassword', {
+          method: 'POST',
+          body,
+          credentials: 'same-origin'
+        });
         const data = await response.json();
         if (!data.success) {
+          Object.entries(data.fieldErrors || {}).forEach(([key, error]) => { if (identityErrors[key]) showIdentityError(key, error); });
           message.textContent = data.message || 'Unable to change password.';
           submit.disabled = false;
           return;
@@ -392,10 +548,12 @@ if (isset($_GET['blocked']) && $_GET['blocked'] == 1): ?>
 
     submit.addEventListener('click', doSubmit);
     // Allow pressing Enter in either field to submit
-    [newPassInput, confPassInput].forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') doSubmit(); }));
+    [...Object.values(identityInputs), newPassInput, confPassInput].forEach(inp => inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSubmit();
+    }));
 
     <?php if ($forcePasswordChange): ?>
-    window.addEventListener('DOMContentLoaded', () => window.showRequiredPasswordModal());
+      window.addEventListener('DOMContentLoaded', () => window.showRequiredPasswordModal());
     <?php endif; ?>
   })();
 </script>

@@ -362,6 +362,34 @@ document.addEventListener("DOMContentLoaded", () => {
           const el = viewModal.querySelector(`[data-view="${key}"]`);
           if (el) el.textContent = detail[key] || "-";
         });
+        const fullName = detail.full_name || [detail.first_name, detail.middle_name, detail.last_name].filter(Boolean).join(" ") || detail.username;
+        document.getElementById("amViewTitle").textContent = fullName || "Account Details";
+        document.getElementById("amViewAvatar").textContent = (fullName || "Account").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
+        ["role", "status"].forEach(key => {
+          const badge = viewModal.querySelector(`[data-view="${key}"]`);
+          const value = String(detail[key] || "");
+          badge.className = "am-badge";
+          if (/^[a-z_]+$/.test(value)) badge.classList.add(value);
+          badge.textContent = value === "superadmin" ? "Super Admin" : value.replaceAll("_", " ") || "Not specified";
+        });
+        const privilegeSection = document.getElementById("amViewPrivileges");
+        const privilegeContent = privilegeSection.querySelector('[data-view="privileges"]');
+        privilegeContent.replaceChildren();
+        privilegeSection.style.display = ["admin", "superadmin"].includes(detail.role) ? "grid" : "none";
+        const assignedPrivileges = detail.role === "superadmin" ? Object.keys(privilegeLabels) : (detail.privileges || []);
+        document.getElementById("amViewPrivilegeCount").textContent = `${assignedPrivileges.length} assigned`;
+        if (assignedPrivileges.length) {
+          const list = document.createElement("ul");
+          list.className = "am-profile-privileges";
+          assignedPrivileges.forEach((key) => {
+            const item = document.createElement("li");
+            item.textContent = privilegeLabels[key] || key;
+            list.appendChild(item);
+          });
+          privilegeContent.appendChild(list);
+        } else {
+          privilegeContent.textContent = "No privileges assigned.";
+        }
         open(viewModal);
       } else if (button.dataset.action === "edit") {
         const detail = await getDetail(row.id_number);

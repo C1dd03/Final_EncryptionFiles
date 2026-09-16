@@ -22,12 +22,12 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
 
   <div class="am-toolbar">
     <input type="search" id="amSearch" placeholder="Search ID Number, name, username, or email" />
-      <select id="amRoleFilter" aria-label="Filter by role">
-        <option value="all">All roles</option>
-        <option value="user">Users</option>
-        <option value="admin">Admins</option>
-        <?php if ($isSuperAdminManagement): ?><option value="superadmin">Super Admins</option><?php endif; ?>
-      </select>
+    <select id="amRoleFilter" aria-label="Filter by role">
+      <option value="all">All roles</option>
+      <option value="user">Users</option>
+      <option value="admin">Admins</option>
+      <?php if ($isSuperAdminManagement): ?><option value="superadmin">Super Admins</option><?php endif; ?>
+    </select>
     <select id="amStatusFilter" aria-label="Filter by status">
       <option value="all">All statuses</option>
       <option value="active">Active</option>
@@ -116,49 +116,41 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
 </div>
 
 <div class="am-modal" id="amViewModal" role="dialog" aria-modal="true" aria-labelledby="amViewTitle">
-  <div class="am-card">
-    <button class="am-close" type="button" data-close>&times;</button>
-    <h3 id="amViewTitle">Account Details</h3>
-    <dl class="am-details">
-      <div>
-        <dt>ID Number</dt>
-        <dd data-view="id_number"></dd>
+  <div class="am-card am-profile-card">
+    <button class="am-close" type="button" data-close aria-label="Close account details">&times;</button>
+    <header class="am-profile-header">
+      <span class="am-profile-avatar" id="amViewAvatar" aria-hidden="true"></span>
+      <div class="am-profile-identity">
+        <p class="am-profile-eyebrow">Account overview</p>
+        <h3 id="amViewTitle">Account Details</h3>
+        <div class="am-profile-badges"><span data-view="role" class="am-badge"></span><span data-view="status" class="am-badge"></span></div>
       </div>
-      <div>
-        <dt>First Name</dt>
-        <dd data-view="first_name"></dd>
-      </div>
-      <div>
-        <dt>Middle Name</dt>
-        <dd data-view="middle_name"></dd>
-      </div>
-      <div>
-        <dt>Last Name</dt>
-        <dd data-view="last_name"></dd>
-      </div>
-      <div>
-        <dt>Gmail</dt>
-        <dd data-view="email"></dd>
-      </div>
-      <div>
-        <dt>Address</dt>
-        <dd data-view="address"></dd>
-      </div>
-      <div>
-        <dt>Username</dt>
-        <dd data-view="username"></dd>
-      </div>
-      <div>
-        <dt>Role</dt>
-        <dd data-view="role"></dd>
-      </div>
-      <div>
-        <dt>Account Status</dt>
-        <dd data-view="status"></dd>
-      </div>
-    </dl>
-    <p class="am-password-note"><i class="fa-solid fa-lock"></i> Passwords are never displayed.</p>
-    <div class="am-actions"><button type="button" class="am-btn" data-close>Close</button></div>
+    </header>
+    <section class="am-profile-section" aria-labelledby="amViewIdentityHeading">
+      <h4 id="amViewIdentityHeading">Account information</h4>
+      <dl class="am-profile-grid">
+        <div><dt>ID Number</dt><dd data-view="id_number" class="am-profile-id"></dd></div>
+        <div><dt>Username</dt><dd data-view="username"></dd></div>
+      </dl>
+    </section>
+    <section class="am-profile-section" aria-labelledby="amViewPersonalHeading">
+      <h4 id="amViewPersonalHeading">Personal details</h4>
+      <dl class="am-profile-grid">
+        <div><dt>First Name</dt><dd data-view="first_name"></dd></div>
+        <div><dt>Middle Name</dt><dd data-view="middle_name"></dd></div>
+        <div><dt>Last Name</dt><dd data-view="last_name"></dd></div>
+        <div><dt>Email Address</dt><dd data-view="email"></dd></div>
+        <div class="am-profile-full"><dt>Address</dt><dd data-view="address"></dd></div>
+      </dl>
+    </section>
+    <section id="amViewPrivileges" class="am-profile-section" style="display:none" aria-labelledby="amViewPrivilegesHeading">
+      <div class="am-profile-section-title"><h4 id="amViewPrivilegesHeading">Assigned privileges</h4><span id="amViewPrivilegeCount" class="am-profile-count"></span></div>
+      <div data-view="privileges"></div>
+    </section>
+    <footer class="am-profile-footer">
+      <p><i class="fa-solid fa-lock" aria-hidden="true"></i> Passwords are kept private.</p>
+      <button type="button" class="am-btn primary" data-close>Close</button>
+    </footer>
   </div>
 </div>
 
@@ -173,7 +165,7 @@ $canCreateAccounts = $canCreateAccounts ?? $isSuperAdminManagement;
         <label>Name<input name="full_name" readonly /></label>
         <label>Email<input type="email" name="email" readonly /></label>
         <label>Username<input name="username" required /><span class="field-error"></span></label>
-        <label>Password <small>(optional)</small><input type="password" name="password" id="amEditPassword" autocomplete="new-password" placeholder="Leave blank to keep existing password" />
+        <label>Password <input type="password" name="password" id="amEditPassword" autocomplete="new-password" placeholder="Leave blank to keep existing password" />
           <div class="am-password-meter" data-password-meter="amEditPassword" aria-hidden="true"><span></span></div><small class="am-password-feedback" data-password-feedback="amEditPassword" aria-live="polite"></small><span class="field-error"></span>
         </label>
         <label>Role

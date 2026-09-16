@@ -17,7 +17,7 @@ $canCreateAccounts = true;
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Account Management</title>
   <link rel="stylesheet" href="../../css/super_admin/superadmin.css" />
-  <link rel="stylesheet" href="../../css/account_management.css?v=20260908b" />
+  <link rel="stylesheet" href="../../css/account_management.css?v=20260916-compact-view" />
   <link rel="stylesheet" href="../../css/action_dropdown.css?v=20260906" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" />
@@ -35,6 +35,6 @@ $canCreateAccounts = true;
   <script src="../../js/super_admin/superadmin.js"></script>
   <script src="../../js/shared_validator.js?v=20260908i"></script>
   <script src="../../js/action_dropdown.js?v=20260906"></script>
-  <script src="../../js/account_management.js?v=20260913-handoff"></script>
+  <script src="../../js/account_management.js?v=20260916-profile-view"></script>
 </body>
 </html>

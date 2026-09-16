@@ -1310,6 +1310,23 @@ class UserController
                 exit;
             }
 
+            if (($_POST['purpose'] ?? '') === 'required_password') {
+                if (session_status() === PHP_SESSION_NONE) session_start();
+                $id = (string)($_SESSION['user_id'] ?? '');
+                $state = $id !== '' ? $this->userModel->getAccountAuthState($id) : null;
+                if (!$state || empty($state['must_change_password']) ||
+                    !in_array($state['status'], ['active', 'pending_deletion'], true) ||
+                    (int)($_SESSION['session_version'] ?? -1) !== (int)$state['session_version']) {
+                    echo json_encode(['available'=>false, 'message'=>'Session expired. Please log in again.']);
+                    exit;
+                }
+                $account = $this->userModel->findById($id);
+                $matches = !empty($account['email']) && strcasecmp($email, $account['email']) === 0;
+                $error = $matches ? '' : ($this->userModel->emailExistsExcluding($email, $id)
+                    ? 'This email is already registered to another account.' : 'Email does not match your account.');
+                echo json_encode(['available'=>$matches, 'message'=>$error]);
+                exit;
+            }
             if ($this->userModel->emailExists($email)) {
                 echo json_encode(['available' => false, 'message' => 'Email is already registered.']);
             } else {
@@ -3778,13 +3795,52 @@ class UserController
             echo json_encode(['success' => false, 'message' => 'A password change is not currently required.']);
             exit;
         }
+        $verification = $_SESSION['password_identity_check'][$idNumber] ?? ['attempts'=>0, 'locked_until'=>0];
+        if ($verification['locked_until'] > time()) {
+            echo json_encode(['success'=>false, 'message'=>'Too many incorrect verification attempts. Please try again in 15 minutes.']);
+            exit;
+        }
+        $existing = $this->userModel->findById($idNumber);
+        $email = trim((string)($_POST['email'] ?? ''));
+        $fieldErrors = [];
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150) $fieldErrors['email'] = 'Enter a valid email address, e.g. name@example.com.';
+        $answers = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $questionId = (int)($_POST["security_question_{$i}"] ?? 0);
+            $answer = trim((string)($_POST["security_answer_{$i}"] ?? ''));
+            if ($questionId < ($i - 1) * 3 + 1 || $questionId > $i * 3) $fieldErrors["security_question_{$i}"] = 'Select a question from this group.';
+            if ($answer === '' || strlen($answer) > 72) $fieldErrors["security_answer_{$i}"] = 'Enter your saved answer (1-72 bytes).';
+            $answers[$i] = ['question_id'=>$questionId, 'answer'=>$answer];
+        }
+        if ($fieldErrors) {
+            echo json_encode(['success'=>false, 'message'=>'Please complete all three questions and answers.', 'fieldErrors'=>$fieldErrors]);
+            exit;
+        }
+        if (!$existing || empty($existing['email']) || strcasecmp($email, $existing['email']) !== 0) {
+            $fieldErrors['email'] = $this->userModel->emailExistsExcluding($email, $idNumber)
+                ? 'This email is already registered to another account.' : 'Email does not match your account.';
+        }
+        $correct = 0;
+        $answerErrors = [];
+        foreach ($answers as $i => $entry) {
+            $saved = $this->userModel->getUserAuthAnswer($idNumber, $entry['question_id']);
+            if ($saved && password_verify($entry['answer'], $saved['answer_hash'])) $correct++;
+            else $answerErrors["security_answer_{$i}"] = 'The question and answer do not match your account.';
+        }
+        if ($correct < 2) $fieldErrors = array_merge($fieldErrors, $answerErrors);
+        if ($fieldErrors) {
+            $attempts = $verification['attempts'] + 1;
+            $_SESSION['password_identity_check'][$idNumber] = ['attempts'=>$attempts >= 5 ? 0 : $attempts, 'locked_until'=>$attempts >= 5 ? time()+900 : 0];
+            echo json_encode(['success'=>false, 'message'=>'Identity verification failed. If your email or security questions have not been set up, contact the administrator.', 'fieldErrors'=>$fieldErrors]);
+            exit;
+        }
         $password = (string)($_POST['new_password'] ?? '');
         $confirm = (string)($_POST['confirm_password'] ?? '');
         if ($password !== $confirm) {
             echo json_encode(['success' => false, 'message' => 'Passwords do not match.']);
             exit;
         }
-        if ($error = $this->passwordPolicyError($password)) {
+        if ($error = (strlen($password) > 72 || preg_match('/\s/', $password) ? 'Password must be at most 72 bytes and cannot contain spaces.' : $this->passwordPolicyError($password))) {
             echo json_encode(['success' => false, 'message' => $error]);
             exit;
         }
@@ -3796,6 +3852,7 @@ class UserController
         $ok = $this->userModel->resetRecoverablePassword($idNumber, password_hash($password, PASSWORD_DEFAULT));
         if ($ok) {
             $fresh = $this->userModel->getAccountAuthState($idNumber);
+            unset($_SESSION['password_identity_check'][$idNumber]);
             $_SESSION['session_version'] = (int)($fresh['session_version'] ?? 0);
             $_SESSION['role'] = $fresh['role'] ?? 'superadmin';
             $this->userModel->logAuditAction($idNumber, $authState['username'], $authState['role'], 'Change Default Password', 'Required first-login password change completed.');
